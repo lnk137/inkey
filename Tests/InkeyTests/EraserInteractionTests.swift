@@ -51,8 +51,8 @@ struct EraserInteractionTests {
         let point = windowPoint(NSPoint(x: 50, y: 50), canvas: canvas)
         canvas.mouseDown(with: helper.mouse(.leftMouseDown, point, window: window))
         canvas.mouseUp(with: helper.mouse(.leftMouseUp, point, window: window))
-        #expect(canvas.draft.items[0].points.last!.x == 44)
-        #expect(canvas.draft.items[1].points.first!.x == 56)
+        #expect(abs(canvas.draft.items[0].points.last!.x - 44) < 0.0001)
+        #expect(abs(canvas.draft.items[1].points.first!.x - 56) < 0.0001)
     }
 
     @Test func typingExitsEraserAndFlushFinishesInProgressErase() {

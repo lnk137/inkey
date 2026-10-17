@@ -76,6 +76,17 @@ struct InputRoutingTests {
         #expect(canvas.draft.items.count == 2)
     }
 
+    @Test func doubleClickEntersPreciseEditingAndSelectsWord() {
+        let (window, canvas) = helper.makeCanvas()
+        let editor = makeEditor(canvas)
+        let point = editor.convert(NSPoint(x: 8, y: 10), to: nil)
+        let event = NSEvent.mouseEvent(with: .leftMouseDown, location: point, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 2, pressure: 1)!
+        canvas.mouseDown(with: event)
+        #expect(canvas.isPrecisionEditing)
+        #expect(editor.selectedRange().length == 4)
+        #expect(canvas.draft.items.isEmpty)
+    }
+
     @Test func keyboardCorrectionsRemainNativeBeforeDrawing() {
         let (_, canvas) = helper.makeCanvas()
         let editor = makeEditor(canvas, text: "rigth")
