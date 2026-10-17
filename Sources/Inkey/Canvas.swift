@@ -197,9 +197,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 guard item.id == selection else { return item }
                 var moved = item; moved.translate(x: p.x - start.x, y: p.y - start.y); return moved
             }
-        } else if active != nil {
-            if active?.kind == .arrow { active?.points = [active!.points[0], InkPoint(p)] }
-            else if let last = active?.points.last, hypot(p.x - last.x, p.y - last.y) * draft.zoom > 0.7 { active?.points.append(InkPoint(p)) }
+        } else if var drawing = active {
+            if drawing.kind == .arrow { drawing.points = [drawing.points[0], InkPoint(p)] }
+            else if let last = drawing.points.last, hypot(p.x - last.x, p.y - last.y) * draft.zoom > 0.7 { drawing.points.append(InkPoint(p)) }
+            active = drawing
         }
         needsDisplay = true
     }
