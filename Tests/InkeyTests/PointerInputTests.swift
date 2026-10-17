@@ -19,7 +19,7 @@ struct PointerInputTests {
     func setup(_ canvas: CanvasView) -> InlineTextView {
         let initial = canvas.convert(NSPoint(x: 100, y: 100), to: nil)
         canvas.updatePointerLocation(initial)
-        canvas.beginText(at: NSPoint(x: 103, y: 104))
+        canvas.beginText(at: NSPoint(x: 100, y: 100))
         let text = canvas.subviews.compactMap { $0 as? InlineTextView }.first!
         text.insertText("left", replacementRange: NSRange(location: 0, length: 0))
         return text
@@ -36,7 +36,7 @@ struct PointerInputTests {
             #expect(canvas.retargetTypingIfNeeded(helper.key("right", window: window), from: original, at: target))
             canvas.commitText()
             #expect(canvas.draft.items.map(\.text) == ["left", "right"])
-            #expect(canvas.draft.items[1].points[0] == InkPoint(NSPoint(x: 403, y: 254)))
+            #expect(canvas.draft.items[1].points[0] == InkPoint(NSPoint(x: 400, y: 250)))
         }
     }
 
@@ -48,6 +48,28 @@ struct PointerInputTests {
             #expect(!canvas.retargetTypingIfNeeded(helper.key("x", window: window), from: text, at: target))
             #expect(canvas.isEditing)
             #expect(canvas.draft.items.isEmpty)
+        }
+    }
+
+    @Test func textOriginMatchesPointerHotspotAfterPanAndZoom() {
+        withPointerMode {
+            let (window, canvas) = helper.makeCanvas()
+            canvas.draft.zoom = 1.7
+            canvas.draft.offset = InkPoint(NSPoint(x: -80, y: 120))
+            canvas.updatePointerLocation(canvas.convert(NSPoint(x: 100, y: 100), to: nil))
+            canvas.beginText(at: canvas.world(NSPoint(x: 100, y: 100)))
+            let original = canvas.subviews.compactMap { $0 as? InlineTextView }.first!
+            original.insertText("left", replacementRange: NSRange(location: 0, length: 0))
+            let hotspot = NSPoint(x: 400, y: 250)
+            let target = canvas.convert(hotspot, to: nil)
+            #expect(canvas.retargetTypingIfNeeded(helper.key("right", window: window), from: original, at: target))
+            let next = canvas.subviews.compactMap { $0 as? InlineTextView }.first!
+            #expect(abs(next.frame.minX - hotspot.x) < 0.0001)
+            #expect(abs(next.frame.minY - hotspot.y) < 0.0001)
+            canvas.commitText()
+            let origin = canvas.screen(canvas.draft.items[1].points[0].point)
+            #expect(abs(origin.x - hotspot.x) < 0.0001)
+            #expect(abs(origin.y - hotspot.y) < 0.0001)
         }
     }
 

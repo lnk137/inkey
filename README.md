@@ -68,8 +68,10 @@ or Escape ends editing, while Shift + Return inserts a newline. There are no
 idle timeouts or pointer-hover rules that unexpectedly commit text.
 
 Pointer placement is the default. Moving at least 12 screen points from the last
-typing position previews a blinking caret near the pointer; the next printable
-key commits the current variable and starts another at that position. Small
+typing position previews a blinking caret at the pointer hotspot; the next printable
+key commits the current variable and starts another at that exact position,
+including after pan and zoom. The caret and trail use the same hotspot without
+a right/down offset. Small
 trackpad jitter keeps typing in the same variable. Backspace and arrow keys keep
 correcting the current variable, and precise editing or active input-method
 composition stays at its existing location. Hover alone never commits text.

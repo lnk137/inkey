@@ -184,7 +184,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         guard wantsNewTextAtPointer, let point = pointerPreview else { return false }
         commitText()
         selection = nil
-        beginText(at: world(NSPoint(x: point.x + 3, y: point.y + 4)))
+        beginText(at: world(point))
         editor?.acceptRoutedKey(event)
         return true
     }
@@ -337,17 +337,16 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 let remaining = max(0, 1 - (now - a.time) / 0.18)
                 ink.nsColor.withAlphaComponent(0.16 * remaining * remaining).setStroke()
                 let trail = NSBezierPath(); trail.lineWidth = 1.5; trail.lineCapStyle = .round
-                let dy = 4 + 12 * draft.zoom
-                trail.move(to: NSPoint(x: a.point.x + 3, y: a.point.y + dy))
-                trail.line(to: NSPoint(x: b.point.x + 3, y: b.point.y + dy)); trail.stroke()
+                trail.move(to: a.point)
+                trail.line(to: b.point); trail.stroke()
             }
         }
         if pointPlacement, !isDrawing, !eraserEnabled, selection == nil, caretVisible,
            let point = pointerPreview, editor == nil || wantsNewTextAtPointer {
             ink.nsColor.withAlphaComponent(0.75).setStroke()
             let marker = NSBezierPath()
-            marker.move(to: NSPoint(x: point.x + 3, y: point.y + 4))
-            marker.line(to: NSPoint(x: point.x + 3, y: point.y + 4 + 24 * draft.zoom))
+            marker.move(to: point)
+            marker.line(to: NSPoint(x: point.x, y: point.y + 24 * draft.zoom))
             marker.lineWidth = 1; marker.stroke()
         }
         if let editor, editor.allowsMouseSelection {
@@ -514,7 +513,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             let p = convert(window.mouseLocationOutsideOfEventStream, from: nil)
             if containsCanvasPoint(p), isCanvasLocation?(window.mouseLocationOutsideOfEventStream) ?? true {
                 updatePointerLocation(window.mouseLocationOutsideOfEventStream)
-                anchor = world(NSPoint(x: p.x + 3, y: p.y + 4))
+                anchor = world(p)
             }
         }
         beginText(at: anchor)
