@@ -489,17 +489,17 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         placement.target = self; placement.action = #selector(changePlacement(_:)); content.addSubview(placement)
         let reset = NSButton(title: "恢复默认色板", target: self, action: #selector(resetColors(_:)))
         reset.bezelStyle = .rounded; reset.frame = NSRect(x: 22, y: 81, width: 160, height: 30); content.addSubview(reset)
-        let help = NSTextField(wrappingLabelWithString: "按住 Shift 拖出箭头。⌥1—6 快速换色。\n内容自动保存在本机，关闭窗口不会丢失草稿。")
+        let help = NSTextField(wrappingLabelWithString: "双击文字精修，直接拖动绘画。⌥ 拖动临时擦除。\n⌥1—6 换色，橡皮尺寸在底部调节。\n颜色、尺寸与窗口偏好会自动记住。")
         help.font = .systemFont(ofSize: 11); help.textColor = .secondaryLabelColor
-        help.frame = NSRect(x: 28, y: 20, width: 360, height: 42); content.addSubview(help)
+        help.frame = NSRect(x: 28, y: 10, width: 360, height: 56); content.addSubview(help)
         settings = panel; NSApp.activate(ignoringOtherApps: true); panel.makeKeyAndOrderFront(nil)
     }
     @objc func changePlacement(_ sender: NSPopUpButton) { UserDefaults.standard.set(sender.indexOfSelectedItem == 1, forKey: "pointerPlacement") }
     @objc func resetColors(_ sender: Any?) { palette.resetPresets() }
     @objc func help(_ sender: Any?) {
-        alert("Inkey", "直接打字，拖动绘画。\nShift＋拖动：箭头\n⌘＋单击／拖动：选择／移动\n双击文字：编辑\nEnter：提交　Shift＋Enter：换行\n⌥1—6：换色　⇧⌘C：调色盘\n双指滚动：平移　捏合：缩放\n⌘0：适配内容\n⇧⌘P：常驻　⌃⌘F：全屏\n⌘O：导入　⌘S：保存　⌘E：导出\nEsc：结束编辑／取消选择／收起")
+        alert("Inkey", "直接打字，拖动绘画。\n单击当前文字：移动光标\n双击文字／⌘Return：完整编辑，可拖选\nShift＋拖动：箭头\n⌘＋单击／拖动：选择／移动\n⌥＋拖动：临时擦除　⌥⌘E：切换橡皮\n⌥⌘[ / ]：缩小／放大橡皮\nEnter：提交　Shift＋Enter：换行\n⌥1—6：换色　⇧⌘C：调色盘\n双指滚动：平移　捏合：缩放\n⌘0：适配内容\n⇧⌘P：常驻　⌃⌘F：全屏\n⌘O：导入　⌘S：保存　⇧⌘S：另存为\n⌘E：导出\nEsc：结束编辑／取消选择／收起\n偏好自动保存，重启后恢复。")
     }
-    @objc func about(_ sender: Any?) { NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Inkey", .applicationVersion: "0.1.0", .credits: NSAttributedString(string: "A quiet place to think.")]) }
+    @objc func about(_ sender: Any?) { NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Inkey", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.0", .credits: NSAttributedString(string: "A quiet place to think.")]) }
     @objc func quit(_ sender: Any?) { NSApp.terminate(nil) }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { palette.closePicker(accept: true); canvas.flush(); return .terminateNow }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
