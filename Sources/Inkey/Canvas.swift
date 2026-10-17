@@ -113,6 +113,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private var hintVisible = !UserDefaults.standard.bool(forKey: "didShowHint")
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { false }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var undoManager: UndoManager? { history }
     var isEditing: Bool { editor != nil }
     var isPrecisionEditing: Bool { editor?.allowsMouseSelection == true }
@@ -193,7 +194,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     func keepCurrentTextForCorrection(at windowPoint: NSPoint? = nil) {
-        if let location = windowPoint ?? window?.mouseLocationOutsideOfEventStream { updatePointerLocation(location) }
+        if let windowPoint { updatePointerLocation(windowPoint) }
+        else { initializePointerIfNeeded() }
         typingPointerReference = pointerPreview
         showTypingCaret()
     }
@@ -205,7 +207,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
               ![UInt16(36), 48, 51, 53, 76, 117, 123, 124, 125, 126].contains(event.keyCode),
               let characters = event.characters, !characters.isEmpty,
               !characters.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) || (0xF700...0xF8FF).contains($0.value) }) else { return false }
-        if let location = windowPoint ?? window?.mouseLocationOutsideOfEventStream { updatePointerLocation(location) }
+        if let windowPoint { updatePointerLocation(windowPoint) }
+        else { initializePointerIfNeeded() }
         guard wantsNewTextAtPointer, let point = pointerPreview else { return false }
         commitText()
         selection = nil
@@ -414,6 +417,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         clearPointerTrail()
         hideTypingCaret()
         onInteraction?()
+        updatePointerLocation(event.locationInWindow)
         let viewPoint = convert(event.locationInWindow, from: nil)
         let p = world(viewPoint)
         dismissHint()
@@ -528,14 +532,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
         guard editor == nil else { return }
         selection = nil
         var anchor = draft.anchor.point
-        if pointPlacement, let window {
-            let p = convert(window.mouseLocationOutsideOfEventStream, from: nil)
-            if containsCanvasPoint(p), isCanvasLocation?(window.mouseLocationOutsideOfEventStream) ?? true {
-                updatePointerLocation(window.mouseLocationOutsideOfEventStream)
-                anchor = world(p)
-            }
+        if pointPlacement {
+            initializePointerIfNeeded()
+            if let pointerPreview { anchor = world(pointerPreview) }
         }
         beginText(at: anchor)
+    }
+
+    private func initializePointerIfNeeded() {
+        // Event coordinates are authoritative. Sampling again after activation or IME dispatch
+        // can report a different location from the crosshair that the user just moved.
+        if lastPointerLocation == nil, let window { updatePointerLocation(window.mouseLocationOutsideOfEventStream) }
     }
 
     private func ensureInputEditor() -> InlineTextView {
@@ -585,7 +592,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         text.typingAttributes = attributes
         restoreFocus()
         if pointPlacement {
-            if pointerPreview == nil, let window { updatePointerLocation(window.mouseLocationOutsideOfEventStream) }
+            initializePointerIfNeeded()
             typingPointerReference = pointerPreview ?? screen(point)
         }
         text.setSelectedRange(NSRange(location: text.string.utf16.count, length: 0))
