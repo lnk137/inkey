@@ -1,0 +1,5 @@
+# <emoji> <type>: <English description>
+#
+# Explain the reason and relevant validation in English.
+# Types: init, feat, fix, docs, style, refactor, perf, test, chore,
+# ci, build, revert, security, release, delete, upgrade
