@@ -73,3 +73,5 @@ Right-click a color preset to edit or delete it. Add colors in the custom picker
 The canvas uses a crosshair; only typing shows an insertion caret, which disappears on mouse movement. Collapse the toolbar with its chevron or hide it with ×. Use ⌥⌘T to collapse/expand and ⇧⌘T to show/hide, or restore it from More.
 
 Right-click text and drag a corner to resize it. The resized font becomes the next typing size by default; disable this in Settings or set a default directly (6–200 pt). Click the show/hide shortcut recorder in Settings to choose another global combination.
+
+New text boxes stay centered on the crosshair while typing, composing, and committing.

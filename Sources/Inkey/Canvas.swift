@@ -12,13 +12,17 @@ final class InlineTextView: NSTextView {
         canvas?.prepareInputSession()
         canvas?.showTypingCaret()
         super.insertText(insertString, replacementRange: replacementRange)
+        canvas?.refreshTextLayout()
     }
 
     override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
         canvas?.prepareInputSession()
         canvas?.showTypingCaret()
         super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        canvas?.refreshTextLayout()
     }
+
+    override func unmarkText() { super.unmarkText(); canvas?.refreshTextLayout() }
 
     func containsText(at windowPoint: NSPoint) -> Bool {
         guard let layoutManager, let textContainer else { return false }
@@ -84,6 +88,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     // Keep the native input client alive between labels so IMEs receive the first key.
     private var inputEditor: InlineTextView?
     private var editingID: UUID?
+    private var textCenterAnchor: NSPoint?
     private var editingFontSize: Double = 20
     private var editingColor: InkColor?
     private var previewItems: [InkItem]?
@@ -629,7 +634,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         text.isAutomaticQuoteSubstitutionEnabled = false; text.isAutomaticDashSubstitutionEnabled = false
         text.isAutomaticSpellingCorrectionEnabled = false; text.isContinuousSpellCheckingEnabled = false
         text.isAutomaticTextReplacementEnabled = false
-        text.isHorizontallyResizable = true; text.isVerticallyResizable = true
+        text.isHorizontallyResizable = false; text.isVerticallyResizable = false
         text.maxSize = NSSize(width: 100000, height: 100000)
         text.textContainer?.containerSize = NSSize(width: 100000, height: 100000)
         text.textContainer?.widthTracksTextView = false
@@ -645,6 +650,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         dismissHint()
         draft.anchor = InkPoint(point)
         editingID = item?.id
+        textCenterAnchor = item == nil ? point : nil
         editingColor = item?.color ?? ink
         editingFontSize = item?.fontSize ?? preferences.defaultFontSize
         let text = ensureInputEditor()
@@ -668,21 +674,27 @@ final class CanvasView: NSView, NSTextViewDelegate {
             typingPointerReference = pointerPreview ?? screen(point)
         }
         text.setSelectedRange(NSRange(location: text.string.utf16.count, length: 0))
-        resizeEditor()
+        refreshTextLayout()
         text.inputContext?.invalidateCharacterCoordinates()
         showTypingCaret()
         needsDisplay = true
     }
 
     func textDidChange(_ notification: Notification) {
-        resizeEditor()
+        refreshTextLayout()
     }
 
-    private func resizeEditor() {
+    func refreshTextLayout() {
         guard let editor, let manager = editor.layoutManager, let container = editor.textContainer else { return }
-        let origin = screen(draft.anchor.point)
-        editor.setFrameSize(InkTypography.editorSize(manager, container, pointSize: editingFontSize * draft.zoom))
+        let size = InkTypography.editorSize(manager, container, pointSize: editingFontSize * draft.zoom)
+        let origin: NSPoint
+        if let textCenterAnchor {
+            let center = screen(textCenterAnchor)
+            origin = NSPoint(x: center.x - size.width / 2, y: center.y - size.height / 2)
+        } else { origin = screen(draft.anchor.point) }
+        editor.setFrameSize(size)
         editor.setFrameOrigin(origin)
+        editor.inputContext?.invalidateCharacterCoordinates()
         needsDisplay = true
     }
 
@@ -710,7 +722,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
             if let id, let index = items.firstIndex(where: { $0.id == id }) {
                 items[index].text = content; items[index].color = editingColor ?? ink; items[index].fontSize = editingFontSize
             } else {
-                items.append(InkItem(kind: .text, points: [draft.anchor], color: editingColor ?? ink, text: content, fontSize: editingFontSize))
+                let size = InkTypography.size(content, fontSize: editingFontSize)
+                let origin = textCenterAnchor.map { NSPoint(x: $0.x - size.width / 2, y: $0.y - size.height / 2) } ?? draft.anchor.point
+                items.append(InkItem(kind: .text, points: [InkPoint(origin)], color: editingColor ?? ink, text: content, fontSize: editingFontSize))
             }
         } else if let id { items.removeAll { $0.id == id } }
         text.breakUndoCoalescing()
@@ -718,7 +732,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         text.allowsMouseSelection = false
         text.insertionPointColor = .clear
         text.resetTextUndo()
-        editor = nil; editingID = nil; editingColor = nil
+        editor = nil; editingID = nil; editingColor = nil; textCenterAnchor = nil
         typingPointerReference = nil
         typingCaretVisible = false
         restoreFocus()
