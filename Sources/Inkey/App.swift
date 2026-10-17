@@ -89,6 +89,16 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if !ProcessInfo.processInfo.arguments.contains("--smoke-test"),
+           let identifier = Bundle.main.bundleIdentifier,
+           let existing = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == identifier && $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }) {
+            DistributedNotificationCenter.default().postNotificationName(.init("com.lnk137.inkey.show"), object: nil, userInfo: nil, deliverImmediately: true)
+            existing.activate()
+            NSApp.terminate(nil)
+            return
+        }
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(reopenFromAnotherInstance(_:)), name: .init("com.lnk137.inkey.show"), object: nil)
+        preferences.migrateInteractionDefaults()
         buildMenu()
         buildWindow()
         buildStatusItem()
@@ -114,6 +124,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         syncPaletteToPaper()
         canvas.eraserDiameter = preferences.eraserDiameter
         palette.eraserDiameter = preferences.eraserDiameter
+        canvas.cursorTrailEnabled = preferences.cursorTrail
         canvas.setEraserEnabled(preferences.tool == .eraser)
         let isSmoke = ProcessInfo.processInfo.arguments.contains("--smoke-test")
         let isUITest = ProcessInfo.processInfo.arguments.contains("--ui-test")
@@ -163,6 +174,12 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         canvas.onChange = { [weak self] in self?.saveAutomatically() }
         canvas.onEscape = { [weak self] in self?.hideWindow() }
         canvas.onInteraction = { [weak self] in self?.palette.closePicker(accept: true) }
+        canvas.isCanvasLocation = { [weak self] point in
+            guard let self else { return false }
+            let canvasPoint = self.canvas.convert(point, from: nil)
+            let palettePoint = self.palette.convert(point, from: nil)
+            return canvasPoint.y > 40 && !self.palette.bounds.contains(palettePoint)
+        }
         palette.onColor = { [weak self] color in self?.canvas.applyColor(color) }
         palette.onRestoredColor = { [weak self] color in self?.canvas.ink = color }
         palette.onBeginPreview = { [weak self] in self?.canvas.beginColorPreview() }
@@ -255,13 +272,16 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.setFrameOrigin(NSPoint(x: area.midX - window.frame.width / 2, y: area.midY - window.frame.height / 2))
         }
         NSApp.activate(ignoringOtherApps: true)
+        if window.isMiniaturized { window.deminiaturize(nil) }
         window.makeKeyAndOrderFront(nil); canvas.restoreFocus()
     }
     func hideWindow() {
         palette.closePicker(accept: true); canvas.flush(); window.orderOut(nil)
+        settings?.orderOut(nil)
         previousApp?.activate()
     }
-    func toggleWindow() { if window.isVisible && window.isKeyWindow { hideWindow() } else { showWindow() } }
+    func toggleWindow() { if window.isVisible && !window.isMiniaturized { hideWindow() } else { showWindow() } }
+    @objc func reopenFromAnotherInstance(_ notification: Notification) { showWindow() }
     @objc func toggleAction(_ sender: Any?) { toggleWindow() }
     func windowShouldClose(_ sender: NSWindow) -> Bool { hideWindow(); return false }
     func windowDidResignKey(_ notification: Notification) {
@@ -461,13 +481,13 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func showSettings(_ sender: Any?) {
         palette.closePicker(accept: true); canvas.commitText()
         if let settings { NSApp.activate(ignoringOtherApps: true); settings.makeKeyAndOrderFront(nil); return }
-        let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 254), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 310), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         panel.title = "Inkey 设置"; panel.isReleasedWhenClosed = false; panel.center()
         guard let content = panel.contentView else { return }
         let label = NSTextField(labelWithString: "呼出草稿")
-        label.frame = NSRect(x: 28, y: 198, width: 140, height: 20); content.addSubview(label)
+        label.frame = NSRect(x: 28, y: 254, width: 140, height: 20); content.addSubview(label)
         let recorder = ShortcutRecorder(title: UserDefaults.standard.string(forKey: "shortcutLabel") ?? "⌃⌥Space", target: nil, action: nil)
-        recorder.bezelStyle = .rounded; recorder.frame = NSRect(x: 196, y: 192, width: 190, height: 32)
+        recorder.bezelStyle = .rounded; recorder.frame = NSRect(x: 196, y: 248, width: 190, height: 32)
         recorder.onRecord = { [weak self] key, modifiers, label in
             guard let self else { return false }
             if self.hotkey.register(keyCode: key, modifiers: modifiers) {
@@ -482,24 +502,31 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         content.addSubview(recorder)
         let placementLabel = NSTextField(labelWithString: "文字落点")
-        placementLabel.frame = NSRect(x: 28, y: 145, width: 140, height: 20); content.addSubview(placementLabel)
-        let placement = NSPopUpButton(frame: NSRect(x: 196, y: 140, width: 190, height: 28))
+        placementLabel.frame = NSRect(x: 28, y: 201, width: 140, height: 20); content.addSubview(placementLabel)
+        let placement = NSPopUpButton(frame: NSRect(x: 196, y: 196, width: 190, height: 28))
         placement.addItems(withTitles: ["单击定位", "跟随指针"])
         placement.selectItem(at: UserDefaults.standard.bool(forKey: "pointerPlacement") ? 1 : 0)
         placement.target = self; placement.action = #selector(changePlacement(_:)); content.addSubview(placement)
+        let trailLabel = NSTextField(labelWithString: "光标轨迹")
+        trailLabel.frame = NSRect(x: 28, y: 151, width: 140, height: 20); content.addSubview(trailLabel)
+        let trail = NSSwitch(frame: NSRect(x: 343, y: 145, width: 42, height: 26))
+        trail.state = preferences.cursorTrail ? .on : .off
+        trail.target = self; trail.action = #selector(changeCursorTrail(_:)); trail.setAccessibilityLabel("Cursor trail")
+        content.addSubview(trail)
         let reset = NSButton(title: "恢复默认色板", target: self, action: #selector(resetColors(_:)))
         reset.bezelStyle = .rounded; reset.frame = NSRect(x: 22, y: 81, width: 160, height: 30); content.addSubview(reset)
-        let help = NSTextField(wrappingLabelWithString: "双击文字精修，直接拖动绘画。⌥ 拖动临时擦除。\n⌥1—6 换色，橡皮尺寸在底部调节。\n颜色、尺寸与窗口偏好会自动记住。")
+        let help = NSTextField(wrappingLabelWithString: "移动指针后打字，即可在新位置输入。\n双击文字精修，⌥ 拖动临时擦除。\n颜色、尺寸与窗口偏好会自动记住。")
         help.font = .systemFont(ofSize: 11); help.textColor = .secondaryLabelColor
         help.frame = NSRect(x: 28, y: 10, width: 360, height: 56); content.addSubview(help)
         settings = panel; NSApp.activate(ignoringOtherApps: true); panel.makeKeyAndOrderFront(nil)
     }
     @objc func changePlacement(_ sender: NSPopUpButton) { UserDefaults.standard.set(sender.indexOfSelectedItem == 1, forKey: "pointerPlacement") }
+    @objc func changeCursorTrail(_ sender: NSSwitch) { preferences.cursorTrail = sender.state == .on; canvas.cursorTrailEnabled = preferences.cursorTrail }
     @objc func resetColors(_ sender: Any?) { palette.resetPresets() }
     @objc func help(_ sender: Any?) {
         alert("Inkey", "直接打字，拖动绘画。\n单击当前文字：移动光标\n双击文字／⌘Return：完整编辑，可拖选\nShift＋拖动：箭头\n⌘＋单击／拖动：选择／移动\n⌥＋拖动：临时擦除　⌥⌘E：切换橡皮\n⌥⌘[ / ]：缩小／放大橡皮\nEnter：提交　Shift＋Enter：换行\n⌥1—6：换色　⇧⌘C：调色盘\n双指滚动：平移　捏合：缩放\n⌘0：适配内容\n⇧⌘P：常驻　⌃⌘F：全屏\n⌘O：导入　⌘S：保存　⇧⌘S：另存为\n⌘E：导出\nEsc：结束编辑／取消选择／收起\n偏好自动保存，重启后恢复。")
     }
-    @objc func about(_ sender: Any?) { NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Inkey", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.0", .credits: NSAttributedString(string: "A quiet place to think.")]) }
+    @objc func about(_ sender: Any?) { NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Inkey", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.0", .credits: NSAttributedString(string: "A quiet place to think.")]) }
     @objc func quit(_ sender: Any?) { NSApp.terminate(nil) }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { palette.closePicker(accept: true); canvas.flush(); return .terminateNow }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
