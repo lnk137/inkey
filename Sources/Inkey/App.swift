@@ -80,12 +80,16 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var fullScreen = false
 
     static func main() {
+#if README_ASSETS
+        DocumentationRenderer.render()
+#else
         let application = NSApplication.shared
         let delegate = InkeyApp()
         application.delegate = delegate
         application.setActivationPolicy(.accessory)
         application.run()
         _ = delegate
+#endif
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
