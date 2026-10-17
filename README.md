@@ -25,9 +25,10 @@ it is not a notarized distribution build.
 | Control + Option + Space | Show or hide Inkey; return focus to the previous app |
 | Type | Create and edit a variable at the insertion marker |
 | Click blank canvas | Place the next text insertion marker |
-| Drag | Draw a freehand stroke |
+| Drag | Draw, including a drag that starts on newly typed text |
 | Shift + drag | Draw a straight arrow |
-| Double-click text | Edit existing text |
+| Click current text | Position the text caret without selecting by drag |
+| Double-click text / Command + Return | Enter precise text editing with native drag selection |
 | Command + click | Select the topmost object |
 | Command + drag | Move an object |
 | Delete | Delete the selected object; delete characters while editing |
@@ -38,6 +39,9 @@ it is not a notarized distribution build.
 | Command + Z / Shift + Command + Z | Undo / redo |
 | Option + 1 through 6 | Choose a preset color |
 | Shift + Command + C | Open the custom color picker |
+| Option + Command + E | Toggle eraser mode |
+| Option + drag | Erase temporarily without changing the selected tool |
+| Option + Command + [ / ] | Decrease / increase eraser diameter |
 | Shift + Command + P | Toggle persistent, floating mode |
 | Control + Command + F | Toggle native full screen |
 | Command + N | Start a new draft, preserving the previous one |
@@ -50,8 +54,18 @@ it is not a notarized distribution build.
 
 Drawing uses the standard macOS click-and-drag interaction. You can also enable
 macOS trackpad dragging in system accessibility settings. It does not capture raw
-finger motion or require private multitouch APIs. Existing text retains native
-text selection while it is being edited; start a stroke outside the text editor.
+finger motion or require private multitouch APIs. Normal text input keeps native
+keyboard corrections and input methods, while mouse drags go to the canvas. A
+single click on the current word positions the caret; moving at least 3 screen
+points starts a stroke at the original press location. This also works directly
+over the word, without losing the beginning of the stroke.
+
+Double-click a word, or press Command + Return while typing, to enter precise
+editing. A subtle outline marks that state. Dragging inside actual text lines
+selects text normally; dragging outside commits the text and starts drawing in
+the same gesture. Empty space to the right of short lines remains canvas. Return
+or Escape ends editing, while Shift + Return inserts a newline. There are no
+idle timeouts or pointer-hover rules that unexpectedly commit text.
 
 In settings, choose click placement (default) or pointer placement. Pointer
 placement fixes the location when typing starts. Move the pointer outside the
@@ -62,6 +76,31 @@ shortcuts intercepted by system gestures may require a different combination.
 Normal floating windows hide when focus leaves Inkey. Persistent mode stays above
 other windows, while full screen remains visible until explicitly hidden or left.
 Window geometry is remembered between launches.
+
+## Eraser
+
+The eraser button sits next to the colors. Click its chevron for a live size
+preview and a continuous **4–120 pt** diameter slider. The circular cursor shows
+the actual screen footprint, which remains constant while zooming. Option + drag
+temporarily erases; Option + Command + E switches the persistent tool. Typing or
+choosing a color returns to the pen automatically.
+
+Freehand strokes are cut into editable vector fragments. Text variables and
+arrows are erased as whole objects. Reference images and imported PDF pages are
+protected; select them with Command + click and use Delete when removal is
+intentional. Fast eraser gestures cover the complete distance between events,
+and one gesture creates one undo step. Erasing removes content rather than
+painting over it, so exports and paper colors remain correct.
+
+## Remembered preferences
+
+Inkey automatically remembers the active pen/eraser tool, eraser diameter, selected
+preset or custom ink, customized presets, recent colors, text placement mode,
+global shortcut, palette position, window size/location, persistent mode, and
+full-screen mode. Ink preferences are stored separately for light and dark paper.
+Transient state such as a text selection, temporary Option erasing, and an open
+popover is not restored. Preferences are saved locally in macOS UserDefaults;
+there is no Apply button. Invalid stored values fall back to safe defaults.
 
 ## Color
 
@@ -123,9 +162,11 @@ swift test
 build/Inkey.app/Contents/MacOS/Inkey --smoke-test
 ```
 
-The tests cover document round trips and invalid files, stroke hit detection,
-text/drawing transitions, separate undo steps, color preview cancellation,
-whole-variable recoloring, viewport transforms, and PNG/PDF output. The smoke test
+The tests cover document round trips and invalid files, actual text-view hit
+testing, double-click selection, native keyboard corrections, marked text,
+text/drawing transitions, vector eraser clipping and undo, zoom-independent eraser
+size, preference restoration, color preview cancellation, viewport transforms,
+and PNG/PDF output. The smoke test
 starts AppKit and checks exports, recoloring, and undo/redo against a temporary
 draft, then restores the previously loaded draft before exiting. The smoke test
 does not register the global shortcut. Close other Inkey instances before running
