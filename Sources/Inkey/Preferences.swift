@@ -32,6 +32,18 @@ final class UserPreferences {
         get { ShiftShape(rawValue: defaults.string(forKey: "shiftShape") ?? "") ?? .arrow }
         set { defaults.set(newValue.rawValue, forKey: "shiftShape") }
     }
+    var defaultFontSize: Double {
+        get {
+            guard defaults.object(forKey: "defaultFontSize") != nil else { return 20 }
+            let value = defaults.double(forKey: "defaultFontSize")
+            return value.isFinite ? min(200, max(6, value)) : 20
+        }
+        set { defaults.set(newValue.isFinite ? min(200, max(6, newValue)) : 20, forKey: "defaultFontSize") }
+    }
+    var resizeUpdatesDefaultFont: Bool {
+        get { defaults.object(forKey: "resizeUpdatesDefaultFont") == nil ? true : defaults.bool(forKey: "resizeUpdatesDefaultFont") }
+        set { defaults.set(newValue, forKey: "resizeUpdatesDefaultFont") }
+    }
     var cursorTrail: Bool {
         get { defaults.object(forKey: "cursorTrail") == nil ? true : defaults.bool(forKey: "cursorTrail") }
         set { defaults.set(newValue, forKey: "cursorTrail") }

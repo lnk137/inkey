@@ -31,7 +31,7 @@ it is not a notarized distribution build.
 | Shift + 1 through 4 | Choose Shift tool: arrow, line, square, ellipse |
 | Shift + drag | Draw the selected shape (arrow by default) |
 | Click current text | Position the text caret without selecting by drag |
-| Double-click text / Command + Return | Enter precise text editing with native drag selection |
+| Right-click text / Command + Return | Enter precise text editing with native drag selection |
 | Command + click | Select the topmost object |
 | Command + drag | Move an object |
 | Delete | Delete the selected object; delete characters while editing |
@@ -63,7 +63,7 @@ single click on the current word positions the caret; moving at least 3 screen
 points starts a stroke at the original press location. This also works directly
 over the word, without losing the beginning of the stroke.
 
-Double-click a word, or press Command + Return while typing, to enter precise
+Right-click a word (or Control-click), or press Command + Return while typing, to enter precise
 editing. A subtle outline marks that state. Dragging inside actual text lines
 selects text normally; dragging outside commits the text and starts drawing in
 the same gesture. Empty space to the right of short lines remains canvas. Return
@@ -181,7 +181,7 @@ build/Inkey.app/Contents/MacOS/Inkey --smoke-test
 ```
 
 The tests cover document round trips and invalid files, actual text-view hit
-testing, pointer-led typing, double-click selection, native keyboard corrections, marked text,
+testing, pointer-led typing, right-click selection, native keyboard corrections, marked text,
 text/drawing transitions, vector eraser clipping and undo, zoom-independent eraser
 size, merged eraser controls, repeated window toggling, preference restoration, color preview cancellation, viewport transforms,
 and PNG/PDF output. The smoke test
@@ -197,3 +197,9 @@ The shape row remembers the selected Shift tool. Shift-drag creates an arrow, st
 ## Toolbar visibility
 
 Use the chevron to collapse the tool and color rows into a small handle; click it again to expand. The × button hides the entire toolbar. **Option + Command + T** toggles collapse; **Shift + Command + T** toggles visibility. Both actions are also in the View and More menus, so a hidden toolbar can always be restored. Collapse and visibility are remembered separately across launches. Color and shape shortcuts still work while hidden; opening a color or size picker reveals and expands its toolbar anchor.
+
+## Text size and global shortcut
+
+Right-click text to enter precise editing and reveal its resize box. Drag any corner to scale the font uniformly while keeping the opposite corner fixed. One drag creates one undo step. Sizes range from **6–200 pt**. By default, the resized size becomes the default for the next text label; turn off **Use resized size for subsequent typing / 拖拽缩放后，设为下次输入字号** in Settings to keep these independent. Set the default directly with the **Default typing font size / 默认输入字号** field or stepper. Existing labels keep their own size; changes to the default apply to newly created labels.
+
+In Settings, click the **Show / hide shortcut / 呼出／收起快捷键** recorder, then press a new combination containing Control, Option, or Command. Esc cancels recording. A conflicting combination leaves the old shortcut active. The same shortcut shows and hides the canvas and is remembered across launches. Pressing the existing shortcut while recording accepts it without hiding Settings.

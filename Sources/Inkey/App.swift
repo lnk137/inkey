@@ -38,13 +38,16 @@ final class HotKey {
 
 final class ShortcutRecorder: NSButton {
     var recording = false
+    var savedLabel = UserDefaults.standard.string(forKey: "shortcutLabel") ?? "⌃⌥Space"
+    func finishRecording() { recording = false; title = savedLabel }
     var onRecord: ((UInt32, UInt32, String) -> Bool)?
     override var acceptsFirstResponder: Bool { true }
-    override func mouseDown(with event: NSEvent) {
+    @objc func beginRecording() {
         recording = true; title = "按下快捷键…"; window?.makeFirstResponder(self)
     }
+    override func mouseDown(with event: NSEvent) { beginRecording() }
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 { recording = false; title = UserDefaults.standard.string(forKey: "shortcutLabel") ?? "⌃⌥Space"; return }
+        if event.keyCode == 53 { finishRecording(); return }
         guard recording else { super.keyDown(with: event); return }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard flags.contains(.control) || flags.contains(.option) || flags.contains(.command) else { NSSound.beep(); return }
@@ -56,12 +59,12 @@ final class ShortcutRecorder: NSButton {
         if flags.contains(.command) { modifiers |= UInt32(cmdKey); label += "⌘" }
         let names: [UInt16: String] = [49: "Space", 36: "Return", 48: "Tab", 123: "←", 124: "→", 125: "↓", 126: "↑"]
         label += names[event.keyCode] ?? event.charactersIgnoringModifiers?.uppercased() ?? "Key \(event.keyCode)"
-        if onRecord?(UInt32(event.keyCode), modifiers, label) == true { recording = false; title = label }
+        if onRecord?(UInt32(event.keyCode), modifiers, label) == true { savedLabel = label; finishRecording() }
     }
 }
 
 @main
-final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextFieldDelegate {
     var window: InkeyWindow!
     let canvas = CanvasView(frame: .zero)
     let palette = PaletteView(frame: NSRect(x: 0, y: 0, width: PaletteView.preferredWidth, height: 80))
@@ -70,6 +73,9 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let hotkey = HotKey()
     var statusItem: NSStatusItem!
     var previousApp: NSRunningApplication?
+    var fontSizeField: NSTextField?
+    var fontSizeStepper: NSStepper?
+    var shortcutRecorder: ShortcutRecorder?
     var settings: NSWindow?
     var keyMonitor: Any?
     var pinned = false
@@ -106,14 +112,23 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         buildMenu()
         buildWindow()
         buildStatusItem()
-        hotkey.onTrigger = { [weak self] in self?.toggleWindow() }
+        hotkey.onTrigger = { [weak self] in
+            guard let self else { return }
+            if self.settings?.isKeyWindow == true, self.shortcutRecorder?.recording == true {
+                self.shortcutRecorder?.finishRecording()
+            } else { self.toggleWindow() }
+        }
         if !ProcessInfo.processInfo.arguments.contains("--smoke-test") && !registerSavedHotkey() {
             showWindow()
             alert("快捷键已被占用", "请在设置中重新录制呼出快捷键。")
             showSettings(nil)
         }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, !self.canvas.isDrawing else { return event }
+            guard let self else { return event }
+            if self.settings?.isKeyWindow == true, let recorder = self.shortcutRecorder, recorder.recording {
+                recorder.keyDown(with: event); return nil
+            }
+            guard !self.canvas.isDrawing else { return event }
             if self.palette.hasPopover && event.keyCode == 53 { self.palette.closePicker(accept: false); return nil }
             guard self.window.isKeyWindow else { return event }
             let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
@@ -180,6 +195,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         palette.onLayoutChange = { [weak self] in self?.layoutPalette(initial: false) }
         layoutPalette(initial: true)
         window.onResize = { [weak self] in self?.layoutPalette(initial: false) }
+        canvas.onDefaultFontSizeChange = { [weak self] _ in self?.syncFontSizeControls() }
         canvas.onChange = { [weak self] in self?.saveAutomatically() }
         canvas.onEscape = { [weak self] in self?.hideWindow() }
         canvas.onInteraction = { [weak self] in self?.palette.closePicker(accept: true) }
@@ -504,13 +520,19 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func showSettings(_ sender: Any?) {
         palette.closePicker(accept: true); canvas.commitText()
         if let settings { NSApp.activate(ignoringOtherApps: true); settings.makeKeyAndOrderFront(nil); return }
-        let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 310), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let panel = makeSettingsWindow()
+        settings = panel; NSApp.activate(ignoringOtherApps: true); panel.makeKeyAndOrderFront(nil)
+    }
+
+    func makeSettingsWindow() -> NSWindow {
+        let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 420), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         panel.title = "Inkey 设置"; panel.isReleasedWhenClosed = false; panel.center()
-        guard let content = panel.contentView else { return }
-        let label = NSTextField(labelWithString: "呼出草稿")
-        label.frame = NSRect(x: 28, y: 254, width: 140, height: 20); content.addSubview(label)
+        guard let content = panel.contentView else { return panel }
+        let label = NSTextField(labelWithString: "呼出／收起快捷键")
+        label.frame = NSRect(x: 28, y: 364, width: 140, height: 20); content.addSubview(label)
         let recorder = ShortcutRecorder(title: UserDefaults.standard.string(forKey: "shortcutLabel") ?? "⌃⌥Space", target: nil, action: nil)
-        recorder.bezelStyle = .rounded; recorder.frame = NSRect(x: 196, y: 248, width: 190, height: 32)
+        recorder.target = recorder; recorder.action = #selector(ShortcutRecorder.beginRecording)
+        recorder.bezelStyle = .rounded; recorder.frame = NSRect(x: 196, y: 358, width: 190, height: 32)
         recorder.onRecord = { [weak self] key, modifiers, label in
             guard let self else { return false }
             if self.hotkey.register(keyCode: key, modifiers: modifiers) {
@@ -523,13 +545,31 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.alert("快捷键不可用", "该组合可能已被其他应用使用，请更换。")
             return false
         }
+        shortcutRecorder = recorder
         content.addSubview(recorder)
+        let shortcutHint = NSTextField(labelWithString: "点击后按下新组合，Esc 取消")
+        shortcutHint.font = .systemFont(ofSize: 11); shortcutHint.textColor = .secondaryLabelColor
+        shortcutHint.frame = NSRect(x: 196, y: 335, width: 200, height: 18); content.addSubview(shortcutHint)
         let placementLabel = NSTextField(labelWithString: "文字落点")
-        placementLabel.frame = NSRect(x: 28, y: 201, width: 140, height: 20); content.addSubview(placementLabel)
-        let placement = NSPopUpButton(frame: NSRect(x: 196, y: 196, width: 190, height: 28))
+        placementLabel.frame = NSRect(x: 28, y: 301, width: 140, height: 20); content.addSubview(placementLabel)
+        let placement = NSPopUpButton(frame: NSRect(x: 196, y: 296, width: 190, height: 28))
         placement.addItems(withTitles: ["单击定位", "跟随指针"])
         placement.selectItem(at: UserDefaults.standard.bool(forKey: "pointerPlacement") ? 1 : 0)
         placement.target = self; placement.action = #selector(changePlacement(_:)); content.addSubview(placement)
+        let sizeLabel = NSTextField(labelWithString: "默认输入字号")
+        sizeLabel.frame = NSRect(x: 28, y: 251, width: 150, height: 20); content.addSubview(sizeLabel)
+        let formatter = NumberFormatter(); formatter.minimum = 6; formatter.maximum = 200
+        formatter.maximumFractionDigits = 1; formatter.numberStyle = .decimal
+        let size = NSTextField(frame: NSRect(x: 258, y: 246, width: 78, height: 26))
+        size.formatter = formatter; size.delegate = self; size.target = self; size.action = #selector(changeDefaultFontSize(_:))
+        size.setAccessibilityLabel("Default typing font size"); content.addSubview(size); fontSizeField = size
+        let stepper = NSStepper(frame: NSRect(x: 344, y: 243, width: 20, height: 28))
+        stepper.minValue = 6; stepper.maxValue = 200; stepper.increment = 1; stepper.valueWraps = false
+        stepper.target = self; stepper.action = #selector(stepDefaultFontSize(_:)); stepper.setAccessibilityLabel("Adjust default typing font size")
+        content.addSubview(stepper); fontSizeStepper = stepper; syncFontSizeControls()
+        let follow = NSButton(checkboxWithTitle: "拖拽缩放后，设为下次输入字号", target: self, action: #selector(changeResizeDefault(_:)))
+        follow.frame = NSRect(x: 28, y: 207, width: 356, height: 24)
+        follow.state = preferences.resizeUpdatesDefaultFont ? .on : .off; content.addSubview(follow)
         let trailLabel = NSTextField(labelWithString: "十字指针轨迹")
         trailLabel.frame = NSRect(x: 28, y: 151, width: 140, height: 20); content.addSubview(trailLabel)
         let trail = NSSwitch(frame: NSRect(x: 343, y: 145, width: 42, height: 26))
@@ -538,19 +578,34 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         content.addSubview(trail)
         let reset = NSButton(title: "恢复默认色板", target: self, action: #selector(resetColors(_:)))
         reset.bezelStyle = .rounded; reset.frame = NSRect(x: 22, y: 81, width: 160, height: 30); content.addSubview(reset)
-        let help = NSTextField(wrappingLabelWithString: "移动指针后打字，即可在新位置输入。\n双击文字精修，⌥ 拖动临时擦除。\n颜色、尺寸与窗口偏好会自动记住。")
+        let help = NSTextField(wrappingLabelWithString: "移动指针后打字，即可在新位置输入。\n右键文字精修，拖动边框四角改字号，⌥ 拖动临时擦除。\n颜色、尺寸与窗口偏好会自动记住。")
         help.font = .systemFont(ofSize: 11); help.textColor = .secondaryLabelColor
         help.frame = NSRect(x: 28, y: 10, width: 360, height: 56); content.addSubview(help)
-        settings = panel; NSApp.activate(ignoringOtherApps: true); panel.makeKeyAndOrderFront(nil)
+        return panel
     }
+    func controlTextDidEndEditing(_ notification: Notification) {
+        if let field = notification.object as? NSTextField, field === fontSizeField { changeDefaultFontSize(field) }
+    }
+    func syncFontSizeControls() {
+        fontSizeField?.doubleValue = preferences.defaultFontSize
+        fontSizeStepper?.doubleValue = preferences.defaultFontSize
+    }
+    @objc func changeDefaultFontSize(_ sender: NSTextField) {
+        guard let formatter = sender.formatter as? NumberFormatter,
+              let number = formatter.number(from: sender.stringValue), number.doubleValue.isFinite,
+              (6...200).contains(number.doubleValue) else { NSSound.beep(); syncFontSizeControls(); return }
+        preferences.defaultFontSize = number.doubleValue; syncFontSizeControls()
+    }
+    @objc func stepDefaultFontSize(_ sender: NSStepper) { preferences.defaultFontSize = sender.doubleValue; syncFontSizeControls() }
+    @objc func changeResizeDefault(_ sender: NSButton) { preferences.resizeUpdatesDefaultFont = sender.state == .on }
     @objc func changePlacement(_ sender: NSPopUpButton) { UserDefaults.standard.set(sender.indexOfSelectedItem == 1, forKey: "pointerPlacement") }
 
     @objc func changeCursorTrail(_ sender: NSSwitch) { preferences.cursorTrail = sender.state == .on; canvas.cursorTrailEnabled = preferences.cursorTrail }
     @objc func resetColors(_ sender: Any?) { palette.resetPresets() }
     @objc func help(_ sender: Any?) {
-        alert("Inkey", "直接打字，拖动绘画。\n单击当前文字：移动光标\n双击文字／⌘Return：完整编辑，可拖选\nShift＋拖动：当前形状　⇧1—4：切换形状\n⌘＋单击／拖动：选择／移动\n⌥＋拖动：临时擦除　⌥⌘E：切换橡皮\n右键橡皮：调节尺寸　⌥⌘[ / ]：缩小／放大橡皮\nEnter：提交　Shift＋Enter：换行\n⌥1—6：换色　⇧⌘C：调色盘\n⌥⌘T：折叠工具栏　⇧⌘T：显示／隐藏\n双指滚动：平移　捏合：缩放\n⌘0：适配内容\n⇧⌘P：常驻　⌃⌘F：全屏\n⌘O：导入　⌘S：保存　⇧⌘S：另存为\n⌘E：导出\nEsc：结束编辑／取消选择／收起\n偏好自动保存，重启后恢复。")
+        alert("Inkey", "直接打字，拖动绘画。\n单击当前文字：移动光标\n右键文字／⌘Return：完整编辑，可拖选\nShift＋拖动：当前形状　⇧1—4：切换形状\n⌘＋单击／拖动：选择／移动\n⌥＋拖动：临时擦除　⌥⌘E：切换橡皮\n右键橡皮：调节尺寸　⌥⌘[ / ]：缩小／放大橡皮\nEnter：提交　Shift＋Enter：换行\n⌥1—6：换色　⇧⌘C：调色盘\n⌥⌘T：折叠工具栏　⇧⌘T：显示／隐藏\n双指滚动：平移　捏合：缩放\n⌘0：适配内容\n⇧⌘P：常驻　⌃⌘F：全屏\n⌘O：导入　⌘S：保存　⇧⌘S：另存为\n⌘E：导出\nEsc：结束编辑／取消选择／收起\n偏好自动保存，重启后恢复。")
     }
-    @objc func about(_ sender: Any?) { NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Inkey", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.4.3", .credits: NSAttributedString(string: "A quiet place to think.")]) }
+    @objc func about(_ sender: Any?) { NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Inkey", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.5.0", .credits: NSAttributedString(string: "A quiet place to think.")]) }
     @objc func quit(_ sender: Any?) { NSApp.terminate(nil) }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { palette.closePicker(accept: true); canvas.flush(); return .terminateNow }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }

@@ -22,7 +22,7 @@ A native macOS scratchpad for variables, diagrams, and the next step in your alg
 
 Solving a problem in your browser? Press **⌃⌥Space**, sketch the idea, and press it again to return. No text tool to hunt for. No drawing mode to get stuck in.
 
-- **Type, then draw.** Move the pointer to start another variable. Drag to sketch—even over newly typed text. Double-click a word for precise editing.
+- **Type, then draw.** Move the pointer to start another variable. Drag to sketch—even over newly typed text. Right-click a word for precise editing.
 - **Made for a trackpad.** Shift-drag arrows, lines, squares, or ellipses, pinch to zoom, or Option-drag to erase. Single-click the eraser to toggle it; right-click to resize it.
 - **Only what you need.** Editable color presets, a custom color picker, a collapsible, hideable toolbar, an optional crosshair trail, and floating, pinned, or full-screen windows.
 - **Pick up where you left off.** Local autosave, remembered preferences, editable `.inkey` drafts, and PNG/PDF export.
@@ -49,7 +49,7 @@ Inkey lives in your menu bar. The current build is signed locally for developmen
 | **⌃⌥Space** | Show / hide the scratchpad |
 | **Move → type** | Start text at the pointer |
 | **Drag / ⇧ drag** | Freehand / selected shape |
-| **Double-click text / ⌘Return** | Edit and select text precisely |
+| **Right-click text / ⌘Return** | Edit and select text precisely |
 | **⇧1–4** | Choose Shift tool: arrow, line, square, ellipse |
 | **⌥1–6** | Pick a preset color |
 | **Click / right-click eraser** | Toggle / adjust size |
@@ -71,3 +71,5 @@ Tests cover text/drawing transitions, input methods, pointer alignment, vector e
 Right-click a color preset to edit or delete it. Add colors in the custom picker (up to six); restore defaults in Settings.
 
 The canvas uses a crosshair; only typing shows an insertion caret, which disappears on mouse movement. Collapse the toolbar with its chevron or hide it with ×. Use ⌥⌘T to collapse/expand and ⇧⌘T to show/hide, or restore it from More.
+
+Right-click text and drag a corner to resize it. The resized font becomes the next typing size by default; disable this in Settings or set a default directly (6–200 pt). Click the show/hide shortcut recorder in Settings to choose another global combination.
