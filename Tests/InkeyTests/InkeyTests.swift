@@ -161,6 +161,34 @@ struct CanvasTests {
         #expect(canvas.draft.items[0].color == InkColor.light[4])
     }
 
+    @Test func markedTextSurvivesStartingAStroke() {
+        let (window, canvas) = makeCanvas()
+        canvas.beginText(at: NSPoint(x: 100, y: 100))
+        let editor = canvas.subviews.compactMap { $0 as? NSTextView }.first!
+        editor.setMarkedText("指针", selectedRange: NSRange(location: 2, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+        #expect(editor.hasMarkedText())
+        canvas.mouseDown(with: mouse(.leftMouseDown, NSPoint(x: 300, y: 300), window: window))
+        canvas.mouseDragged(with: mouse(.leftMouseDragged, NSPoint(x: 320, y: 320), window: window))
+        canvas.mouseUp(with: mouse(.leftMouseUp, NSPoint(x: 320, y: 320), window: window))
+        #expect(canvas.draft.items.first?.text == "指针")
+        #expect(canvas.draft.items.count == 2)
+    }
+
+    @Test func presetContrastFollowsPaperInsteadOfSystemAppearance() {
+        let defaults = UserDefaults.standard
+        let previousLight = defaults.object(forKey: "lightPresets"), previousDark = defaults.object(forKey: "darkPresets")
+        defaults.removeObject(forKey: "lightPresets"); defaults.removeObject(forKey: "darkPresets")
+        defer {
+            if let previousLight { defaults.set(previousLight, forKey: "lightPresets") }
+            if let previousDark { defaults.set(previousDark, forKey: "darkPresets") }
+        }
+        let palette = PaletteView(frame: NSRect(x: 0, y: 0, width: 280, height: 44))
+        palette.paperIsDark = false; palette.refreshAppearance(); palette.choose(0)
+        #expect(palette.current == InkColor.light[0])
+        palette.paperIsDark = true; palette.refreshAppearance()
+        #expect(palette.current == InkColor.dark[0])
+    }
+
     @Test func worldScreenConversionRoundTrips() {
         let (_, canvas) = makeCanvas()
         canvas.draft.zoom = 1.7
@@ -176,6 +204,9 @@ struct CanvasTests {
         canvas.draft.items = [InkItem(kind: .text, points: [InkPoint(NSPoint(x: -200, y: -300))], color: InkColor.light[0], text: "left → right")]
         let png = try #require(canvas.exportData(pdf: false))
         #expect(Array(png.prefix(8)) == [137, 80, 78, 71, 13, 10, 26, 10])
+        let bitmap = try #require(NSBitmapImageRep(data: png))
+        let corner = try #require(bitmap.colorAt(x: 0, y: 0)?.usingColorSpace(.deviceRGB))
+        #expect(abs(corner.redComponent - canvas.draft.background.red) < 0.02)
         let pdf = try #require(canvas.exportData(pdf: true))
         #expect(String(data: pdf.prefix(4), encoding: .ascii) == "%PDF")
     }
