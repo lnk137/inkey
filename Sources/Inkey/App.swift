@@ -92,7 +92,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         buildWindow()
         buildStatusItem()
         hotkey.onTrigger = { [weak self] in self?.toggleWindow() }
-        if !registerSavedHotkey() {
+        if !ProcessInfo.processInfo.arguments.contains("--smoke-test") && !registerSavedHotkey() {
             showWindow()
             alert("快捷键已被占用", "请在设置中重新录制呼出快捷键。")
             showSettings(nil)
@@ -110,6 +110,8 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let restored = UserDefaults.standard.string(forKey: "currentDraft").flatMap { id in store.recent().first { $0.1.id.uuidString == id }?.1 } ?? store.recent().first?.1
         if let restored { canvas.install(restored) }
         else { canvas.draft.background = isDark ? InkColor("202322") : InkColor("FAF9F6") }
+        syncPaletteToPaper()
+        if ProcessInfo.processInfo.arguments.contains("--ui-test") { togglePinned(nil) }
         showWindow()
         if ProcessInfo.processInfo.arguments.contains("--smoke-test") {
             DispatchQueue.main.async { self.runSmokeTest() }
@@ -117,6 +119,12 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     var isDark: Bool { NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }
+
+    func syncPaletteToPaper() {
+        let paper = canvas.draft.background
+        palette.paperIsDark = paper.red * 0.299 + paper.green * 0.587 + paper.blue * 0.114 < 0.5
+        palette.refreshAppearance()
+    }
 
     func buildWindow() {
         window = InkeyWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 560), styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
@@ -170,6 +178,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         add("打开或导入…", #selector(openDraft(_:)), "o", to: file)
         add("最近草稿…", #selector(showRecent(_:)), "o", modifiers: [.command, .shift], to: file)
         add("保存…", #selector(saveDraft(_:)), "s", to: file)
+        add("另存为…", #selector(saveAs(_:)), "s", modifiers: [.command, .shift], to: file)
         add("导出…", #selector(exportDraft(_:)), "e", to: file)
         let edit = NSMenu()
         add("撤销", Selector(("undo:")), "z", to: edit, target: nil)
@@ -271,7 +280,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func newDraft(_ sender: Any?) {
         palette.closePicker(accept: true); canvas.flush()
         var draft = Draft(); draft.background = isDark ? InkColor("202322") : InkColor("FAF9F6")
-        canvas.install(draft); fileURL = nil; saveAutomatically(); showWindow()
+        canvas.install(draft); syncPaletteToPaper(); fileURL = nil; saveAutomatically(); showWindow()
     }
 
     @objc func openDraft(_ sender: Any?) {
@@ -294,7 +303,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 canvas.flush()
                 // Import a copy so opening a shared file cannot replace an existing autosave.
                 draft.id = UUID(); draft.modified = Date()
-                canvas.install(draft); fileURL = url
+                canvas.install(draft); syncPaletteToPaper(); fileURL = url
             } else if url.pathExtension.lowercased() == "pdf" {
                 guard let document = PDFDocument(url: url), document.pageCount > 0 else { throw CocoaError(.fileReadCorruptFile) }
                 guard document.pageCount <= 100 else { throw NSError(domain: "Inkey", code: 1, userInfo: [NSLocalizedDescriptionKey: "请导入不超过 100 页的 PDF。"] ) }
@@ -311,12 +320,12 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     }
                 }
                 guard !items.isEmpty else { throw CocoaError(.fileReadCorruptFile) }
-                canvas.replaceItems(canvas.draft.items + items, name: "Import PDF"); canvas.fit()
+                canvas.replaceItems(items + canvas.draft.items, name: "Import PDF"); canvas.fit()
             } else {
                 guard let image = NSImage(contentsOf: url), let data = image.tiffRepresentation, image.size.width > 0, image.size.height > 0 else { throw CocoaError(.fileReadCorruptFile) }
                 let scale = min(1, 700 / image.size.width)
                 let item = InkItem(kind: .image, points: [canvas.draft.anchor], color: canvas.ink, imageData: data, imageWidth: image.size.width * scale, imageHeight: image.size.height * scale)
-                canvas.replaceItems(canvas.draft.items + [item], name: "Import Image"); canvas.fit()
+                canvas.replaceItems([item] + canvas.draft.items, name: "Import Image"); canvas.fit()
             }
             saveAutomatically(); showWindow()
         } catch { alert("无法打开文件", error.localizedDescription) }
@@ -324,6 +333,20 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc func saveDraft(_ sender: Any?) {
         palette.closePicker(accept: true); canvas.flush(); showWindow()
+        if let fileURL {
+            do { try store.save(canvas.draft, to: fileURL) }
+            catch { alert("无法保存文件", error.localizedDescription) }
+            return
+        }
+        presentSavePanel()
+    }
+
+    @objc func saveAs(_ sender: Any?) {
+        palette.closePicker(accept: true); canvas.flush(); showWindow()
+        presentSavePanel()
+    }
+
+    func presentSavePanel() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "inkey") ?? .data]
         panel.nameFieldStringValue = canvas.draft.name + ".inkey"
@@ -378,7 +401,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     @objc func loadRecent(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
-        do { let draft = try store.load(url); canvas.flush(); canvas.install(draft); fileURL = nil; saveAutomatically(); showWindow() }
+        do { let draft = try store.load(url); canvas.flush(); canvas.install(draft); syncPaletteToPaper(); fileURL = nil; saveAutomatically(); showWindow() }
         catch { alert("无法读取草稿", error.localizedDescription) }
     }
 
@@ -393,6 +416,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(.separator())
         add("打开或导入…", #selector(openDraft(_:)), "o", to: menu)
         add("保存…", #selector(saveDraft(_:)), "s", to: menu)
+        add("另存为…", #selector(saveAs(_:)), "s", modifiers: [.command, .shift], to: menu)
         add("导出…", #selector(exportDraft(_:)), "e", to: menu)
         menu.addItem(.separator()); add("设置…", #selector(showSettings(_:)), ",", to: menu)
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -4), in: sender)
@@ -443,6 +467,10 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func quit(_ sender: Any?) { NSApp.terminate(nil) }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { palette.closePicker(accept: true); canvas.flush(); return .terminateNow }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showWindow()
+        return true
+    }
     func application(_ sender: NSApplication, openFile filename: String) -> Bool { importURL(URL(fileURLWithPath: filename)); return true }
     func alert(_ title: String, _ message: String) {
         let previous = suppressAutoHide; suppressAutoHide = true

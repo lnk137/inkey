@@ -88,7 +88,7 @@ struct Draft: Codable, Equatable {
     var background = InkColor("FAF9F6")
     var zoom: Double = 1
     var offset = InkPoint(.zero)
-    var anchor = InkPoint(NSPoint(x: 100, y: 100))
+    var anchor = InkPoint(NSPoint(x: 340, y: 220))
 }
 
 final class DraftStore {
