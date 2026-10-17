@@ -1,0 +1,134 @@
+# Inkey
+
+A quiet, native macOS scratchpad for thinking through algorithms.
+Type variable names, drag to sketch relationships, then return to your browser.
+Built with Swift and AppKit. No web view, account, network service, or external dependency.
+
+## Run
+
+Requires macOS 14 or later and Xcode command line tools with Swift 6 or later.
+
+```sh
+./scripts/build-app.sh
+open build/Inkey.app
+```
+
+The application lives in this repository's ignored `build/` directory. It runs
+from the menu bar without adding a Dock icon. Closing its window keeps the app
+running. Use the menu bar menu to quit. The bundle is ad hoc signed for local use;
+it is not a notarized distribution build.
+
+## Interaction
+
+| Action | Result |
+| --- | --- |
+| Control + Option + Space | Show or hide Inkey; return focus to the previous app |
+| Type | Create and edit a variable at the insertion marker |
+| Click blank canvas | Place the next text insertion marker |
+| Drag | Draw a freehand stroke |
+| Shift + drag | Draw a straight arrow |
+| Double-click text | Edit existing text |
+| Command + click | Select the topmost object |
+| Command + drag | Move an object |
+| Delete | Delete the selected object; delete characters while editing |
+| Return / Shift + Return | Commit text / insert a newline |
+| Escape | Commit text, deselect an object, or hide the window |
+| Two-finger scroll / pinch | Pan / zoom |
+| Command + 0 | Fit all content |
+| Command + Z / Shift + Command + Z | Undo / redo |
+| Option + 1 through 6 | Choose a preset color |
+| Shift + Command + C | Open the custom color picker |
+| Shift + Command + P | Toggle persistent, floating mode |
+| Control + Command + F | Toggle native full screen |
+| Command + N | Start a new draft, preserving the previous one |
+| Command + O | Open a draft or import an image/PDF |
+| Shift + Command + O | Browse recent local drafts |
+| Command + S | Save an editable `.inkey` file |
+| Shift + Command + S | Save a copy to a new location |
+| Command + E | Export PNG, PDF, or Inkey |
+| Command + comma | Open settings |
+
+Drawing uses the standard macOS click-and-drag interaction. You can also enable
+macOS trackpad dragging in system accessibility settings. It does not capture raw
+finger motion or require private multitouch APIs. Existing text retains native
+text selection while it is being edited; start a stroke outside the text editor.
+
+In settings, choose click placement (default) or pointer placement. Pointer
+placement fixes the location when typing starts. Move the pointer outside the
+canvas to reuse the previous location. You can also record a global shortcut;
+registration failure is reported and the previous binding is restored. Some
+shortcuts intercepted by system gestures may require a different combination.
+
+Normal floating windows hide when focus leaves Inkey. Persistent mode stays above
+other windows, while full screen remains visible until explicitly hidden or left.
+Window geometry is remembered between launches.
+
+## Color
+
+Six carefully chosen presets sit in a small, draggable bottom palette. Hover to
+see their names and shortcuts. Click the final color button for a saturation /
+brightness surface, hue slider, six-digit HEX input, screen eyedropper, and six
+recent custom colors. Use **Replace current preset** to customize the last selected
+preset slot, and restore the default palette in settings.
+
+Color changes affect new content, or selected objects. While editing text, the
+whole variable changes color and keeps its content. Custom colors preview live;
+Escape cancels the preview, and clicking Done or outside the picker accepts it.
+One accepted object recolor creates one undo step. Clicking presets returns focus
+to the canvas or the existing text editor.
+
+The paper background selects a light or dark preset palette to keep new ink
+legible. A draft's paper background and existing colors are stored as actual
+values and remain unchanged when the system appearance changes, including on
+export. New drafts adopt the current system appearance. Custom preset slots are
+saved separately for light and dark paper.
+
+## Files and privacy
+
+Drafts autosave after committed changes and when the window hides or the app
+quits. Text is committed on Return, drawing, file actions, or hiding the window.
+Draft files are stored at:
+
+```text
+~/Library/Application Support/Inkey/Drafts/
+```
+
+The most recently active draft is restored on launch. Open the recent drafts menu
+from the ellipsis or menu bar. Saving writes a portable, editable JSON-based
+`.inkey` file. Autosaves remain local; use Save again to update the external file
+during the current session, or Save As to choose another location. Restarting the
+app restores the local draft; saving it externally then asks for a location again.
+Opening an external draft imports a copy, so it does not replace a matching local
+autosave. Opening the same file repeatedly creates separate local copies.
+
+PNG and PDF export include all content with a paper margin and the saved paper
+background. PNG/PDF exports are flattened. Editable exports preserve individual
+text objects, strokes, arrows, colors, image data, and viewport. Images and all
+pages of an imported PDF become movable background reference objects, rather
+than editable PDF text. PDFs are limited to 100 pages and rendered at a bounded
+resolution. Bitmap exports reject excessive canvas dimensions instead of trying
+to allocate unlimited memory.
+
+No network access is used by the application. There is no telemetry or sync.
+Local builds do not require Accessibility or Input Monitoring permissions for the
+global shortcut. macOS may request screen color sampling permission when you use
+the system eyedropper.
+
+## Development and verification
+
+```sh
+swift build
+swift test
+./scripts/build-app.sh
+build/Inkey.app/Contents/MacOS/Inkey --smoke-test
+```
+
+The tests cover document round trips and invalid files, stroke hit detection,
+text/drawing transitions, separate undo steps, color preview cancellation,
+whole-variable recoloring, viewport transforms, and PNG/PDF output. The smoke test
+starts AppKit and checks exports, recoloring, and undo/redo against a temporary
+draft, then restores the previously loaded draft before exiting. The smoke test
+does not register the global shortcut. Close other Inkey instances before running
+it to keep autosave verification isolated.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the English-only emoji commit convention.
