@@ -1,5 +1,10 @@
 import AppKit
 
+final class InlineTextView: NSTextView {
+    private let textHistory = UndoManager()
+    override var undoManager: UndoManager? { textHistory }
+}
+
 final class CanvasView: NSView, NSTextViewDelegate {
     var draft = Draft() { didSet { needsDisplay = true } }
     var ink = InkColor.light[0]
@@ -52,6 +57,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
+        history.groupsByEvent = false
         wantsLayer = true
         setAccessibilityLabel("Draft canvas")
     }
@@ -74,8 +80,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     func replaceItems(_ items: [InkItem], name: String) {
         let previous = draft.items
+        history.beginUndoGrouping()
         history.registerUndo(withTarget: self) { view in view.replaceItems(previous, name: name) }
         history.setActionName(name)
+        history.endUndoGrouping()
         draft.items = items
         changed()
     }
@@ -241,7 +249,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         editingID = item?.id
         editingColor = item?.color ?? ink
         let origin = screen(point)
-        let text = NSTextView(frame: NSRect(x: origin.x, y: origin.y, width: max(200, bounds.width - origin.x - 16), height: 40 * draft.zoom))
+        let text = InlineTextView(frame: NSRect(x: origin.x, y: origin.y, width: max(200, bounds.width - origin.x - 16), height: 40 * draft.zoom))
         text.delegate = self; text.isRichText = false; text.drawsBackground = false
         text.font = NSFont.monospacedSystemFont(ofSize: (item?.fontSize ?? 20) * draft.zoom, weight: .regular)
         text.textColor = editingColor!.nsColor; text.insertionPointColor = editingColor!.nsColor

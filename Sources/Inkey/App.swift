@@ -98,8 +98,9 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
             showSettings(nil)
         }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, self.window.isKeyWindow, !self.canvas.isDrawing else { return event }
+            guard let self, !self.canvas.isDrawing else { return event }
             if self.palette.popover != nil && event.keyCode == 53 { self.palette.closePicker(accept: false); return nil }
+            guard self.window.isKeyWindow else { return event }
             let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
             if modifiers == [.option], let char = event.charactersIgnoringModifiers, let number = Int(char), (1...6).contains(number) {
                 self.palette.choose(number - 1); return nil

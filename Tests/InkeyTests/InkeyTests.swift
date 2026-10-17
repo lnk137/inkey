@@ -124,6 +124,21 @@ struct CanvasTests {
         #expect(canvas.undoManager?.canUndo == false)
     }
 
+    @Test func separateActionsRemainSeparateUndoStepsWithinOneRunLoop() {
+        let (_, canvas) = makeCanvas()
+        let item = InkItem(kind: .text, points: [InkPoint(.zero)], color: InkColor.light[0], text: "node")
+        canvas.replaceItems([item], name: "Text")
+        canvas.selection = item.id
+        canvas.applyColor(InkColor.light[1])
+        canvas.undo(nil)
+        #expect(canvas.draft.items.count == 1)
+        #expect(canvas.draft.items.first?.color == InkColor.light[0])
+        canvas.undo(nil)
+        #expect(canvas.draft.items.isEmpty)
+        canvas.redo(nil)
+        #expect(canvas.draft.items.count == 1)
+    }
+
     @Test func acceptedColorPreviewIsOneUndoStep() {
         let (_, canvas) = makeCanvas()
         let item = InkItem(kind: .text, points: [InkPoint(.zero)], color: InkColor.light[0], text: "node")
