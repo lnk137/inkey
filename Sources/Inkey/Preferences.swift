@@ -36,6 +36,14 @@ final class UserPreferences {
         get { defaults.object(forKey: "cursorTrail") == nil ? true : defaults.bool(forKey: "cursorTrail") }
         set { defaults.set(newValue, forKey: "cursorTrail") }
     }
+    var toolbarCollapsed: Bool {
+        get { defaults.bool(forKey: "toolbarCollapsed") }
+        set { defaults.set(newValue, forKey: "toolbarCollapsed") }
+    }
+    var toolbarHidden: Bool {
+        get { defaults.bool(forKey: "toolbarHidden") }
+        set { defaults.set(newValue, forKey: "toolbarHidden") }
+    }
     var tool: InkTool {
         get { InkTool(rawValue: defaults.string(forKey: "drawingTool") ?? "") ?? .pen }
         set { defaults.set(newValue.rawValue, forKey: "drawingTool") }

@@ -24,7 +24,7 @@ Solving a problem in your browser? Press **⌃⌥Space**, sketch the idea, and p
 
 - **Type, then draw.** Move the pointer to start another variable. Drag to sketch—even over newly typed text. Double-click a word for precise editing.
 - **Made for a trackpad.** Shift-drag arrows, lines, squares, or ellipses, pinch to zoom, or Option-drag to erase. Single-click the eraser to toggle it; right-click to resize it.
-- **Only what you need.** Editable color presets, a custom color picker, an optional fading caret trail, and floating, pinned, or full-screen windows.
+- **Only what you need.** Editable color presets, a custom color picker, a collapsible, hideable toolbar, an optional crosshair trail, and floating, pinned, or full-screen windows.
 - **Pick up where you left off.** Local autosave, remembered preferences, editable `.inkey` drafts, and PNG/PDF export.
 
 Swift + AppKit. No web view, account, telemetry, or third-party dependencies.
@@ -56,7 +56,7 @@ Inkey lives in your menu bar. The current build is signed locally for developmen
 | **⌥ drag** | Erase temporarily |
 | **⌘E** | Export PNG, PDF, or an editable draft |
 
-The global shortcut is customizable. Text placement, cursor trails, colors, eraser size, and window preferences are remembered. [See all controls →](docs/guide.md)
+The global shortcut is customizable. Text placement, toolbar visibility, colors, eraser size, and window preferences are remembered. [See all controls →](docs/guide.md)
 
 ## Built to stay small
 
@@ -69,3 +69,5 @@ Tests cover text/drawing transitions, input methods, pointer alignment, vector e
 [Contributions](CONTRIBUTING.md) and [thoughtful bug reports](https://github.com/lnk137/inkey/issues) are welcome.
 
 Right-click a color preset to edit or delete it. Add colors in the custom picker (up to six); restore defaults in Settings.
+
+The canvas uses a crosshair; only typing shows an insertion caret, which disappears on mouse movement. Collapse the toolbar with its chevron or hide it with ×. Use ⌥⌘T to collapse/expand and ⇧⌘T to show/hide, or restore it from More.

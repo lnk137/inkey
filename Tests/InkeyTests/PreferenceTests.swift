@@ -4,20 +4,23 @@ import Foundation
 
 @Suite("User preferences")
 struct PreferenceTests {
-    @Test func pointerDefaultsMigrateOnceAndCursorTrailChoicePersists() throws {
+    @Test func pointerDefaultsMigrateOnceAndToolbarChoicesPersist() throws {
         let name = "InkeyTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let preferences = UserPreferences(defaults: defaults)
         preferences.migrateInteractionDefaults()
         #expect(defaults.bool(forKey: "pointerPlacement"))
+        #expect(!preferences.toolbarCollapsed && !preferences.toolbarHidden)
         #expect(preferences.cursorTrail)
         preferences.cursorTrail = false
+        preferences.toolbarCollapsed = true; preferences.toolbarHidden = true
         defaults.set(false, forKey: "pointerPlacement")
         let restored = UserPreferences(defaults: defaults)
         restored.migrateInteractionDefaults()
         #expect(!defaults.bool(forKey: "pointerPlacement"))
         #expect(!restored.cursorTrail)
+        #expect(restored.toolbarCollapsed && restored.toolbarHidden)
     }
     @Test func toolSizeAndWindowModeSurviveNewPreferenceInstance() throws {
         let name = "InkeyTests.\(UUID().uuidString)"

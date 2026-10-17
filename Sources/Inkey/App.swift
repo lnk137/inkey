@@ -177,6 +177,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         more.autoresizingMask = [.minXMargin, .minYMargin]; more.toolTip = "更多"
         content.addSubview(more)
         content.addSubview(palette)
+        palette.onLayoutChange = { [weak self] in self?.layoutPalette(initial: false) }
         layoutPalette(initial: true)
         window.onResize = { [weak self] in self?.layoutPalette(initial: false) }
         canvas.onChange = { [weak self] in self?.saveAutomatically() }
@@ -186,7 +187,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
             guard let self else { return false }
             let canvasPoint = self.canvas.convert(point, from: nil)
             let palettePoint = self.palette.convert(point, from: nil)
-            return canvasPoint.y > 40 && !self.palette.bounds.contains(palettePoint)
+            return canvasPoint.y > 40 && (self.palette.isHidden || !self.palette.bounds.contains(palettePoint))
         }
         canvas.shiftShape = preferences.shiftShape
         palette.onShape = { [weak self] shape in self?.canvas.shiftShape = shape }
@@ -210,7 +211,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let position = UserDefaults.standard.array(forKey: "palettePosition") as? [Double]
             palette.setFrameOrigin(NSPoint(x: position?.first ?? (content.bounds.width - palette.frame.width) / 2, y: position?.last ?? 18))
         }
-        palette.setFrameOrigin(NSPoint(x: min(max(8, palette.frame.minX), content.bounds.width - palette.frame.width - 8), y: min(max(8, palette.frame.minY), content.bounds.height - 90)))
+        palette.setFrameOrigin(NSPoint(x: min(max(8, palette.frame.minX), content.bounds.width - palette.frame.width - 8), y: min(max(8, palette.frame.minY), content.bounds.height - palette.frame.height - 10)))
     }
 
     func buildMenu() {
@@ -238,6 +239,8 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         add("缩小橡皮擦", #selector(smallerEraser(_:)), "[", modifiers: [.command, .option], to: view)
         add("放大橡皮擦", #selector(largerEraser(_:)), "]", modifiers: [.command, .option], to: view)
         add("自定义颜色…", #selector(pickColor(_:)), "c", modifiers: [.command, .shift], to: view)
+        add("折叠／展开工具栏", #selector(toggleToolbarCollapsed(_:)), "t", modifiers: [.command, .option], to: view)
+        add("显示／隐藏工具栏", #selector(toggleToolbarHidden(_:)), "t", modifiers: [.command, .shift], to: view)
         add("置顶常驻", #selector(togglePinned(_:)), "p", modifiers: [.command, .shift], to: view)
         add("进入／退出全屏", #selector(toggleFullScreen(_:)), "f", modifiers: [.command, .control], to: view)
         let help = NSMenu(); add("快捷键与使用说明", #selector(help(_:)), "", to: help)
@@ -473,11 +476,19 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         catch { alert("无法读取草稿", error.localizedDescription) }
     }
 
+    @objc func toggleToolbarCollapsed(_ sender: Any?) {
+        if palette.isHidden { palette.setToolbarHidden(false) }
+        palette.toggleCollapsed()
+    }
+    @objc func toggleToolbarHidden(_ sender: Any?) { palette.setToolbarHidden(!palette.isHidden) }
+
     @objc func showMore(_ sender: NSButton) {
         let menu = NSMenu()
         add("新建草稿", #selector(newDraft(_:)), "n", to: menu)
         add("最近草稿…", #selector(showRecent(_:)), "", to: menu)
         menu.addItem(.separator())
+        add(palette.isCollapsed ? "展开工具栏" : "折叠工具栏", #selector(toggleToolbarCollapsed(_:)), "t", modifiers: [.command, .option], to: menu)
+        add(palette.isHidden ? "显示工具栏" : "隐藏工具栏", #selector(toggleToolbarHidden(_:)), "t", modifiers: [.command, .shift], to: menu)
         let pin = add("置顶常驻", #selector(togglePinned(_:)), "p", modifiers: [.command, .shift], to: menu); pin.state = pinned ? .on : .off
         add("进入／退出全屏", #selector(toggleFullScreen(_:)), "f", modifiers: [.command, .control], to: menu)
         add("适配全部内容", #selector(fit(_:)), "0", to: menu)
@@ -519,11 +530,11 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         placement.addItems(withTitles: ["单击定位", "跟随指针"])
         placement.selectItem(at: UserDefaults.standard.bool(forKey: "pointerPlacement") ? 1 : 0)
         placement.target = self; placement.action = #selector(changePlacement(_:)); content.addSubview(placement)
-        let trailLabel = NSTextField(labelWithString: "光标轨迹")
+        let trailLabel = NSTextField(labelWithString: "十字指针轨迹")
         trailLabel.frame = NSRect(x: 28, y: 151, width: 140, height: 20); content.addSubview(trailLabel)
         let trail = NSSwitch(frame: NSRect(x: 343, y: 145, width: 42, height: 26))
         trail.state = preferences.cursorTrail ? .on : .off
-        trail.target = self; trail.action = #selector(changeCursorTrail(_:)); trail.setAccessibilityLabel("Cursor trail")
+        trail.target = self; trail.action = #selector(changeCursorTrail(_:)); trail.setAccessibilityLabel("Crosshair trail")
         content.addSubview(trail)
         let reset = NSButton(title: "恢复默认色板", target: self, action: #selector(resetColors(_:)))
         reset.bezelStyle = .rounded; reset.frame = NSRect(x: 22, y: 81, width: 160, height: 30); content.addSubview(reset)
@@ -533,12 +544,13 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         settings = panel; NSApp.activate(ignoringOtherApps: true); panel.makeKeyAndOrderFront(nil)
     }
     @objc func changePlacement(_ sender: NSPopUpButton) { UserDefaults.standard.set(sender.indexOfSelectedItem == 1, forKey: "pointerPlacement") }
+
     @objc func changeCursorTrail(_ sender: NSSwitch) { preferences.cursorTrail = sender.state == .on; canvas.cursorTrailEnabled = preferences.cursorTrail }
     @objc func resetColors(_ sender: Any?) { palette.resetPresets() }
     @objc func help(_ sender: Any?) {
-        alert("Inkey", "直接打字，拖动绘画。\n单击当前文字：移动光标\n双击文字／⌘Return：完整编辑，可拖选\nShift＋拖动：当前形状　⇧1—4：切换形状\n⌘＋单击／拖动：选择／移动\n⌥＋拖动：临时擦除　⌥⌘E：切换橡皮\n右键橡皮：调节尺寸　⌥⌘[ / ]：缩小／放大橡皮\nEnter：提交　Shift＋Enter：换行\n⌥1—6：换色　⇧⌘C：调色盘\n双指滚动：平移　捏合：缩放\n⌘0：适配内容\n⇧⌘P：常驻　⌃⌘F：全屏\n⌘O：导入　⌘S：保存　⇧⌘S：另存为\n⌘E：导出\nEsc：结束编辑／取消选择／收起\n偏好自动保存，重启后恢复。")
+        alert("Inkey", "直接打字，拖动绘画。\n单击当前文字：移动光标\n双击文字／⌘Return：完整编辑，可拖选\nShift＋拖动：当前形状　⇧1—4：切换形状\n⌘＋单击／拖动：选择／移动\n⌥＋拖动：临时擦除　⌥⌘E：切换橡皮\n右键橡皮：调节尺寸　⌥⌘[ / ]：缩小／放大橡皮\nEnter：提交　Shift＋Enter：换行\n⌥1—6：换色　⇧⌘C：调色盘\n⌥⌘T：折叠工具栏　⇧⌘T：显示／隐藏\n双指滚动：平移　捏合：缩放\n⌘0：适配内容\n⇧⌘P：常驻　⌃⌘F：全屏\n⌘O：导入　⌘S：保存　⇧⌘S：另存为\n⌘E：导出\nEsc：结束编辑／取消选择／收起\n偏好自动保存，重启后恢复。")
     }
-    @objc func about(_ sender: Any?) { NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Inkey", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.4.0", .credits: NSAttributedString(string: "A quiet place to think.")]) }
+    @objc func about(_ sender: Any?) { NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Inkey", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.4.1", .credits: NSAttributedString(string: "A quiet place to think.")]) }
     @objc func quit(_ sender: Any?) { NSApp.terminate(nil) }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { palette.closePicker(accept: true); canvas.flush(); return .terminateNow }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }

@@ -111,11 +111,11 @@ struct PointerInputTests {
             canvas.isCanvasLocation = { _ in false }
             let target = canvas.convert(NSPoint(x: 400, y: 250), to: nil)
             #expect(!canvas.retargetTypingIfNeeded(helper.key("x", window: window), from: text, at: target))
-            #expect(text.insertionPointColor != .clear)
+            #expect(text.insertionPointColor == .clear)
         }
     }
 
-    @Test func turningOffTrailPreservesTextAndDocument() {
+    @Test func movingPointerHidesCaretWithoutChangingTextOrDocument() {
         withPointerMode {
             let (_, canvas) = helper.makeCanvas()
             let text = setup(canvas)
@@ -124,6 +124,7 @@ struct PointerInputTests {
                 canvas.updatePointerLocation(canvas.convert(NSPoint(x: x, y: 200), to: nil))
             }
             canvas.cursorTrailEnabled = false
+            #expect(!canvas.typingCaretVisible)
             #expect(canvas.draft == snapshot)
             #expect(text.string == "left")
             #expect(canvas.isEditing)

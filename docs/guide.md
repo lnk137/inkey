@@ -70,14 +70,9 @@ the same gesture. Empty space to the right of short lines remains canvas. Return
 or Escape ends editing, while Shift + Return inserts a newline. There are no
 idle timeouts or pointer-hover rules that unexpectedly commit text.
 
-Pointer placement is the default. Moving at least 12 screen points from the last
-typing position previews a blinking caret at the pointer hotspot; the next printable
-key commits the current variable and starts another at that exact position,
-including after pan and zoom. The caret and trail use the same hotspot without
-a right/down offset. Small
-trackpad jitter keeps typing in the same variable. Backspace and arrow keys keep
-correcting the current variable, and precise editing or active input-method
-composition stays at its existing location. Hover alone never commits text.
+The canvas always uses a crosshair pointer, including over editable text and while erasing. Only the active native text editor displays an insertion caret. Moving the mouse hides that caret immediately, even for a small movement or during precise editing; typing or correcting text shows it again. There are no extra anchor markers or pointer carets. An optional translucent trail follows the crosshair hotspot and fades within 0.18 seconds. It stops during typing, drawing, and erasing and never appears in exports. Toggle **Crosshair trail / 十字指针轨迹** in Settings; its preference is remembered.
+
+Pointer placement is the default. Moving at least 12 screen points from the last typing position makes the next printable key commit the current variable and start another at the pointer hotspot, including after pan and zoom. Smaller movements keep typing in the same variable. Backspace and arrow keys keep correcting the current variable; precise editing and active input-method composition keep their original location. Hover alone never commits text.
 
 The native text input client remains active between labels and drawing gestures.
 Chinese input methods can start composition on the first keystroke without
@@ -85,10 +80,7 @@ leaving an extra Latin initial. Deliberate mixed Chinese and English text is pre
 
 Settings also offer click placement. This update enables pointer placement once;
 later manual changes to that preference are preserved. Moving the pointer outside
-the canvas or over the palette keeps the current text location. An optional,
-ink-colored translucent cursor trail fades within 0.18 seconds and runs animation
-only while visible; turn it off using **Cursor trail / 光标轨迹** in settings. It
-does not appear while drawing, erasing, or precisely editing text, or in exports.
+the canvas or over the palette keeps the current text location.
 
 You can also record a global shortcut;
 registration failure is reported and the previous binding is restored. Some
@@ -107,8 +99,7 @@ existing instance forward rather than competing for the global shortcut.
 
 The eraser uses one button next to the colors: single-click to toggle it, and
 right-click to enable it and open a live size preview with a continuous
-**4–120 pt** diameter slider. There is no separate size button. The circular cursor shows
-the actual screen footprint, which remains constant while zooming. Option + drag
+**4–120 pt** diameter slider. There is no separate size button. The size preview shows the erasing footprint; its screen diameter remains constant while zooming. The canvas pointer stays a crosshair. Option + drag
 temporarily erases; Option + Command + E switches the persistent tool. Typing or
 choosing a color returns to the pen automatically.
 
@@ -123,7 +114,7 @@ painting over it, so exports and paper colors remain correct.
 
 Inkey automatically remembers the active pen/eraser tool, eraser diameter, selected
 preset or custom ink, customized presets, recent colors, text placement mode,
-global shortcut, cursor trail, palette position, window size/location, persistent mode, and
+global shortcut, toolbar collapse/visibility, palette position, window size/location, persistent mode, and
 full-screen mode. Ink preferences are stored separately for light and dark paper.
 Transient state such as a text selection, temporary Option erasing, and an open
 popover is not restored. Preferences are saved locally in macOS UserDefaults;
@@ -202,3 +193,7 @@ it to keep autosave verification isolated.
 See [CONTRIBUTING.md](../CONTRIBUTING.md) for the English-only emoji commit convention.
 
 The shape row remembers the selected Shift tool. Shift-drag creates an arrow, straight line, exact square, or ellipse; ordinary dragging remains freehand. Shapes support selection, movement, recoloring, erasing, undo, editable draft storage, and PNG/PDF export. Right-click (or Control-click) the eraser to adjust its 4–120 pt size; single-click toggles erasing.
+
+## Toolbar visibility
+
+Use the chevron to collapse the tool and color rows into a small handle; click it again to expand. The × button hides the entire toolbar. **Option + Command + T** toggles collapse; **Shift + Command + T** toggles visibility. Both actions are also in the View and More menus, so a hidden toolbar can always be restored. Collapse and visibility are remembered separately across launches. Color and shape shortcuts still work while hidden; opening a color or size picker reveals and expands its toolbar anchor.

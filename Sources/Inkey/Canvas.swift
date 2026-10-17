@@ -10,11 +10,13 @@ final class InlineTextView: NSTextView {
 
     override func insertText(_ insertString: Any, replacementRange: NSRange) {
         canvas?.prepareInputSession()
+        canvas?.showTypingCaret()
         super.insertText(insertString, replacementRange: replacementRange)
     }
 
     override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
         canvas?.prepareInputSession()
+        canvas?.showTypingCaret()
         super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
     }
 
@@ -38,14 +40,9 @@ final class InlineTextView: NSTextView {
         return containsText(at: windowPoint) ? super.hitTest(point) : nil
     }
 
-    override func resetCursorRects() {
-        guard allowsMouseSelection, canvas?.eraserEnabled != true, !NSEvent.modifierFlags.contains(.option),
-              let layoutManager, let textContainer else { return }
-        layoutManager.ensureLayout(for: textContainer)
-        layoutManager.enumerateLineFragments(forGlyphRange: layoutManager.glyphRange(for: textContainer)) { _, used, _, _, _ in
-            self.addCursorRect(used.offsetBy(dx: self.textContainerOrigin.x, dy: self.textContainerOrigin.y), cursor: .iBeam)
-        }
-    }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .crosshair) }
+    override func cursorUpdate(with event: NSEvent) { NSCursor.crosshair.set() }
+    override func mouseMoved(with event: NSEvent) { canvas?.updatePointerLocation(event.locationInWindow) }
 
     override func keyDown(with event: NSEvent) {
         if let canvas, !canvas.isEditing {
@@ -58,6 +55,7 @@ final class InlineTextView: NSTextView {
         if [UInt16(51), 117, 123, 124, 125, 126].contains(event.keyCode) {
             canvas?.keepCurrentTextForCorrection()
         } else if canvas?.retargetTypingIfNeeded(event, from: self) == true { return }
+        canvas?.showTypingCaret()
         super.keyDown(with: event)
     }
     func acceptRoutedKey(_ event: NSEvent) { super.keyDown(with: event) }
@@ -92,14 +90,14 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private var pendingPointer: PointerIntent?
     private var pointerPreview: NSPoint?
     private var typingPointerReference: NSPoint?
-    private var caretVisible = true
-    private var caretTimer: Timer?
-    private struct CaretSample { var point: NSPoint; var time: TimeInterval }
-    private var caretTrail: [CaretSample] = []
+    private struct PointerSample { var point: NSPoint; var time: TimeInterval }
+    private var pointerTrail: [PointerSample] = []
     private var trailTimer: Timer?
     var cursorTrailEnabled = true {
-        didSet { if !cursorTrailEnabled { clearCaretTrail() } }
+        didSet { if !cursorTrailEnabled { clearPointerTrail() } }
     }
+    private var lastPointerLocation: NSPoint?
+    private(set) var typingCaretVisible = false
     var isCanvasLocation: ((NSPoint) -> Bool)?
     private var eraseOriginal: [InkItem]?
     private var erasePrevious: InkPoint?
@@ -126,18 +124,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        caretTimer?.invalidate()
-        if window != nil {
-            restoreFocus()
-            caretTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-                guard let self else { return }
-                self.caretVisible.toggle()
-                if self.window?.isKeyWindow == true { self.needsDisplay = true }
-            }
-        }
+        if window != nil { restoreFocus() }
     }
 
-    deinit { caretTimer?.invalidate(); trailTimer?.invalidate(); saveTimer?.invalidate() }
+    deinit { trailTimer?.invalidate(); saveTimer?.invalidate() }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -147,41 +137,55 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     override func mouseMoved(with event: NSEvent) { updatePointerLocation(event.locationInWindow) }
     override func mouseEntered(with event: NSEvent) { updatePointerLocation(event.locationInWindow) }
-    override func mouseExited(with event: NSEvent) { pointerPreview = nil; clearCaretTrail(); updateInsertionPreview() }
+    override func mouseExited(with event: NSEvent) { pointerPreview = nil; clearPointerTrail(); hideTypingCaret() }
 
     func updatePointerLocation(_ windowPoint: NSPoint) {
         let point = convert(windowPoint, from: nil)
         pointerPreview = containsCanvasPoint(point) && (isCanvasLocation?(windowPoint) ?? true) ? point : nil
-        caretVisible = true
-        if cursorTrailEnabled, pointerPreview != nil, pointPlacement, !isDrawing, !eraserEnabled, !isPrecisionEditing,
-           editor == nil || wantsNewTextAtPointer {
+        if lastPointerLocation.map({ hypot(windowPoint.x - $0.x, windowPoint.y - $0.y) > 0.1 }) ?? true {
+            hideTypingCaret()
+        }
+        lastPointerLocation = windowPoint
+        if cursorTrailEnabled, pointerPreview != nil, !isDrawing, !eraserEnabled, !typingCaretVisible {
             let now = ProcessInfo.processInfo.systemUptime
-            caretTrail.removeAll { now - $0.time > 0.18 }
-            if let last = caretTrail.last, hypot(point.x - last.point.x, point.y - last.point.y) > 160 { clearCaretTrail() }
-            if caretTrail.last.map({ hypot(point.x - $0.point.x, point.y - $0.point.y) >= 2 }) ?? true {
-                caretTrail.append(CaretSample(point: point, time: now))
-                if caretTrail.count > 24 { caretTrail.removeFirst() }
+            pointerTrail.removeAll { now - $0.time > 0.18 }
+            if let last = pointerTrail.last, hypot(point.x - last.point.x, point.y - last.point.y) > 160 { clearPointerTrail() }
+            if pointerTrail.last.map({ hypot(point.x - $0.point.x, point.y - $0.point.y) >= 2 }) ?? true {
+                pointerTrail.append(PointerSample(point: point, time: now))
+                if pointerTrail.count > 24 { pointerTrail.removeFirst() }
             }
             if trailTimer == nil {
                 trailTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { [weak self] _ in
                     guard let self else { return }
                     let now = ProcessInfo.processInfo.systemUptime
-                    self.caretTrail.removeAll { now - $0.time > 0.18 }
+                    self.pointerTrail.removeAll { now - $0.time > 0.18 }
                     self.needsDisplay = true
-                    if self.caretTrail.isEmpty { self.clearCaretTrail() }
+                    if self.pointerTrail.isEmpty { self.clearPointerTrail() }
                 }
             }
-        } else { clearCaretTrail() }
+            needsDisplay = true
+        } else { clearPointerTrail() }
+    }
+
+    private func clearPointerTrail() {
+        pointerTrail.removeAll(); trailTimer?.invalidate(); trailTimer = nil; needsDisplay = true
+    }
+
+    func showTypingCaret() {
+        clearPointerTrail()
+        typingCaretVisible = editor != nil
+        if typingCaretVisible { NSCursor.setHiddenUntilMouseMoves(true) }
         updateInsertionPreview()
     }
 
-    private func clearCaretTrail() {
-        caretTrail.removeAll(); trailTimer?.invalidate(); trailTimer = nil; needsDisplay = true
+    private func hideTypingCaret() {
+        typingCaretVisible = false
+        updateInsertionPreview()
     }
 
     private func updateInsertionPreview() {
         if let editor {
-            editor.insertionPointColor = wantsNewTextAtPointer ? .clear : (editingColor ?? ink).nsColor
+            editor.insertionPointColor = typingCaretVisible ? (editingColor ?? ink).nsColor : .clear
             editor.needsDisplay = true
         }
         needsDisplay = true
@@ -190,7 +194,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     func keepCurrentTextForCorrection(at windowPoint: NSPoint? = nil) {
         if let location = windowPoint ?? window?.mouseLocationOutsideOfEventStream { updatePointerLocation(location) }
         typingPointerReference = pointerPreview
-        updateInsertionPreview()
+        showTypingCaret()
     }
 
     @discardableResult
@@ -210,7 +214,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     func setEraserEnabled(_ enabled: Bool) {
-        clearCaretTrail()
+        clearPointerTrail()
+        hideTypingCaret()
         finishPointerGesture()
         if enabled { commitText(); selection = nil }
         eraserEnabled = enabled
@@ -222,8 +227,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     func promoteTextEditing() {
         guard let editor else { return }
         editor.allowsMouseSelection = true
-        clearCaretTrail()
-        updateInsertionPreview()
+        showTypingCaret()
         needsDisplay = true
         window?.invalidateCursorRects(for: editor)
     }
@@ -233,19 +237,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
         if let editor { window?.invalidateCursorRects(for: editor) }
     }
 
-    override func resetCursorRects() {
-        if eraserEnabled || NSEvent.modifierFlags.contains(.option) {
-            let diameter = min(120, max(4, eraserDiameter))
-            let size = NSSize(width: diameter + 6, height: diameter + 6)
-            let image = NSImage(size: size)
-            image.lockFocus()
-            let circle = NSBezierPath(ovalIn: NSRect(x: 3, y: 3, width: diameter, height: diameter))
-            NSColor.white.setStroke(); circle.lineWidth = 3; circle.stroke()
-            NSColor.black.withAlphaComponent(0.75).setStroke(); circle.lineWidth = 1; circle.stroke()
-            image.unlockFocus()
-            addCursorRect(bounds, cursor: NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2)))
-        } else { addCursorRect(bounds, cursor: .crosshair) }
-    }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .crosshair) }
+    override func cursorUpdate(with event: NSEvent) { NSCursor.crosshair.set() }
 
     func restoreFocus() {
         guard window != nil else { return }
@@ -347,30 +340,15 @@ final class CanvasView: NSView, NSTextViewDelegate {
             let border = NSBezierPath(roundedRect: rect, xRadius: 4 / draft.zoom, yRadius: 4 / draft.zoom)
             border.lineWidth = 1 / draft.zoom; border.setLineDash([4 / draft.zoom, 3 / draft.zoom], count: 2, phase: 0); border.stroke()
         }
-        if editor == nil && active == nil && selection == nil && !eraserEnabled && eraseOriginal == nil && (!pointPlacement || pointerPreview == nil) && caretVisible {
-            let p = draft.anchor.point
-            ink.nsColor.withAlphaComponent(0.35).setStroke()
-            let mark = NSBezierPath(); mark.move(to: p); mark.line(to: NSPoint(x: p.x, y: p.y + 22)); mark.lineWidth = 1 / draft.zoom; mark.stroke()
-        }
         context.restoreGState()
-        if cursorTrailEnabled, pointPlacement, !isDrawing, !eraserEnabled, !isPrecisionEditing, selection == nil,
-           pointerPreview != nil, editor == nil || wantsNewTextAtPointer {
+        if cursorTrailEnabled, !typingCaretVisible, !isDrawing, !eraserEnabled {
             let now = ProcessInfo.processInfo.systemUptime
-            for (a, b) in zip(caretTrail, caretTrail.dropFirst()) {
+            for (a, b) in zip(pointerTrail, pointerTrail.dropFirst()) {
                 let remaining = max(0, 1 - (now - a.time) / 0.18)
                 ink.nsColor.withAlphaComponent(0.16 * remaining * remaining).setStroke()
                 let trail = NSBezierPath(); trail.lineWidth = 1.5; trail.lineCapStyle = .round
-                trail.move(to: a.point)
-                trail.line(to: b.point); trail.stroke()
+                trail.move(to: a.point); trail.line(to: b.point); trail.stroke()
             }
-        }
-        if pointPlacement, !isDrawing, !eraserEnabled, selection == nil, caretVisible,
-           let point = pointerPreview, editor == nil || wantsNewTextAtPointer {
-            ink.nsColor.withAlphaComponent(0.75).setStroke()
-            let marker = NSBezierPath()
-            marker.move(to: point)
-            marker.line(to: NSPoint(x: point.x, y: point.y + 24 * draft.zoom))
-            marker.lineWidth = 1; marker.stroke()
         }
         if let editor, editor.allowsMouseSelection {
             NSColor.controlAccentColor.withAlphaComponent(0.25).setStroke()
@@ -432,7 +410,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func mouseDown(with event: NSEvent) {
-        clearCaretTrail()
+        clearPointerTrail()
+        hideTypingCaret()
         onInteraction?()
         let viewPoint = convert(event.locationInWindow, from: nil)
         let p = world(viewPoint)
@@ -476,6 +455,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         let point = editor.convert(windowPoint, from: nil)
         editor.setSelectedRange(NSRange(location: editor.characterIndexForInsertion(at: point), length: 0))
         window?.makeFirstResponder(editor)
+        showTypingCaret()
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -600,6 +580,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         text.setSelectedRange(NSRange(location: text.string.utf16.count, length: 0))
         resizeEditor()
         text.inputContext?.invalidateCharacterCoordinates()
+        showTypingCaret()
         needsDisplay = true
     }
 
@@ -649,6 +630,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         text.resetTextUndo()
         editor = nil; editingID = nil; editingColor = nil
         typingPointerReference = nil
+        typingCaretVisible = false
         restoreFocus()
         if items != draft.items { replaceItems(items, name: "Text") }
         needsDisplay = true

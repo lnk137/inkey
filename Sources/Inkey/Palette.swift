@@ -203,6 +203,10 @@ final class PaletteView: NSView, NSPopoverDelegate {
     var current = InkColor.light[0]
     var slot = 0
     var onShape: ((ShiftShape) -> Void)?
+    var onLayoutChange: (() -> Void)?
+    private(set) var isCollapsed = false
+    private var collapseButton: ToolButton!
+    private var hideButton: ToolButton!
     private var shapeButtons: [ToolButton] = []
     var onColor: ((InkColor) -> Void)?
     var onRestoredColor: ((InkColor) -> Void)?
@@ -267,6 +271,15 @@ final class PaletteView: NSView, NSPopoverDelegate {
             button.setAccessibilityLabel(button.toolTip)
             shapeButtons.append(button); addSubview(button)
         }
+        collapseButton = ToolButton(image: NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "折叠工具栏")!, target: self, action: #selector(toggleCollapsed))
+        hideButton = ToolButton(image: NSImage(systemSymbolName: "xmark", accessibilityDescription: "隐藏工具栏")!, target: self, action: #selector(hideToolbar))
+        for button in [collapseButton!, hideButton!] {
+            button.isBordered = false; button.contentTintColor = .secondaryLabelColor; addSubview(button)
+        }
+        hideButton.toolTip = "隐藏工具栏 · ⇧⌘T；从更多菜单恢复"
+        isCollapsed = preferences.toolbarCollapsed
+        isHidden = preferences.toolbarHidden
+        updateToolbarLayout()
         updateShapeButtons()
         refreshAppearance()
     }
@@ -293,6 +306,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         updateButtons()
     }
     override func draw(_ dirtyRect: NSRect) {
+        guard !isCollapsed else { return }
         NSColor.separatorColor.setFill(); NSRect(x: 20, y: 41, width: 280, height: 1).fill()
         NSColor.tertiaryLabelColor.withAlphaComponent(0.5).setFill()
         NSBezierPath(roundedRect: NSRect(x: 8, y: 16, width: 2, height: 12), xRadius: 1, yRadius: 1).fill()
@@ -303,7 +317,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         let names = ["石墨", "朱红", "琥珀", "苔绿", "湖蓝", "鸢紫"]
         let defaults = dark ? InkColor.dark : InkColor.light
         for (index, button) in buttons.enumerated() {
-            button.isHidden = !colors.indices.contains(index)
+            button.isHidden = isCollapsed || !colors.indices.contains(index)
             guard colors.indices.contains(index) else { continue }
             button.inkColor = colors[index]; button.selected = !eraserEnabled && colors[index] == current
             let name = colors[index] == defaults[index] ? names[index] : colors[index].hex
@@ -332,6 +346,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
     }
     @objc func chosen(_ sender: NSButton) { choose(sender.tag) }
     @objc func togglePicker() {
+        revealForPicker()
         if popover != nil { closePicker(accept: true); return }
         closePicker(accept: true)
         eraserEnabled = false; onEraser?(false)
@@ -360,6 +375,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         toggleEraserSize()
     }
     @objc func toggleEraserSize() {
+        revealForPicker()
         if eraserPopover != nil { closePicker(accept: true); return }
         closePicker(accept: true)
         let controller = EraserPanelController(diameter: eraserDiameter)
@@ -404,6 +420,31 @@ final class PaletteView: NSView, NSPopoverDelegate {
         editingPreset = nil
         self.initialColor = nil; popover = nil; previewController = nil
         updateButtons(); onRestoreFocus?()
+    }
+    @objc func toggleCollapsed() {
+        closePicker(accept: true)
+        isCollapsed.toggle(); preferences.toolbarCollapsed = isCollapsed
+        updateToolbarLayout(); onLayoutChange?(); onRestoreFocus?()
+    }
+    @objc private func hideToolbar() { setToolbarHidden(true) }
+    func setToolbarHidden(_ hidden: Bool) {
+        closePicker(accept: true)
+        isHidden = hidden; preferences.toolbarHidden = hidden
+        onLayoutChange?(); onRestoreFocus?()
+    }
+    private func updateToolbarLayout() {
+        setFrameSize(isCollapsed ? NSSize(width: 76, height: 36) : NSSize(width: Self.preferredWidth, height: 80))
+        for child in subviews { child.isHidden = isCollapsed && child !== collapseButton && child !== hideButton }
+        collapseButton.frame = NSRect(x: isCollapsed ? 6 : 18, y: isCollapsed ? 2 : 43, width: 30, height: 32)
+        hideButton.frame = NSRect(x: isCollapsed ? 40 : 50, y: isCollapsed ? 2 : 43, width: 30, height: 32)
+        collapseButton.image = NSImage(systemSymbolName: isCollapsed ? "chevron.up" : "chevron.down", accessibilityDescription: isCollapsed ? "展开工具栏" : "折叠工具栏")
+        collapseButton.toolTip = isCollapsed ? "展开工具栏 · ⌥⌘T" : "折叠工具栏 · ⌥⌘T"
+        collapseButton.setAccessibilityLabel(collapseButton.toolTip)
+        updateButtons(); needsDisplay = true
+    }
+    private func revealForPicker() {
+        if isHidden { setToolbarHidden(false) }
+        if isCollapsed { toggleCollapsed() }
     }
     func chooseShape(_ shape: ShiftShape) {
         closePicker(accept: true)
