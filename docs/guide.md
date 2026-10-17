@@ -78,6 +78,10 @@ trackpad jitter keeps typing in the same variable. Backspace and arrow keys keep
 correcting the current variable, and precise editing or active input-method
 composition stays at its existing location. Hover alone never commits text.
 
+The native text input client remains active between labels and drawing gestures.
+Chinese input methods can start composition on the first keystroke without
+leaving an extra Latin initial. Deliberate mixed Chinese and English text is preserved.
+
 Settings also offer click placement. This update enables pointer placement once;
 later manual changes to that preference are preserved. Moving the pointer outside
 the canvas or over the palette keeps the current text location. An optional,
