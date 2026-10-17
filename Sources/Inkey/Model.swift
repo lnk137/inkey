@@ -35,7 +35,7 @@ struct InkPoint: Codable, Equatable {
     var point: NSPoint { NSPoint(x: x, y: y) }
 }
 
-enum InkKind: String, Codable { case stroke, arrow, text, image }
+enum InkKind: String, Codable { case stroke, arrow, line, square, ellipse, text, image }
 
 struct InkItem: Codable, Equatable, Identifiable {
     var id = UUID()
@@ -49,6 +49,24 @@ struct InkItem: Codable, Equatable, Identifiable {
     var imageWidth: Double = 0
     var imageHeight: Double = 0
 
+    var outline: [InkPoint] {
+        guard let a = points.first, let b = points.last else { return [] }
+        switch kind {
+        case .line: return [a, b]
+        case .square:
+            let side = max(abs(b.x - a.x), abs(b.y - a.y))
+            let x = a.x + (b.x < a.x ? -side : side), y = a.y + (b.y < a.y ? -side : side)
+            return [a, InkPoint(NSPoint(x: x, y: a.y)), InkPoint(NSPoint(x: x, y: y)), InkPoint(NSPoint(x: a.x, y: y)), a]
+        case .ellipse:
+            let rx = abs(b.x - a.x) / 2, ry = abs(b.y - a.y) / 2
+            return (0...180).map { index in
+                let t = Double(index) * .pi / 90
+                return InkPoint(NSPoint(x: (a.x + b.x) / 2 + rx * cos(t), y: (a.y + b.y) / 2 + ry * sin(t)))
+            }
+        default: return points
+        }
+    }
+
     var bounds: NSRect {
         guard let first = points.first?.point else { return .zero }
         if kind == .text {
@@ -56,7 +74,7 @@ struct InkItem: Codable, Equatable, Identifiable {
             return NSRect(origin: first, size: NSSize(width: max(12, size.width), height: max(fontSize * 1.3, size.height)))
         }
         if kind == .image { return NSRect(x: first.x, y: first.y, width: imageWidth, height: imageHeight) }
-        let xs = points.map(\.x), ys = points.map(\.y)
+        let xs = outline.map(\.x), ys = outline.map(\.y)
         return NSRect(x: xs.min()!, y: ys.min()!, width: xs.max()! - xs.min()!, height: ys.max()! - ys.min()!).insetBy(dx: -lineWidth / 2, dy: -lineWidth / 2)
     }
 
@@ -67,7 +85,7 @@ struct InkItem: Codable, Equatable, Identifiable {
     func hit(_ point: NSPoint, tolerance: CGFloat) -> Bool {
         guard bounds.insetBy(dx: -tolerance, dy: -tolerance).contains(point) else { return false }
         if kind == .text || kind == .image { return true }
-        var vertices = points.map(\.point)
+        var vertices = outline.map(\.point)
         if kind == .arrow, vertices.count > 1 { vertices = [vertices[0], vertices.last!] }
         if vertices.count == 1 { return hypot(point.x - vertices[0].x, point.y - vertices[0].y) <= tolerance }
         for (a, b) in zip(vertices, vertices.dropFirst()) {

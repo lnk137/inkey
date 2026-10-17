@@ -28,7 +28,8 @@ it is not a notarized distribution build.
 | Move pointer, then type | Create a variable at the pointer, without clicking |
 | Click blank canvas | Place the next text insertion marker |
 | Drag | Draw, including a drag that starts on newly typed text |
-| Shift + drag | Draw a straight arrow |
+| Shift + 1 through 4 | Choose Shift tool: arrow, line, square, ellipse |
+| Shift + drag | Draw the selected shape (arrow by default) |
 | Click current text | Position the text caret without selecting by drag |
 | Double-click text / Command + Return | Enter precise text editing with native drag selection |
 | Command + click | Select the topmost object |
@@ -105,7 +106,7 @@ existing instance forward rather than competing for the global shortcut.
 ## Eraser
 
 The eraser uses one button next to the colors: single-click to toggle it, and
-double-click to enable it and open a live size preview with a continuous
+right-click to enable it and open a live size preview with a continuous
 **4–120 pt** diameter slider. There is no separate size button. The circular cursor shows
 the actual screen footprint, which remains constant while zooming. Option + drag
 temporarily erases; Option + Command + E switches the persistent tool. Typing or
@@ -130,11 +131,11 @@ there is no Apply button. Invalid stored values fall back to safe defaults.
 
 ## Color
 
-Six carefully chosen presets sit in a small, draggable bottom palette. Hover to
+Up to six editable presets sit in a small, draggable bottom palette. Hover to
 see their names and shortcuts. Click the final color button for a saturation /
 brightness surface, hue slider, six-digit HEX input, screen eyedropper, and six
 recent custom colors. Use **Replace current preset** to customize the last selected
-preset slot, and restore the default palette in settings.
+preset slot. Right-click any preset to edit or delete it; accepting the picker saves an edit, and Escape cancels it. Use **Add** in the picker to add a preset (up to six). All presets may be deleted without losing the current ink color. Restore the default palette in settings.
 
 Color changes affect new content, or selected objects. While editing text, the
 whole variable changes color and keeps its content. Custom colors preview live;
@@ -199,3 +200,5 @@ does not register the global shortcut. Close other Inkey instances before runnin
 it to keep autosave verification isolated.
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md) for the English-only emoji commit convention.
+
+The shape row remembers the selected Shift tool. Shift-drag creates an arrow, straight line, exact square, or ellipse; ordinary dragging remains freehand. Shapes support selection, movement, recoloring, erasing, undo, editable draft storage, and PNG/PDF export. Right-click (or Control-click) the eraser to adjust its 4–120 pt size; single-click toggles erasing.

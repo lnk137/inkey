@@ -64,7 +64,7 @@ final class ShortcutRecorder: NSButton {
 final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var window: InkeyWindow!
     let canvas = CanvasView(frame: .zero)
-    let palette = PaletteView(frame: NSRect(x: 0, y: 0, width: PaletteView.preferredWidth, height: 44))
+    let palette = PaletteView(frame: NSRect(x: 0, y: 0, width: PaletteView.preferredWidth, height: 80))
     let preferences = UserPreferences()
     let store = DraftStore()
     let hotkey = HotKey()
@@ -117,6 +117,10 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if self.palette.hasPopover && event.keyCode == 53 { self.palette.closePicker(accept: false); return nil }
             guard self.window.isKeyWindow else { return event }
             let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+            if !self.palette.hasPopover, let shape = ShiftShape.shortcut(event),
+               (self.window.firstResponder as? NSTextView)?.hasMarkedText() != true {
+                self.palette.chooseShape(shape); return nil
+            }
             if modifiers == [.option], let char = event.charactersIgnoringModifiers, let number = Int(char), (1...6).contains(number) {
                 self.palette.choose(number - 1); return nil
             }
@@ -184,6 +188,8 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let palettePoint = self.palette.convert(point, from: nil)
             return canvasPoint.y > 40 && !self.palette.bounds.contains(palettePoint)
         }
+        canvas.shiftShape = preferences.shiftShape
+        palette.onShape = { [weak self] shape in self?.canvas.shiftShape = shape }
         palette.onColor = { [weak self] color in self?.canvas.applyColor(color) }
         palette.onRestoredColor = { [weak self] color in self?.canvas.ink = color }
         palette.onBeginPreview = { [weak self] in self?.canvas.beginColorPreview() }
@@ -530,9 +536,9 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func changeCursorTrail(_ sender: NSSwitch) { preferences.cursorTrail = sender.state == .on; canvas.cursorTrailEnabled = preferences.cursorTrail }
     @objc func resetColors(_ sender: Any?) { palette.resetPresets() }
     @objc func help(_ sender: Any?) {
-        alert("Inkey", "直接打字，拖动绘画。\n单击当前文字：移动光标\n双击文字／⌘Return：完整编辑，可拖选\nShift＋拖动：箭头\n⌘＋单击／拖动：选择／移动\n⌥＋拖动：临时擦除　⌥⌘E：切换橡皮\n⌥⌘[ / ]：缩小／放大橡皮\nEnter：提交　Shift＋Enter：换行\n⌥1—6：换色　⇧⌘C：调色盘\n双指滚动：平移　捏合：缩放\n⌘0：适配内容\n⇧⌘P：常驻　⌃⌘F：全屏\n⌘O：导入　⌘S：保存　⇧⌘S：另存为\n⌘E：导出\nEsc：结束编辑／取消选择／收起\n偏好自动保存，重启后恢复。")
+        alert("Inkey", "直接打字，拖动绘画。\n单击当前文字：移动光标\n双击文字／⌘Return：完整编辑，可拖选\nShift＋拖动：当前形状　⇧1—4：切换形状\n⌘＋单击／拖动：选择／移动\n⌥＋拖动：临时擦除　⌥⌘E：切换橡皮\n右键橡皮：调节尺寸　⌥⌘[ / ]：缩小／放大橡皮\nEnter：提交　Shift＋Enter：换行\n⌥1—6：换色　⇧⌘C：调色盘\n双指滚动：平移　捏合：缩放\n⌘0：适配内容\n⇧⌘P：常驻　⌃⌘F：全屏\n⌘O：导入　⌘S：保存　⇧⌘S：另存为\n⌘E：导出\nEsc：结束编辑／取消选择／收起\n偏好自动保存，重启后恢复。")
     }
-    @objc func about(_ sender: Any?) { NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Inkey", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.2", .credits: NSAttributedString(string: "A quiet place to think.")]) }
+    @objc func about(_ sender: Any?) { NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Inkey", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.4.0", .credits: NSAttributedString(string: "A quiet place to think.")]) }
     @objc func quit(_ sender: Any?) { NSApp.terminate(nil) }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { palette.closePicker(accept: true); canvas.flush(); return .terminateNow }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }

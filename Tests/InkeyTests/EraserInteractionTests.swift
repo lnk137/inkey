@@ -75,7 +75,7 @@ struct EraserInteractionTests {
         defer { defaults.removePersistentDomain(forName: name) }
         let preferences = UserPreferences(defaults: defaults)
         preferences.saveInk(SavedInk(color: InkColor("586E75"), slot: 2, isPreset: false), dark: false)
-        let palette = PaletteView(frame: NSRect(x: 0, y: 0, width: 350, height: 44), preferences: preferences)
+        let palette = PaletteView(frame: NSRect(x: 0, y: 0, width: 350, height: 80), preferences: preferences)
         palette.paperIsDark = false; palette.refreshAppearance()
         #expect(palette.current == InkColor("586E75"))
         palette.choose(4)
@@ -85,9 +85,9 @@ struct EraserInteractionTests {
         #expect(recreated.slot == 4)
     }
 
-    @Test func singleEraserButtonTogglesAndDoubleClickOpensSizing() throws {
+    @Test func singleEraserButtonTogglesAndRightClickOpensSizing() throws {
         let (window, canvas) = helper.makeCanvas()
-        let palette = PaletteView(frame: NSRect(x: 20, y: 20, width: PaletteView.preferredWidth, height: 44))
+        let palette = PaletteView(frame: NSRect(x: 20, y: 20, width: PaletteView.preferredWidth, height: 80))
         canvas.addSubview(palette)
         window.orderFront(nil)
         defer { palette.closePicker(accept: true); window.orderOut(nil) }
@@ -95,8 +95,8 @@ struct EraserInteractionTests {
         button.performClick(nil)
         #expect(palette.eraserEnabled)
         #expect(!palette.hasPopover)
-        let event = NSEvent.mouseEvent(with: .leftMouseDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 2, pressure: 1)!
-        button.mouseDown(with: event)
+        let event = NSEvent.mouseEvent(with: .rightMouseDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1)!
+        button.rightMouseDown(with: event)
         #expect(palette.eraserEnabled)
         #expect(palette.eraserPopover != nil)
         button.performClick(nil)

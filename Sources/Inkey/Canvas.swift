@@ -67,6 +67,7 @@ final class InlineTextView: NSTextView {
 final class CanvasView: NSView, NSTextViewDelegate {
     var draft = Draft() { didSet { needsDisplay = true } }
     var ink = InkColor.light[0]
+    var shiftShape: ShiftShape = .arrow
     var selection: UUID? { didSet { needsDisplay = true } }
     var onChange: (() -> Void)?
     var onEscape: (() -> Void)?
@@ -85,7 +86,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private struct PointerIntent {
         var start: NSPoint
         var viewStart: NSPoint
-        var arrow: Bool
+        var shape: InkKind
         var textClick: Bool
     }
     private var pendingPointer: PointerIntent?
@@ -407,6 +408,15 @@ final class CanvasView: NSView, NSTextViewDelegate {
             head.move(to: NSPoint(x: end.x - length * cos(angle - 0.48), y: end.y - length * sin(angle - 0.48)))
             head.line(to: end); head.line(to: NSPoint(x: end.x - length * cos(angle + 0.48), y: end.y - length * sin(angle + 0.48)))
             head.lineWidth = item.lineWidth; head.lineCapStyle = .round; head.lineJoinStyle = .round; head.stroke()
+        } else if item.kind == .ellipse, let end = points.last {
+            let oval = NSBezierPath(ovalIn: NSRect(x: min(first.x, end.x), y: min(first.y, end.y), width: abs(end.x - first.x), height: abs(end.y - first.y)))
+            oval.lineWidth = item.lineWidth; oval.stroke()
+        } else if [.line, .square].contains(item.kind) {
+            let vertices = item.outline.map(\.point)
+            path.removeAllPoints()
+            if let start = vertices.first { path.move(to: start) }
+            for point in vertices.dropFirst() { path.line(to: point) }
+            path.stroke()
         } else if points.count < 3 {
             if let end = points.last { path.line(to: end) }; path.stroke()
         } else {
@@ -445,7 +455,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 promoteTextEditing(); positionTextCaret(at: event.locationInWindow)
                 editor.selectWord(nil)
             } else {
-                pendingPointer = PointerIntent(start: p, viewStart: viewPoint, arrow: false, textClick: true)
+                pendingPointer = PointerIntent(start: p, viewStart: viewPoint, shape: .stroke, textClick: true)
             }
             return
         }
@@ -457,7 +467,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             return
         }
         selection = nil
-        pendingPointer = PointerIntent(start: p, viewStart: viewPoint, arrow: event.modifierFlags.contains(.shift), textClick: false)
+        pendingPointer = PointerIntent(start: p, viewStart: viewPoint, shape: event.modifierFlags.contains(.shift) ? shiftShape.kind : .stroke, textClick: false)
         needsDisplay = true
     }
 
@@ -485,11 +495,11 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 guard hypot(current.x - pending.viewStart.x, current.y - pending.viewStart.y) >= 3 else { return }
                 commitText(); restoreFocus()
                 draft.anchor = InkPoint(pending.start)
-                active = InkItem(kind: pending.arrow ? .arrow : .stroke, points: [InkPoint(pending.start)], color: ink)
+                active = InkItem(kind: pending.shape, points: [InkPoint(pending.start)], color: ink)
                 pendingPointer = nil
             }
             guard var drawing = active else { return }
-            if drawing.kind == .arrow { drawing.points = [drawing.points[0], InkPoint(p)] }
+            if drawing.kind != .stroke { drawing.points = [drawing.points[0], InkPoint(p)] }
             else if let last = drawing.points.last, hypot(p.x - last.x, p.y - last.y) * draft.zoom > 0.7 { drawing.points.append(InkPoint(p)) }
             active = drawing
         }

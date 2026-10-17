@@ -1,10 +1,11 @@
 import AppKit
 
 final class ToolButton: NSButton {
-    var onDoubleClick: (() -> Void)?
+    var onRightClick: (() -> Void)?
     override var acceptsFirstResponder: Bool { false }
+    override func rightMouseDown(with event: NSEvent) { onRightClick?() }
     override func mouseDown(with event: NSEvent) {
-        if event.clickCount >= 2, let onDoubleClick { onDoubleClick(); return }
+        if event.modifierFlags.contains(.control), let onRightClick { onRightClick(); return }
         super.mouseDown(with: event)
     }
     override func draw(_ dirtyRect: NSRect) {

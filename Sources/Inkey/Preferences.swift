@@ -1,4 +1,15 @@
-import Foundation
+import AppKit
+
+enum ShiftShape: String, CaseIterable {
+    case arrow, line, square, ellipse
+    var kind: InkKind { InkKind(rawValue: rawValue)! }
+    var symbol: String { ["arrow": "arrow.up.right", "line": "line.diagonal", "square": "square", "ellipse": "oval"][rawValue]! }
+    var label: String { ["arrow": "箭头", "line": "直线", "square": "正方形", "ellipse": "椭圆"][rawValue]! }
+    static func shortcut(_ event: NSEvent) -> ShiftShape? {
+        guard event.modifierFlags.intersection([.command, .option, .control, .shift]) == .shift else { return nil }
+        return [UInt16(18): .arrow, 19: .line, 20: .square, 21: .ellipse][event.keyCode]
+    }
+}
 
 enum InkTool: String { case pen, eraser }
 
@@ -16,6 +27,10 @@ final class UserPreferences {
             defaults.set(true, forKey: "pointerPlacement")
             defaults.set(1, forKey: "pointerInteractionVersion")
         }
+    }
+    var shiftShape: ShiftShape {
+        get { ShiftShape(rawValue: defaults.string(forKey: "shiftShape") ?? "") ?? .arrow }
+        set { defaults.set(newValue.rawValue, forKey: "shiftShape") }
     }
     var cursorTrail: Bool {
         get { defaults.object(forKey: "cursorTrail") == nil ? true : defaults.bool(forKey: "cursorTrail") }
