@@ -1,5 +1,21 @@
 import AppKit
 
+final class HueSliderCell: NSSliderCell {
+    override func drawBar(inside rect: NSRect, flipped: Bool) {
+        let track = NSRect(x: rect.minX, y: rect.midY - 3, width: rect.width, height: 6)
+        let colors = (0...12).map { NSColor(hue: Double($0) / 12, saturation: 0.85, brightness: 0.95, alpha: 1) }
+        NSGradient(colors: colors)?.draw(in: NSBezierPath(roundedRect: track, xRadius: 3, yRadius: 3), angle: 0)
+    }
+    override func drawKnob(_ knobRect: NSRect) {
+        let rect = NSRect(x: knobRect.midX - 7, y: knobRect.midY - 7, width: 14, height: 14)
+        NSColor.white.setFill(); NSBezierPath(ovalIn: rect).fill()
+        NSColor.black.withAlphaComponent(0.2).setStroke()
+        let border = NSBezierPath(ovalIn: rect); border.lineWidth = 1; border.stroke()
+        NSColor(hue: doubleValue, saturation: 0.85, brightness: 0.95, alpha: 1).setFill()
+        NSBezierPath(ovalIn: rect.insetBy(dx: 3, dy: 3)).fill()
+    }
+}
+
 final class SwatchButton: NSButton {
     var inkColor = InkColor("303735") { didSet { needsDisplay = true } }
     var selected = false { didSet { needsDisplay = true } }
@@ -41,6 +57,7 @@ final class ColorSquare: NSView {
     var brightness: CGFloat = 0.7
     var onChange: ((NSColor) -> Void)?
     override var isFlipped: Bool { true }
+    override var acceptsFirstResponder: Bool { true }
     override func draw(_ dirtyRect: NSRect) {
         NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6).addClip()
         NSGradient(starting: .white, ending: NSColor(hue: hue, saturation: 1, brightness: 1, alpha: 1))?.draw(in: bounds, angle: 0)
@@ -50,11 +67,23 @@ final class ColorSquare: NSView {
         let outer = NSBezierPath(ovalIn: NSRect(x: p.x - 6, y: p.y - 6, width: 12, height: 12)); outer.lineWidth = 3; outer.stroke()
         NSColor.white.setStroke(); outer.lineWidth = 1.8; outer.stroke()
     }
-    override func mouseDown(with event: NSEvent) { update(event) }
+    override func mouseDown(with event: NSEvent) { window?.makeFirstResponder(self); update(event) }
     override func mouseDragged(with event: NSEvent) { update(event) }
     private func update(_ event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
         saturation = min(1, max(0, p.x / bounds.width)); brightness = min(1, max(0, 1 - p.y / bounds.height))
+        needsDisplay = true
+        onChange?(NSColor(hue: hue, saturation: saturation, brightness: brightness, alpha: 1))
+    }
+    override func keyDown(with event: NSEvent) {
+        let step: CGFloat = event.modifierFlags.contains(.shift) ? 0.1 : 0.01
+        switch event.keyCode {
+        case 123: saturation = max(0, saturation - step)
+        case 124: saturation = min(1, saturation + step)
+        case 125: brightness = max(0, brightness - step)
+        case 126: brightness = min(1, brightness + step)
+        default: super.keyDown(with: event); return
+        }
         needsDisplay = true
         onChange?(NSColor(hue: hue, saturation: saturation, brightness: brightness, alpha: 1))
     }
@@ -79,9 +108,14 @@ final class ColorPanelController: NSViewController, NSTextFieldDelegate {
     override func loadView() {
         view = NSView(frame: NSRect(x: 0, y: 0, width: 264, height: 304))
         square.frame = NSRect(x: 16, y: 140, width: 232, height: 148)
+        square.setAccessibilityElement(true)
+        square.setAccessibilityRole(.slider)
+        square.setAccessibilityLabel("Color surface: left and right adjust saturation; up and down adjust brightness")
         view.addSubview(square)
         square.onChange = { [weak self] color in self?.update(InkColor(color), syncSquare: false) }
         hueSlider.frame = NSRect(x: 14, y: 108, width: 236, height: 20)
+        hueSlider.cell = HueSliderCell()
+        hueSlider.minValue = 0; hueSlider.maxValue = 1
         hueSlider.target = self; hueSlider.action = #selector(hueChanged)
         hueSlider.isContinuous = true; hueSlider.toolTip = "Hue"; hueSlider.setAccessibilityLabel("Hue")
         view.addSubview(hueSlider)
@@ -121,8 +155,12 @@ final class ColorPanelController: NSViewController, NSTextFieldDelegate {
         update(InkColor(NSColor(hue: square.hue, saturation: square.saturation, brightness: square.brightness, alpha: 1)), syncSquare: false)
     }
     @objc func hexChanged() {
-        guard let value = InkColor.parse(hexField.stringValue) else { NSSound.beep(); hexField.stringValue = color.hex; return }
+        _ = acceptHex()
+    }
+    @discardableResult func acceptHex() -> Bool {
+        guard let value = InkColor.parse(hexField.stringValue) else { NSSound.beep(); hexField.stringValue = color.hex; return false }
         update(value, syncSquare: true)
+        return true
     }
     func controlTextDidChange(_ obj: Notification) {
         if let value = InkColor.parse(hexField.stringValue) { update(value, syncSquare: true) }
@@ -135,7 +173,7 @@ final class ColorPanelController: NSViewController, NSTextFieldDelegate {
     }
     @objc func recentClicked(_ sender: NSButton) { update(recent[sender.tag], syncSquare: true) }
     @objc func replacePreset() { onReplace?(color); onClose?(true) }
-    @objc func done() { hexChanged(); onClose?(true) }
+    @objc func done() { if acceptHex() { onClose?(true) } }
     override func cancelOperation(_ sender: Any?) { onClose?(false) }
 }
 
@@ -147,6 +185,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
     var onBeginPreview: (() -> Void)?
     var onEndPreview: ((Bool, InkColor) -> Void)?
     var onRestoreFocus: (() -> Void)?
+    var paperIsDark: Bool?
     var popover: NSPopover?
     private var buttons: [SwatchButton] = []
     private var custom: SwatchButton!
@@ -182,7 +221,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
     func refreshAppearance() {
         let newDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let previous = colors
-        dark = newDark
+        dark = paperIsDark ?? newDark
         let key = dark ? "darkPresets" : "lightPresets"
         let saved = UserDefaults.standard.stringArray(forKey: key)
         colors = saved?.count == 6 ? saved!.map(InkColor.init) : (dark ? InkColor.dark : InkColor.light)
@@ -199,8 +238,12 @@ final class PaletteView: NSView, NSPopoverDelegate {
         NSColor.separatorColor.setFill(); NSRect(x: 228, y: 13, width: 1, height: 18).fill()
     }
     func updateButtons() {
+        let names = ["石墨", "朱红", "琥珀", "苔绿", "湖蓝", "鸢紫"]
+        let defaults = dark ? InkColor.dark : InkColor.light
         for (index, button) in buttons.enumerated() {
             button.inkColor = colors[index]; button.selected = colors[index] == current
+            let name = colors[index] == defaults[index] ? names[index] : colors[index].hex
+            button.toolTip = "\(name) · ⌥\(index + 1)"
             button.setAccessibilityLabel("Preset \(index + 1), \(colors[index].hex)\(button.selected ? ", selected" : "")")
         }
         custom?.inkColor = current
