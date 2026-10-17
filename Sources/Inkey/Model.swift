@@ -70,8 +70,7 @@ struct InkItem: Codable, Equatable, Identifiable {
     var bounds: NSRect {
         guard let first = points.first?.point else { return .zero }
         if kind == .text {
-            let size = (text as NSString).size(withAttributes: [.font: NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)])
-            return NSRect(origin: first, size: NSSize(width: max(12, size.width), height: max(fontSize * 1.3, size.height)))
+            return NSRect(origin: first, size: InkTypography.size(text, fontSize: fontSize))
         }
         if kind == .image { return NSRect(x: first.x, y: first.y, width: imageWidth, height: imageHeight) }
         let xs = outline.map(\.x), ys = outline.map(\.y)

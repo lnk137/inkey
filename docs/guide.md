@@ -76,7 +76,7 @@ Pointer placement is the default. Moving at least 12 screen points from the last
 
 The native text input client remains active between labels and drawing gestures.
 Chinese input methods can start composition on the first keystroke without
-leaving an extra Latin initial. Deliberate mixed Chinese and English text is preserved.
+leaving an extra Latin initial. Deliberate mixed Chinese and English text is preserved. Marked Pinyin, CJK characters, and committed text share a fixed line grid and baseline, including during export, so switching composition stages does not move the text up or down.
 
 Settings also offer click placement. This update enables pointer placement once;
 later manual changes to that preference are preserved. Moving the pointer outside
