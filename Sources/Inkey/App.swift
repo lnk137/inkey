@@ -64,7 +64,8 @@ final class ShortcutRecorder: NSButton {
 final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var window: InkeyWindow!
     let canvas = CanvasView(frame: .zero)
-    let palette = PaletteView(frame: NSRect(x: 0, y: 0, width: 280, height: 44))
+    let palette = PaletteView(frame: NSRect(x: 0, y: 0, width: PaletteView.preferredWidth, height: 44))
+    let preferences = UserPreferences()
     let store = DraftStore()
     let hotkey = HotKey()
     var statusItem: NSStatusItem!
@@ -99,7 +100,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, !self.canvas.isDrawing else { return event }
-            if self.palette.popover != nil && event.keyCode == 53 { self.palette.closePicker(accept: false); return nil }
+            if self.palette.hasPopover && event.keyCode == 53 { self.palette.closePicker(accept: false); return nil }
             guard self.window.isKeyWindow else { return event }
             let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
             if modifiers == [.option], let char = event.charactersIgnoringModifiers, let number = Int(char), (1...6).contains(number) {
@@ -111,8 +112,16 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let restored { canvas.install(restored) }
         else { canvas.draft.background = isDark ? InkColor("202322") : InkColor("FAF9F6") }
         syncPaletteToPaper()
-        if ProcessInfo.processInfo.arguments.contains("--ui-test") { togglePinned(nil) }
+        canvas.eraserDiameter = preferences.eraserDiameter
+        palette.eraserDiameter = preferences.eraserDiameter
+        canvas.setEraserEnabled(preferences.tool == .eraser)
+        let isSmoke = ProcessInfo.processInfo.arguments.contains("--smoke-test")
+        let isUITest = ProcessInfo.processInfo.arguments.contains("--ui-test")
+        setPinned(preferences.pinned || isUITest, remember: false)
         showWindow()
+        if preferences.fullScreen && !isSmoke && !isUITest {
+            DispatchQueue.main.async { self.window.toggleFullScreen(nil) }
+        }
         if ProcessInfo.processInfo.arguments.contains("--smoke-test") {
             DispatchQueue.main.async { self.runSmokeTest() }
         }
@@ -133,6 +142,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.backgroundColor = .windowBackgroundColor; window.minSize = NSSize(width: 420, height: 320)
         window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         window.isReleasedWhenClosed = false; window.delegate = self
+        window.acceptsMouseMovedEvents = true
         window.center(); window.setFrameAutosaveName("InkeyWindow")
         guard let content = window.contentView else { return }
         canvas.frame = content.bounds; canvas.autoresizingMask = [.width, .height]
@@ -154,9 +164,16 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         canvas.onEscape = { [weak self] in self?.hideWindow() }
         canvas.onInteraction = { [weak self] in self?.palette.closePicker(accept: true) }
         palette.onColor = { [weak self] color in self?.canvas.applyColor(color) }
+        palette.onRestoredColor = { [weak self] color in self?.canvas.ink = color }
         palette.onBeginPreview = { [weak self] in self?.canvas.beginColorPreview() }
         palette.onEndPreview = { [weak self] accept, original in self?.canvas.finishColorPreview(accept: accept, original: original) }
         palette.onRestoreFocus = { [weak self] in self?.canvas.restoreFocus() }
+        palette.onEraser = { [weak self] enabled in self?.canvas.setEraserEnabled(enabled) }
+        palette.onEraserSize = { [weak self] size in self?.setEraserSize(size) }
+        canvas.onToolChange = { [weak self] enabled in
+            self?.palette.eraserEnabled = enabled
+            self?.preferences.tool = enabled ? .eraser : .pen
+        }
         canvas.ink = palette.current
     }
 
@@ -164,9 +181,9 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard let content = window?.contentView else { return }
         if initial {
             let position = UserDefaults.standard.array(forKey: "palettePosition") as? [Double]
-            palette.setFrameOrigin(NSPoint(x: position?.first ?? (content.bounds.width - 280) / 2, y: position?.last ?? 18))
+            palette.setFrameOrigin(NSPoint(x: position?.first ?? (content.bounds.width - palette.frame.width) / 2, y: position?.last ?? 18))
         }
-        palette.setFrameOrigin(NSPoint(x: min(max(8, palette.frame.minX), content.bounds.width - 288), y: min(max(8, palette.frame.minY), content.bounds.height - 90)))
+        palette.setFrameOrigin(NSPoint(x: min(max(8, palette.frame.minX), content.bounds.width - palette.frame.width - 8), y: min(max(8, palette.frame.minY), content.bounds.height - 90)))
     }
 
     func buildMenu() {
@@ -189,6 +206,10 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         add("粘贴", #selector(NSText.paste(_:)), "v", to: edit, target: nil)
         add("全选", #selector(NSText.selectAll(_:)), "a", to: edit, target: nil)
         let view = NSMenu(); add("适配全部内容", #selector(fit(_:)), "0", to: view)
+        add("完整编辑文字", #selector(editTextPrecisely(_:)), "\r", to: view)
+        add("橡皮擦", #selector(toggleEraser(_:)), "e", modifiers: [.command, .option], to: view)
+        add("缩小橡皮擦", #selector(smallerEraser(_:)), "[", modifiers: [.command, .option], to: view)
+        add("放大橡皮擦", #selector(largerEraser(_:)), "]", modifiers: [.command, .option], to: view)
         add("自定义颜色…", #selector(pickColor(_:)), "c", modifiers: [.command, .shift], to: view)
         add("置顶常驻", #selector(togglePinned(_:)), "p", modifiers: [.command, .shift], to: view)
         add("进入／退出全屏", #selector(toggleFullScreen(_:)), "f", modifiers: [.command, .control], to: view)
@@ -245,18 +266,33 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func windowShouldClose(_ sender: NSWindow) -> Bool { hideWindow(); return false }
     func windowDidResignKey(_ notification: Notification) {
         DispatchQueue.main.async { [weak self] in
-            guard let self, !self.pinned, !self.suppressAutoHide, self.palette.popover == nil,
+            guard let self, !self.pinned, !self.suppressAutoHide, !self.palette.hasPopover,
                   self.window.attachedSheet == nil, !self.window.isKeyWindow,
                   self.settings?.isVisible != true, !self.fullScreen else { return }
             self.canvas.flush(); self.window.orderOut(nil)
         }
     }
     func windowWillEnterFullScreen(_ notification: Notification) { fullScreen = true; window.level = .normal }
-    func windowDidExitFullScreen(_ notification: Notification) { fullScreen = false; window.level = pinned ? .floating : .normal }
+    func windowDidEnterFullScreen(_ notification: Notification) { preferences.fullScreen = true }
+    func windowDidExitFullScreen(_ notification: Notification) { fullScreen = false; preferences.fullScreen = false; window.level = pinned ? .floating : .normal }
     @objc func togglePinned(_ sender: Any?) {
-        pinned.toggle(); if !fullScreen { window.level = pinned ? .floating : .normal }
-        statusLabel.stringValue = pinned ? "\(canvas.draft.name) · 常驻" : canvas.draft.name
+        setPinned(!pinned)
         if let item = sender as? NSMenuItem { item.state = pinned ? .on : .off }
+    }
+    func setPinned(_ value: Bool, remember: Bool = true) {
+        pinned = value
+        if remember { preferences.pinned = value }
+        if !fullScreen { window.level = pinned ? .floating : .normal }
+        statusLabel.stringValue = pinned ? "\(canvas.draft.name) · 常驻" : canvas.draft.name
+    }
+    @objc func editTextPrecisely(_ sender: Any?) { canvas.promoteTextEditing() }
+    @objc func toggleEraser(_ sender: Any?) { palette.toggleEraser() }
+    @objc func smallerEraser(_ sender: Any?) { setEraserSize(preferences.eraserDiameter - 4) }
+    @objc func largerEraser(_ sender: Any?) { setEraserSize(preferences.eraserDiameter + 4) }
+    func setEraserSize(_ size: Double) {
+        preferences.eraserDiameter = size
+        canvas.eraserDiameter = preferences.eraserDiameter
+        palette.eraserDiameter = preferences.eraserDiameter
     }
     @objc func toggleFullScreen(_ sender: Any?) { palette.closePicker(accept: true); canvas.commitText(); window.toggleFullScreen(nil) }
     @objc func fit(_ sender: Any?) { palette.closePicker(accept: true); canvas.fit() }

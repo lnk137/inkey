@@ -178,15 +178,29 @@ final class ColorPanelController: NSViewController, NSTextFieldDelegate {
 }
 
 final class PaletteView: NSView, NSPopoverDelegate {
+    static let preferredWidth: CGFloat = 350
+    let preferences: UserPreferences
     var colors: [InkColor] = InkColor.light
     var current = InkColor.light[0]
     var slot = 0
     var onColor: ((InkColor) -> Void)?
+    var onRestoredColor: ((InkColor) -> Void)?
     var onBeginPreview: (() -> Void)?
     var onEndPreview: ((Bool, InkColor) -> Void)?
     var onRestoreFocus: (() -> Void)?
+    var onEraser: ((Bool) -> Void)?
+    var onEraserSize: ((Double) -> Void)?
+    var eraserEnabled = false { didSet { updateToolButton() } }
+    var eraserDiameter: Double = 24 {
+        didSet { eraserController?.update(eraserDiameter) }
+    }
     var paperIsDark: Bool?
     var popover: NSPopover?
+    var eraserPopover: NSPopover?
+    var hasPopover: Bool { popover != nil || eraserPopover != nil }
+    private var eraserController: EraserPanelController?
+    private var eraserButton: ToolButton!
+    private var sizeButton: NSButton!
     private var buttons: [SwatchButton] = []
     private var custom: SwatchButton!
     private var dragOrigin: NSPoint?
@@ -195,12 +209,14 @@ final class PaletteView: NSView, NSPopoverDelegate {
     private var acceptPreview = true
     private var previewController: ColorPanelController?
     private var dark = false
+    private var previousPaper: Bool?
     private var recentColors: [InkColor] {
         get { (UserDefaults.standard.stringArray(forKey: "recentColors") ?? []).map(InkColor.init) }
         set { UserDefaults.standard.set(newValue.map(\.hex), forKey: "recentColors") }
     }
     override var acceptsFirstResponder: Bool { false }
-    override init(frame: NSRect) {
+    init(frame: NSRect, preferences: UserPreferences = UserPreferences()) {
+        self.preferences = preferences
         super.init(frame: frame)
         wantsLayer = true
         let names = ["石墨", "朱红", "琥珀", "苔绿", "湖蓝", "鸢紫"]
@@ -214,6 +230,16 @@ final class PaletteView: NSView, NSPopoverDelegate {
         custom.isCustom = true; custom.target = self; custom.action = #selector(togglePicker)
         custom.toolTip = "自定义颜色 · ⇧⌘C"; custom.setAccessibilityLabel("Custom color")
         addSubview(custom)
+        eraserButton = ToolButton(image: NSImage(systemSymbolName: "eraser", accessibilityDescription: "Eraser")!, target: self, action: #selector(toggleEraser))
+        eraserButton.frame = NSRect(x: 275, y: 4, width: 34, height: 36)
+        eraserButton.isBordered = false
+        eraserButton.toolTip = "橡皮擦 · ⌥⌘E；按住 ⌥ 拖动临时擦除"
+        addSubview(eraserButton)
+        sizeButton = NSButton(image: NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Eraser size")!, target: self, action: #selector(toggleEraserSize))
+        sizeButton.frame = NSRect(x: 310, y: 9, width: 24, height: 26)
+        sizeButton.isBordered = false; sizeButton.imageScaling = .scaleProportionallyDown
+        sizeButton.toolTip = "调整橡皮擦尺寸 · ⌥⌘[ / ⌥⌘]"
+        addSubview(sizeButton)
         refreshAppearance()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -225,8 +251,14 @@ final class PaletteView: NSView, NSPopoverDelegate {
         let key = dark ? "darkPresets" : "lightPresets"
         let saved = UserDefaults.standard.stringArray(forKey: key)
         colors = saved?.count == 6 ? saved!.map(InkColor.init) : (dark ? InkColor.dark : InkColor.light)
-        if let index = previous.firstIndex(of: current) { current = colors[index]; onColor?(current) }
-        layer?.backgroundColor = (dark ? NSColor(calibratedWhite: 0.18, alpha: 1) : NSColor(calibratedWhite: 0.998, alpha: 1)).cgColor
+        if previousPaper != dark {
+            if let saved = preferences.ink(dark: dark) {
+                slot = saved.slot; current = saved.isPreset ? colors[slot] : saved.color
+            } else { slot = 0; current = colors[0] }
+        } else if let index = previous.firstIndex(of: current) { current = colors[index] }
+        previousPaper = dark
+        onRestoredColor?(current)
+        layer?.backgroundColor = (newDark ? NSColor(calibratedWhite: 0.18, alpha: 1) : NSColor(calibratedWhite: 0.998, alpha: 1)).cgColor
         layer?.cornerRadius = 14
         layer?.borderColor = NSColor.labelColor.withAlphaComponent(0.09).cgColor; layer?.borderWidth = 1
         layer?.shadowColor = NSColor.black.cgColor; layer?.shadowOpacity = 0.08; layer?.shadowRadius = 12; layer?.shadowOffset = NSSize(width: 0, height: -3)
@@ -236,26 +268,41 @@ final class PaletteView: NSView, NSPopoverDelegate {
         NSColor.tertiaryLabelColor.withAlphaComponent(0.5).setFill()
         NSBezierPath(roundedRect: NSRect(x: 8, y: 16, width: 2, height: 12), xRadius: 1, yRadius: 1).fill()
         NSColor.separatorColor.setFill(); NSRect(x: 228, y: 13, width: 1, height: 18).fill()
+        NSRect(x: 272, y: 13, width: 1, height: 18).fill()
     }
     func updateButtons() {
         let names = ["石墨", "朱红", "琥珀", "苔绿", "湖蓝", "鸢紫"]
         let defaults = dark ? InkColor.dark : InkColor.light
         for (index, button) in buttons.enumerated() {
-            button.inkColor = colors[index]; button.selected = colors[index] == current
+            button.inkColor = colors[index]; button.selected = !eraserEnabled && colors[index] == current
             let name = colors[index] == defaults[index] ? names[index] : colors[index].hex
             button.toolTip = "\(name) · ⌥\(index + 1)"
             button.setAccessibilityLabel("Preset \(index + 1), \(colors[index].hex)\(button.selected ? ", selected" : "")")
         }
         custom?.inkColor = current
     }
+    private func updateToolButton() {
+        eraserButton?.state = eraserEnabled ? .on : .off
+        eraserButton?.contentTintColor = eraserEnabled ? .controlAccentColor : .secondaryLabelColor
+        eraserButton?.setAccessibilityLabel(eraserEnabled ? "Eraser, selected" : "Eraser")
+        eraserButton?.needsDisplay = true
+        updateButtons()
+    }
+    func saveCurrentColor() {
+        let index = colors.firstIndex(of: current)
+        preferences.saveInk(SavedInk(color: current, slot: index ?? slot, isPreset: index != nil), dark: dark)
+    }
     func choose(_ index: Int) {
         guard colors.indices.contains(index) else { return }
         closePicker(accept: true)
-        slot = index; current = colors[index]; updateButtons(); onColor?(current); onRestoreFocus?()
+        slot = index; current = colors[index]; eraserEnabled = false
+        onEraser?(false); updateButtons(); onColor?(current); saveCurrentColor(); onRestoreFocus?()
     }
     @objc func chosen(_ sender: NSButton) { choose(sender.tag) }
     @objc func togglePicker() {
         if popover != nil { closePicker(accept: true); return }
+        closePicker(accept: true)
+        eraserEnabled = false; onEraser?(false)
         initialColor = current; acceptPreview = true; onBeginPreview?()
         let controller = ColorPanelController(color: current, recent: recentColors)
         controller.onPreview = { [weak self] color in self?.current = color; self?.updateButtons(); self?.onColor?(color) }
@@ -271,13 +318,36 @@ final class PaletteView: NSView, NSPopoverDelegate {
         popover = popup; previewController = controller
         popup.show(relativeTo: custom.bounds, of: custom, preferredEdge: .maxY)
     }
-    func closePicker(accept: Bool) { acceptPreview = accept; popover?.performClose(nil) }
+    @objc func toggleEraser() {
+        closePicker(accept: true)
+        eraserEnabled.toggle(); onEraser?(eraserEnabled); onRestoreFocus?()
+    }
+    @objc func toggleEraserSize() {
+        if eraserPopover != nil { closePicker(accept: true); return }
+        closePicker(accept: true)
+        let controller = EraserPanelController(diameter: eraserDiameter)
+        controller.onChange = { [weak self] size in
+            guard let self else { return }
+            self.eraserDiameter = size; self.onEraserSize?(size)
+        }
+        let popup = NSPopover(); popup.behavior = .semitransient; popup.delegate = self
+        popup.contentViewController = controller
+        eraserPopover = popup; eraserController = controller
+        popup.show(relativeTo: sizeButton.bounds, of: sizeButton, preferredEdge: .maxY)
+    }
+    func closePicker(accept: Bool) {
+        acceptPreview = accept; popover?.performClose(nil); eraserPopover?.performClose(nil)
+    }
     func popoverDidClose(_ notification: Notification) {
+        if let closed = notification.object as? NSPopover, closed === eraserPopover {
+            eraserPopover = nil; eraserController = nil; onRestoreFocus?(); return
+        }
         guard let initialColor else { return }
         let accepted = acceptPreview
         if accepted {
             var recent = recentColors.filter { $0 != current }; recent.insert(current, at: 0)
             recentColors = Array(recent.prefix(6))
+            saveCurrentColor()
         } else { current = initialColor }
         onEndPreview?(accepted, initialColor)
         self.initialColor = nil; popover = nil; previewController = nil
