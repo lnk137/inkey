@@ -178,7 +178,7 @@ final class ColorPanelController: NSViewController, NSTextFieldDelegate {
 }
 
 final class PaletteView: NSView, NSPopoverDelegate {
-    static let preferredWidth: CGFloat = 350
+    static let preferredWidth: CGFloat = 320
     let preferences: UserPreferences
     var colors: [InkColor] = InkColor.light
     var current = InkColor.light[0]
@@ -200,7 +200,6 @@ final class PaletteView: NSView, NSPopoverDelegate {
     var hasPopover: Bool { popover != nil || eraserPopover != nil }
     private var eraserController: EraserPanelController?
     private var eraserButton: ToolButton!
-    private var sizeButton: NSButton!
     private var buttons: [SwatchButton] = []
     private var custom: SwatchButton!
     private var dragOrigin: NSPoint?
@@ -231,15 +230,11 @@ final class PaletteView: NSView, NSPopoverDelegate {
         custom.toolTip = "自定义颜色 · ⇧⌘C"; custom.setAccessibilityLabel("Custom color")
         addSubview(custom)
         eraserButton = ToolButton(image: NSImage(systemSymbolName: "eraser", accessibilityDescription: "Eraser")!, target: self, action: #selector(toggleEraser))
+        eraserButton.onDoubleClick = { [weak self] in self?.openEraserSizing() }
         eraserButton.frame = NSRect(x: 275, y: 4, width: 34, height: 36)
         eraserButton.isBordered = false
-        eraserButton.toolTip = "橡皮擦 · ⌥⌘E；按住 ⌥ 拖动临时擦除"
+        eraserButton.toolTip = "单击切换橡皮，双击调节尺寸 · ⌥⌘E"
         addSubview(eraserButton)
-        sizeButton = NSButton(image: NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Eraser size")!, target: self, action: #selector(toggleEraserSize))
-        sizeButton.frame = NSRect(x: 310, y: 9, width: 24, height: 26)
-        sizeButton.isBordered = false; sizeButton.imageScaling = .scaleProportionallyDown
-        sizeButton.toolTip = "调整橡皮擦尺寸 · ⌥⌘[ / ⌥⌘]"
-        addSubview(sizeButton)
         refreshAppearance()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -322,6 +317,10 @@ final class PaletteView: NSView, NSPopoverDelegate {
         closePicker(accept: true)
         eraserEnabled.toggle(); onEraser?(eraserEnabled); onRestoreFocus?()
     }
+    func openEraserSizing() {
+        closePicker(accept: true); eraserEnabled = true; onEraser?(true)
+        toggleEraserSize()
+    }
     @objc func toggleEraserSize() {
         if eraserPopover != nil { closePicker(accept: true); return }
         closePicker(accept: true)
@@ -333,7 +332,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         let popup = NSPopover(); popup.behavior = .semitransient; popup.delegate = self
         popup.contentViewController = controller
         eraserPopover = popup; eraserController = controller
-        popup.show(relativeTo: sizeButton.bounds, of: sizeButton, preferredEdge: .maxY)
+        popup.show(relativeTo: eraserButton.bounds, of: eraserButton, preferredEdge: .maxY)
     }
     func closePicker(accept: Bool) {
         acceptPreview = accept; popover?.performClose(nil); eraserPopover?.performClose(nil)

@@ -1,7 +1,12 @@
 import AppKit
 
 final class ToolButton: NSButton {
+    var onDoubleClick: (() -> Void)?
     override var acceptsFirstResponder: Bool { false }
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount >= 2, let onDoubleClick { onDoubleClick(); return }
+        super.mouseDown(with: event)
+    }
     override func draw(_ dirtyRect: NSRect) {
         if state == .on {
             NSColor.controlAccentColor.withAlphaComponent(0.12).setFill()

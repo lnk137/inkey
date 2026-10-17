@@ -84,4 +84,22 @@ struct EraserInteractionTests {
         #expect(recreated.current == recreated.colors[4])
         #expect(recreated.slot == 4)
     }
+
+    @Test func singleEraserButtonTogglesAndDoubleClickOpensSizing() throws {
+        let (window, canvas) = helper.makeCanvas()
+        let palette = PaletteView(frame: NSRect(x: 20, y: 20, width: PaletteView.preferredWidth, height: 44))
+        canvas.addSubview(palette)
+        window.orderFront(nil)
+        defer { palette.closePicker(accept: true); window.orderOut(nil) }
+        let button = try #require(palette.subviews.compactMap { $0 as? ToolButton }.first)
+        button.performClick(nil)
+        #expect(palette.eraserEnabled)
+        #expect(!palette.hasPopover)
+        let event = NSEvent.mouseEvent(with: .leftMouseDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 2, pressure: 1)!
+        button.mouseDown(with: event)
+        #expect(palette.eraserEnabled)
+        #expect(palette.eraserPopover != nil)
+        button.performClick(nil)
+        #expect(!palette.eraserEnabled)
+    }
 }
