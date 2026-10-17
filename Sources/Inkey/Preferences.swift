@@ -11,6 +11,16 @@ struct SavedInk: Codable, Equatable {
 final class UserPreferences {
     let defaults: UserDefaults
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+    func migrateInteractionDefaults() {
+        if defaults.integer(forKey: "pointerInteractionVersion") < 1 {
+            defaults.set(true, forKey: "pointerPlacement")
+            defaults.set(1, forKey: "pointerInteractionVersion")
+        }
+    }
+    var cursorTrail: Bool {
+        get { defaults.object(forKey: "cursorTrail") == nil ? true : defaults.bool(forKey: "cursorTrail") }
+        set { defaults.set(newValue, forKey: "cursorTrail") }
+    }
     var tool: InkTool {
         get { InkTool(rawValue: defaults.string(forKey: "drawingTool") ?? "") ?? .pen }
         set { defaults.set(newValue.rawValue, forKey: "drawingTool") }

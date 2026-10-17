@@ -4,6 +4,21 @@ import Foundation
 
 @Suite("User preferences")
 struct PreferenceTests {
+    @Test func pointerDefaultsMigrateOnceAndCursorTrailChoicePersists() throws {
+        let name = "InkeyTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = UserPreferences(defaults: defaults)
+        preferences.migrateInteractionDefaults()
+        #expect(defaults.bool(forKey: "pointerPlacement"))
+        #expect(preferences.cursorTrail)
+        preferences.cursorTrail = false
+        defaults.set(false, forKey: "pointerPlacement")
+        let restored = UserPreferences(defaults: defaults)
+        restored.migrateInteractionDefaults()
+        #expect(!defaults.bool(forKey: "pointerPlacement"))
+        #expect(!restored.cursorTrail)
+    }
     @Test func toolSizeAndWindowModeSurviveNewPreferenceInstance() throws {
         let name = "InkeyTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))
