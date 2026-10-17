@@ -2,7 +2,46 @@ import AppKit
 
 final class InlineTextView: NSTextView {
     private let textHistory = UndoManager()
+    weak var canvas: CanvasView?
+    var allowsMouseSelection = false
     override var undoManager: UndoManager? { textHistory }
+
+    func containsText(at windowPoint: NSPoint) -> Bool {
+        guard let layoutManager, let textContainer else { return false }
+        layoutManager.ensureLayout(for: textContainer)
+        let point = convert(windowPoint, from: nil)
+        if string.isEmpty { return NSRect(x: 0, y: 0, width: 16, height: font?.pointSize ?? 24).contains(point) }
+        var contains = false
+        layoutManager.enumerateLineFragments(forGlyphRange: layoutManager.glyphRange(for: textContainer)) { _, used, _, _, _ in
+            let rect = used.offsetBy(dx: self.textContainerOrigin.x, dy: self.textContainerOrigin.y).insetBy(dx: -4, dy: -3)
+            if rect.contains(point) { contains = true }
+        }
+        return contains
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard allowsMouseSelection, canvas?.eraserEnabled != true,
+              !NSEvent.modifierFlags.contains(.option), !NSEvent.modifierFlags.contains(.command) else { return nil }
+        let windowPoint = superview?.convert(point, to: nil) ?? point
+        return containsText(at: windowPoint) ? super.hitTest(point) : nil
+    }
+
+    override func resetCursorRects() {
+        guard allowsMouseSelection, canvas?.eraserEnabled != true, !NSEvent.modifierFlags.contains(.option),
+              let layoutManager, let textContainer else { return }
+        layoutManager.ensureLayout(for: textContainer)
+        layoutManager.enumerateLineFragments(forGlyphRange: layoutManager.glyphRange(for: textContainer)) { _, used, _, _, _ in
+            self.addCursorRect(used.offsetBy(dx: self.textContainerOrigin.x, dy: self.textContainerOrigin.y), cursor: .iBeam)
+        }
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 36 && event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command {
+            canvas?.promoteTextEditing(); return
+        }
+        super.keyDown(with: event)
+    }
+    override func flagsChanged(with event: NSEvent) { canvas?.flagsChanged(with: event); super.flagsChanged(with: event) }
 }
 
 final class CanvasView: NSView, NSTextViewDelegate {
@@ -14,13 +53,27 @@ final class CanvasView: NSView, NSTextViewDelegate {
     var onInteraction: (() -> Void)?
     var pointPlacement: Bool { UserDefaults.standard.bool(forKey: "pointerPlacement") }
     private var active: InkItem?
-    private var editor: NSTextView?
+    private var editor: InlineTextView?
     private var editingID: UUID?
     private var editingColor: InkColor?
     private var previewItems: [InkItem]?
     private var previewTextColor: InkColor?
     private var moveStart: NSPoint?
     private var moveOriginal: [InkItem]?
+    private struct PointerIntent {
+        var start: NSPoint
+        var viewStart: NSPoint
+        var arrow: Bool
+        var textClick: Bool
+    }
+    private var pendingPointer: PointerIntent?
+    private var eraseOriginal: [InkItem]?
+    private var erasePrevious: InkPoint?
+    private(set) var eraserEnabled = false
+    var eraserDiameter: Double = 24 {
+        didSet { window?.invalidateCursorRects(for: self) }
+    }
+    var onToolChange: ((Bool) -> Void)?
     private let history = UndoManager()
     private var imageCache: [UUID: NSImage] = [:]
     private var saveTimer: Timer?
@@ -29,7 +82,43 @@ final class CanvasView: NSView, NSTextViewDelegate {
     override var acceptsFirstResponder: Bool { true }
     override var undoManager: UndoManager? { history }
     var isEditing: Bool { editor != nil }
-    var isDrawing: Bool { active != nil || moveStart != nil }
+    var isPrecisionEditing: Bool { editor?.allowsMouseSelection == true }
+    var isDrawing: Bool { active != nil || moveStart != nil || pendingPointer != nil || eraseOriginal != nil }
+
+    func setEraserEnabled(_ enabled: Bool) {
+        finishPointerGesture()
+        if enabled { commitText(); selection = nil }
+        eraserEnabled = enabled
+        onToolChange?(enabled)
+        window?.invalidateCursorRects(for: self)
+        needsDisplay = true
+    }
+
+    func promoteTextEditing() {
+        guard let editor else { return }
+        editor.allowsMouseSelection = true
+        needsDisplay = true
+        window?.invalidateCursorRects(for: editor)
+    }
+
+    override func flagsChanged(with event: NSEvent) {
+        window?.invalidateCursorRects(for: self)
+        if let editor { window?.invalidateCursorRects(for: editor) }
+    }
+
+    override func resetCursorRects() {
+        if eraserEnabled || NSEvent.modifierFlags.contains(.option) {
+            let diameter = min(120, max(4, eraserDiameter))
+            let size = NSSize(width: diameter + 6, height: diameter + 6)
+            let image = NSImage(size: size)
+            image.lockFocus()
+            let circle = NSBezierPath(ovalIn: NSRect(x: 3, y: 3, width: diameter, height: diameter))
+            NSColor.white.setStroke(); circle.lineWidth = 3; circle.stroke()
+            NSColor.black.withAlphaComponent(0.75).setStroke(); circle.lineWidth = 1; circle.stroke()
+            image.unlockFocus()
+            addCursorRect(bounds, cursor: NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2)))
+        } else { addCursorRect(bounds, cursor: .crosshair) }
+    }
 
     func restoreFocus() { window?.makeFirstResponder(editor ?? self) }
 
@@ -65,6 +154,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     func install(_ value: Draft) {
         commitText()
+        finishPointerGesture()
         draft = value; selection = nil; active = nil
         history.removeAllActions(); imageCache.removeAll()
     }
@@ -76,7 +166,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         saveTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in self?.onChange?() }
     }
 
-    func flush() { commitText(); saveTimer?.invalidate(); onChange?() }
+    func flush() { finishPointerGesture(); commitText(); saveTimer?.invalidate(); onChange?() }
 
     func replaceItems(_ items: [InkItem], name: String) {
         let previous = draft.items
@@ -127,12 +217,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
             let border = NSBezierPath(roundedRect: rect, xRadius: 4 / draft.zoom, yRadius: 4 / draft.zoom)
             border.lineWidth = 1 / draft.zoom; border.setLineDash([4 / draft.zoom, 3 / draft.zoom], count: 2, phase: 0); border.stroke()
         }
-        if editor == nil && active == nil && selection == nil {
+        if editor == nil && active == nil && selection == nil && !eraserEnabled && eraseOriginal == nil {
             let p = draft.anchor.point
             ink.nsColor.withAlphaComponent(0.35).setStroke()
             let mark = NSBezierPath(); mark.move(to: p); mark.line(to: NSPoint(x: p.x, y: p.y + 22)); mark.lineWidth = 1 / draft.zoom; mark.stroke()
         }
         context.restoreGState()
+        if let editor, editor.allowsMouseSelection {
+            NSColor.controlAccentColor.withAlphaComponent(0.25).setStroke()
+            let border = NSBezierPath(roundedRect: editor.frame.insetBy(dx: -5, dy: -4), xRadius: 4, yRadius: 4)
+            border.lineWidth = 1; border.stroke()
+        }
         if hintVisible && draft.items.isEmpty && editor == nil {
             let text = "直接打字，拖动绘画。" as NSString
             let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor.secondaryLabelColor]
@@ -180,32 +275,71 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     override func mouseDown(with event: NSEvent) {
         onInteraction?()
-        commitText()
-        window?.makeFirstResponder(self)
-        let p = world(convert(event.locationInWindow, from: nil))
+        let viewPoint = convert(event.locationInWindow, from: nil)
+        let p = world(viewPoint)
         dismissHint()
+        if eraserEnabled || event.modifierFlags.contains(.option) {
+            commitText(); window?.makeFirstResponder(self); selection = nil
+            eraseOriginal = draft.items
+            let point = InkPoint(p); erasePrevious = point
+            draft.items = InkEraser.erase(draft.items, from: point, to: point, radius: eraserDiameter / (2 * draft.zoom))
+            needsDisplay = true; return
+        }
         if event.modifierFlags.contains(.command) {
+            commitText(); window?.makeFirstResponder(self)
             selection = item(at: p)?.id
             if selection != nil { moveStart = p; moveOriginal = draft.items }
             return
         }
+        if let editor, editor.containsText(at: event.locationInWindow), !event.modifierFlags.contains(.shift) {
+            if event.clickCount >= 2 {
+                promoteTextEditing(); positionTextCaret(at: event.locationInWindow)
+                editor.selectWord(nil)
+            } else {
+                pendingPointer = PointerIntent(start: p, viewStart: viewPoint, arrow: false, textClick: true)
+            }
+            return
+        }
+        commitText()
+        window?.makeFirstResponder(self)
         if event.clickCount == 2, let hit = item(at: p), hit.kind == .text {
-            selection = nil; beginText(at: hit.points[0].point, item: hit); return
+            selection = nil; beginText(at: hit.points[0].point, item: hit)
+            promoteTextEditing(); positionTextCaret(at: event.locationInWindow); editor?.selectWord(nil)
+            return
         }
         selection = nil
-        draft.anchor = InkPoint(p)
-        active = InkItem(kind: event.modifierFlags.contains(.shift) ? .arrow : .stroke, points: [InkPoint(p)], color: ink)
+        pendingPointer = PointerIntent(start: p, viewStart: viewPoint, arrow: event.modifierFlags.contains(.shift), textClick: false)
         needsDisplay = true
+    }
+
+    private func positionTextCaret(at windowPoint: NSPoint) {
+        guard let editor else { return }
+        let point = editor.convert(windowPoint, from: nil)
+        editor.setSelectedRange(NSRange(location: editor.characterIndexForInsertion(at: point), length: 0))
+        window?.makeFirstResponder(editor)
     }
 
     override func mouseDragged(with event: NSEvent) {
         let p = world(convert(event.locationInWindow, from: nil))
-        if let start = moveStart, let original = moveOriginal, let selection {
+        if let previous = erasePrevious {
+            let point = InkPoint(p)
+            draft.items = InkEraser.erase(draft.items, from: previous, to: point, radius: eraserDiameter / (2 * draft.zoom))
+            erasePrevious = point
+        } else if let start = moveStart, let original = moveOriginal, let selection {
             draft.items = original.map { item in
                 guard item.id == selection else { return item }
                 var moved = item; moved.translate(x: p.x - start.x, y: p.y - start.y); return moved
             }
-        } else if var drawing = active {
+        } else {
+            if let pending = pendingPointer {
+                let current = convert(event.locationInWindow, from: nil)
+                guard hypot(current.x - pending.viewStart.x, current.y - pending.viewStart.y) >= 3 else { return }
+                commitText(); window?.makeFirstResponder(self)
+                draft.anchor = InkPoint(pending.start)
+                active = InkItem(kind: pending.arrow ? .arrow : .stroke, points: [InkPoint(pending.start)], color: ink)
+                pendingPointer = nil
+            }
+            guard var drawing = active else { return }
             if drawing.kind == .arrow { drawing.points = [drawing.points[0], InkPoint(p)] }
             else if let last = drawing.points.last, hypot(p.x - last.x, p.y - last.y) * draft.zoom > 0.7 { drawing.points.append(InkPoint(p)) }
             active = drawing
@@ -214,13 +348,26 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func mouseUp(with event: NSEvent) {
-        if let original = moveOriginal {
+        if let pending = pendingPointer {
+            if pending.textClick { positionTextCaret(at: event.locationInWindow) }
+            else { draft.anchor = InkPoint(pending.start); changed() }
+        }
+        finishPointerGesture()
+    }
+
+    private func finishPointerGesture() {
+        if let original = eraseOriginal {
+            let erased = draft.items; draft.items = original
+            if erased != original { replaceItems(erased, name: "Erase") }
+        } else if let original = moveOriginal {
             let moved = draft.items; draft.items = original
             if moved != original { replaceItems(moved, name: "Move") }
         } else if let active, active.points.count > 1 {
             replaceItems(draft.items + [active], name: active.kind == .arrow ? "Arrow" : "Draw")
-        } else { changed() }
-        active = nil; moveStart = nil; moveOriginal = nil; needsDisplay = true
+        }
+        active = nil; moveStart = nil; moveOriginal = nil
+        eraseOriginal = nil; erasePrevious = nil; pendingPointer = nil
+        needsDisplay = true
     }
 
     override func keyDown(with event: NSEvent) {
@@ -244,12 +391,14 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     func beginText(at point: NSPoint, item: InkItem? = nil) {
+        if eraserEnabled { setEraserEnabled(false) }
         dismissHint()
         draft.anchor = InkPoint(point)
         editingID = item?.id
         editingColor = item?.color ?? ink
         let origin = screen(point)
         let text = InlineTextView(frame: NSRect(x: origin.x, y: origin.y, width: max(200, bounds.width - origin.x - 16), height: 40 * draft.zoom))
+        text.canvas = self
         text.delegate = self; text.isRichText = false; text.drawsBackground = false
         text.font = NSFont.monospacedSystemFont(ofSize: (item?.fontSize ?? 20) * draft.zoom, weight: .regular)
         text.textColor = editingColor!.nsColor; text.insertionPointColor = editingColor!.nsColor
@@ -264,12 +413,20 @@ final class CanvasView: NSView, NSTextViewDelegate {
         text.allowsUndo = true; text.string = item?.text ?? ""
         editor = text; addSubview(text); window?.makeFirstResponder(text)
         text.setSelectedRange(NSRange(location: text.string.utf16.count, length: 0))
+        resizeEditor()
         needsDisplay = true
     }
 
     func textDidChange(_ notification: Notification) {
-        guard let editor else { return }
-        editor.sizeToFit()
+        resizeEditor()
+    }
+
+    private func resizeEditor() {
+        guard let editor, let manager = editor.layoutManager, let container = editor.textContainer else { return }
+        manager.ensureLayout(for: container)
+        let used = manager.usedRect(for: container)
+        editor.setFrameSize(NSSize(width: max(16, used.maxX + 4), height: max((editor.font?.pointSize ?? 20) * 1.3, used.maxY + 3)))
+        needsDisplay = true
     }
 
     func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
@@ -313,7 +470,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func scrollWheel(with event: NSEvent) {
-        guard active == nil, moveStart == nil else { return }
+        guard !isDrawing else { return }
         commitText()
         let multiplier = event.hasPreciseScrollingDeltas ? 1.0 : 15.0
         draft.offset.x += event.scrollingDeltaX * multiplier
@@ -321,7 +478,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         changed()
     }
     override func magnify(with event: NSEvent) {
-        guard active == nil, moveStart == nil else { return }
+        guard !isDrawing else { return }
         commitText()
         let p = convert(event.locationInWindow, from: nil), fixed = world(p)
         draft.zoom = min(4, max(0.2, draft.zoom * (1 + event.magnification)))
