@@ -23,7 +23,7 @@ it is not a notarized distribution build.
 | Action | Result |
 | --- | --- |
 | Control + Option + Space | Show or hide Inkey; return focus to the previous app |
-| Type | Create and edit a variable at the insertion marker |
+| Move pointer, then type | Create a variable at the pointer, without clicking |
 | Click blank canvas | Place the next text insertion marker |
 | Drag | Draw, including a drag that starts on newly typed text |
 | Shift + drag | Draw a straight arrow |
@@ -67,20 +67,38 @@ the same gesture. Empty space to the right of short lines remains canvas. Return
 or Escape ends editing, while Shift + Return inserts a newline. There are no
 idle timeouts or pointer-hover rules that unexpectedly commit text.
 
-In settings, choose click placement (default) or pointer placement. Pointer
-placement fixes the location when typing starts. Move the pointer outside the
-canvas to reuse the previous location. You can also record a global shortcut;
+Pointer placement is the default. Moving at least 12 screen points from the last
+typing position previews a blinking caret near the pointer; the next printable
+key commits the current variable and starts another at that position. Small
+trackpad jitter keeps typing in the same variable. Backspace and arrow keys keep
+correcting the current variable, and precise editing or active input-method
+composition stays at its existing location. Hover alone never commits text.
+
+Settings also offer click placement. This update enables pointer placement once;
+later manual changes to that preference are preserved. Moving the pointer outside
+the canvas or over the palette keeps the current text location. An optional,
+ink-colored translucent cursor trail fades within 0.18 seconds and runs animation
+only while visible; turn it off using **Cursor trail / 光标轨迹** in settings. It
+does not appear while drawing, erasing, or precisely editing text, or in exports.
+
+You can also record a global shortcut;
 registration failure is reported and the previous binding is restored. Some
 shortcuts intercepted by system gestures may require a different combination.
 
 Normal floating windows hide when focus leaves Inkey. Persistent mode stays above
 other windows, while full screen remains visible until explicitly hidden or left.
 Window geometry is remembered between launches.
+The same shortcut always hides a visible canvas, including when a color popover,
+settings, or another app has focus. Press it again to restore the canvas. Hiding
+also hides settings and commits pending text. A minimized canvas is restored.
+Inkey keeps one running application instance; opening another copy brings the
+existing instance forward rather than competing for the global shortcut.
 
 ## Eraser
 
-The eraser button sits next to the colors. Click its chevron for a live size
-preview and a continuous **4–120 pt** diameter slider. The circular cursor shows
+The eraser uses one button next to the colors: single-click to toggle it, and
+double-click to enable it and open a live size preview with a continuous
+**4–120 pt** diameter slider. There is no separate size button. The circular cursor shows
 the actual screen footprint, which remains constant while zooming. Option + drag
 temporarily erases; Option + Command + E switches the persistent tool. Typing or
 choosing a color returns to the pen automatically.
@@ -96,7 +114,7 @@ painting over it, so exports and paper colors remain correct.
 
 Inkey automatically remembers the active pen/eraser tool, eraser diameter, selected
 preset or custom ink, customized presets, recent colors, text placement mode,
-global shortcut, palette position, window size/location, persistent mode, and
+global shortcut, cursor trail, palette position, window size/location, persistent mode, and
 full-screen mode. Ink preferences are stored separately for light and dark paper.
 Transient state such as a text selection, temporary Option erasing, and an open
 popover is not restored. Preferences are saved locally in macOS UserDefaults;
@@ -163,9 +181,9 @@ build/Inkey.app/Contents/MacOS/Inkey --smoke-test
 ```
 
 The tests cover document round trips and invalid files, actual text-view hit
-testing, double-click selection, native keyboard corrections, marked text,
+testing, pointer-led typing, double-click selection, native keyboard corrections, marked text,
 text/drawing transitions, vector eraser clipping and undo, zoom-independent eraser
-size, preference restoration, color preview cancellation, viewport transforms,
+size, merged eraser controls, repeated window toggling, preference restoration, color preview cancellation, viewport transforms,
 and PNG/PDF output. The smoke test
 starts AppKit and checks exports, recoloring, and undo/redo against a temporary
 draft, then restores the previously loaded draft before exiting. The smoke test
