@@ -23,7 +23,7 @@ A native macOS scratchpad for variables, diagrams, and the next step in your alg
 Solving a problem in your browser? Press **⌃⌥Space**, sketch the idea, and press it again to return. No text tool to hunt for. No drawing mode to get stuck in.
 
 - **Type, then draw.** Move the pointer to start another variable. Drag to sketch—even over newly typed text. Right-click a word for precise editing.
-- **Made for a trackpad.** Shift-drag arrows, lines, squares, or ellipses, pinch to zoom, or Option-drag to erase. Single-click the eraser to toggle it; right-click to resize it.
+- **Made for a trackpad.** Shift-drag arrows, lines, rectangles, or ellipses, pinch to zoom, or Option-drag to erase. Single-click the eraser to toggle it; right-click to resize it.
 - **Only what you need.** Editable color presets, a custom color picker, a collapsible, hideable toolbar, an optional crosshair trail, and floating, pinned, or full-screen windows.
 - **Pick up where you left off.** Local autosave, remembered preferences, editable `.inkey` drafts, and PNG/PDF export.
 
@@ -50,7 +50,7 @@ Inkey lives in your menu bar. The current build is signed locally for developmen
 | **Move → type** | Start text at the pointer |
 | **Drag / ⇧ drag** | Freehand / selected shape |
 | **Right-click text / ⌘Return** | Edit and select text precisely |
-| **⇧1–4** | Choose Shift tool: arrow, line, square, ellipse |
+| **⇧1–4** | Choose Shift tool: arrow, line, rectangle, ellipse |
 | **⌥1–6** | Pick a preset color |
 | **Click / right-click eraser** | Toggle / adjust size |
 | **⌥ drag** | Erase temporarily |

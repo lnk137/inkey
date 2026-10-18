@@ -422,7 +422,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         } else if item.kind == .ellipse, let end = points.last {
             let oval = NSBezierPath(ovalIn: NSRect(x: min(first.x, end.x), y: min(first.y, end.y), width: abs(end.x - first.x), height: abs(end.y - first.y)))
             oval.lineWidth = item.lineWidth; oval.stroke()
-        } else if [.line, .square].contains(item.kind) {
+        } else if [.line, .square, .rectangle].contains(item.kind) {
             let vertices = item.outline.map(\.point)
             path.removeAllPoints()
             if let start = vertices.first { path.move(to: start) }

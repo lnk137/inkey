@@ -1,13 +1,13 @@
 import AppKit
 
 enum ShiftShape: String, CaseIterable {
-    case arrow, line, square, ellipse
+    case arrow, line, rectangle, ellipse
     var kind: InkKind { InkKind(rawValue: rawValue)! }
-    var symbol: String { ["arrow": "arrow.up.right", "line": "line.diagonal", "square": "square", "ellipse": "oval"][rawValue]! }
-    var label: String { ["arrow": "箭头", "line": "直线", "square": "正方形", "ellipse": "椭圆"][rawValue]! }
+    var symbol: String { ["arrow": "arrow.up.right", "line": "line.diagonal", "rectangle": "rectangle", "ellipse": "oval"][rawValue]! }
+    var label: String { ["arrow": "箭头", "line": "直线", "rectangle": "矩形", "ellipse": "椭圆"][rawValue]! }
     static func shortcut(_ event: NSEvent) -> ShiftShape? {
         guard event.modifierFlags.intersection([.command, .option, .control, .shift]) == .shift else { return nil }
-        return [UInt16(18): .arrow, 19: .line, 20: .square, 21: .ellipse][event.keyCode]
+        return [UInt16(18): .arrow, 19: .line, 20: .rectangle, 21: .ellipse][event.keyCode]
     }
 }
 
@@ -29,7 +29,10 @@ final class UserPreferences {
         }
     }
     var shiftShape: ShiftShape {
-        get { ShiftShape(rawValue: defaults.string(forKey: "shiftShape") ?? "") ?? .arrow }
+        get {
+            let saved = defaults.string(forKey: "shiftShape") ?? ""
+            return saved == "square" ? .rectangle : ShiftShape(rawValue: saved) ?? .arrow
+        }
         set { defaults.set(newValue.rawValue, forKey: "shiftShape") }
     }
     var defaultFontSize: Double {

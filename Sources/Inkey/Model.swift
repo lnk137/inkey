@@ -35,7 +35,7 @@ struct InkPoint: Codable, Equatable {
     var point: NSPoint { NSPoint(x: x, y: y) }
 }
 
-enum InkKind: String, Codable { case stroke, arrow, line, square, ellipse, text, image }
+enum InkKind: String, Codable { case stroke, arrow, line, square, rectangle, ellipse, text, image }
 
 struct InkItem: Codable, Equatable, Identifiable {
     var id = UUID()
@@ -53,6 +53,8 @@ struct InkItem: Codable, Equatable, Identifiable {
         guard let a = points.first, let b = points.last else { return [] }
         switch kind {
         case .line: return [a, b]
+        case .rectangle:
+            return [a, InkPoint(NSPoint(x: b.x, y: a.y)), b, InkPoint(NSPoint(x: a.x, y: b.y)), a]
         case .square:
             let side = max(abs(b.x - a.x), abs(b.y - a.y))
             let x = a.x + (b.x < a.x ? -side : side), y = a.y + (b.y < a.y ? -side : side)

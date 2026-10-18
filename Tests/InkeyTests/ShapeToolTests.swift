@@ -9,7 +9,7 @@ struct ShapeToolTests {
 
     @Test func shiftShapesDrawInBothDirectionsAndUndoAsOneGesture() {
         for shape in ShiftShape.allCases {
-            for delta in [NSPoint(x: 130, y: 70), NSPoint(x: -130, y: -70)] {
+            for delta in [NSPoint(x: 130, y: 70), NSPoint(x: -130, y: -70), NSPoint(x: -130, y: 70), NSPoint(x: 130, y: -70)] {
                 let (window, canvas) = helper.makeCanvas()
                 canvas.shiftShape = shape
                 let start = NSPoint(x: 250, y: 250)
@@ -20,7 +20,10 @@ struct ShapeToolTests {
                 #expect(canvas.draft.items.count == 1)
                 let item = canvas.draft.items[0]
                 #expect(item.kind == shape.kind)
-                if shape == .square { #expect(abs(item.bounds.width - item.bounds.height) < 0.001) }
+                if shape == .rectangle {
+                    #expect(abs(item.bounds.width - abs(delta.x) - item.lineWidth) < 0.001)
+                    #expect(abs(item.bounds.height - abs(delta.y) - item.lineWidth) < 0.001)
+                }
                 canvas.undo(nil); #expect(canvas.draft.items.isEmpty)
                 canvas.redo(nil); #expect(canvas.draft.items == [item])
                 // A chosen Shift tool never changes ordinary freehand drawing.
@@ -37,7 +40,7 @@ struct ShapeToolTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = DraftStore(directory: directory)
         let (_, canvas) = helper.makeCanvas()
-        for shape in [ShiftShape.line, .square, .ellipse] {
+        for shape in [ShiftShape.line, .rectangle, .ellipse] {
             let item = InkItem(kind: shape.kind, points: [InkPoint(.zero), InkPoint(NSPoint(x: 100, y: 80))], color: InkColor.light[0])
             canvas.draft.items = [item]
             try store.save(canvas.draft)
@@ -71,6 +74,22 @@ struct ShapeToolTests {
         palette.chooseShape(.ellipse)
         #expect(chosen == .ellipse)
         #expect(UserPreferences(defaults: defaults).shiftShape == .ellipse)
+    }
+
+    @Test func oldSquareDraftsKeepTheirGeometryAndToolPreferenceSelectsRectangle() throws {
+        let old = InkItem(kind: .square, points: [InkPoint(.zero), InkPoint(NSPoint(x: 130, y: 70))], color: InkColor.light[0])
+        let decoded = try JSONDecoder().decode(InkItem.self, from: JSONEncoder().encode(old))
+        #expect(decoded.kind == .square)
+        #expect(decoded.bounds.width == decoded.bounds.height)
+        #expect(decoded.outline[2] == InkPoint(NSPoint(x: 130, y: 130)))
+        let name = "InkeyTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set("square", forKey: "shiftShape")
+        let preferences = UserPreferences(defaults: defaults)
+        #expect(preferences.shiftShape == .rectangle)
+        preferences.shiftShape = .rectangle
+        #expect(UserPreferences(defaults: defaults).shiftShape == .rectangle)
     }
 
     @Test func rightClickColorMenuAndAcceptedOrCanceledEdits() throws {

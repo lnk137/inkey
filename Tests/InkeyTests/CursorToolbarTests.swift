@@ -75,7 +75,7 @@ struct CursorToolbarTests {
         let preferences = UserPreferences(defaults: defaults)
         let palette = PaletteView(frame: NSRect(x: 0, y: 0, width: 320, height: 80), preferences: preferences)
         let originalColors = palette.colors
-        palette.chooseShape(.square)
+        palette.chooseShape(.rectangle)
         palette.toggleCollapsed()
         #expect(palette.isCollapsed && palette.frame.width == 76 && palette.frame.height == 36)
         #expect(palette.subviews.filter { !$0.isHidden }.count == 2)
@@ -85,7 +85,7 @@ struct CursorToolbarTests {
         palette.setToolbarHidden(true)
         let restored = PaletteView(frame: palette.frame, preferences: preferences)
         #expect(restored.isHidden && restored.isCollapsed)
-        #expect(preferences.shiftShape == .square)
+        #expect(preferences.shiftShape == .rectangle)
         restored.setToolbarHidden(false)
         #expect(restored.isCollapsed && !restored.isHidden)
         restored.toggleCollapsed()

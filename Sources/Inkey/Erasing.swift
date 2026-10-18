@@ -19,7 +19,7 @@ enum InkEraser {
                 let head2 = InkPoint(NSPoint(x: last.x - length * cos(angle + 0.48), y: last.y - length * sin(angle + 0.48)))
                 let segments = [(first, last), (head1, last), (last, head2)]
                 return segments.contains { !cuts($0.0, $0.1, start, end, radius + item.lineWidth / 2).isEmpty } ? [] : [item]
-            case .line, .square, .ellipse:
+            case .line, .square, .rectangle, .ellipse:
                 var stroke = item; stroke.kind = .stroke; stroke.points = item.outline
                 let erased = split(stroke, start, end, radius + item.lineWidth / 2)
                 return erased == [stroke] ? [item] : erased
