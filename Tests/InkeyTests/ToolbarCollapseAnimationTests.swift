@@ -5,14 +5,15 @@ import Testing
 @Suite("Toolbar collapse compositor", .serialized)
 @MainActor
 struct ToolbarCollapseAnimationTests {
-    @Test func visibleCompositorSurvivesAppKitLayerSynchronization() throws {
+    @Test(arguments: ToolbarAnimationStyle.allCases)
+    func visibleCompositorSurvivesAppKitLayerSynchronization(style: ToolbarAnimationStyle) throws {
         try fixture { palette, button, animation in
             let window = try #require(palette.window)
             window.orderFront(nil)
             defer { window.orderOut(nil) }
             let before = try #require(animation.capture(in: palette, button: button, collapsed: false))
             palette.toggleCollapsed()
-            animation.animate(from: before, in: palette, button: button, collapsed: true)
+            animation.animate(from: before, in: palette, button: button, collapsed: true, style: style)
             let parent = try #require(palette.superview?.subviews.last?.layer)
             let shell = try #require(parent.sublayers?.first { $0.name == "Inkey.toolbarCollapse" })
             RunLoop.current.run(until: Date().addingTimeInterval(0.12))
@@ -21,6 +22,40 @@ struct ToolbarCollapseAnimationTests {
             let shown = try #require(shell.presentation())
             #expect(shown.bounds.width > 36 && shown.bounds.width < before.bounds.width)
             animation.finish()
+        }
+    }
+    @Test func settingsPersistTheStyleAndFadeKeepsControlsInTheirSlots() throws {
+        try PaletteReorderingTests().withPalette { palette, preferences in
+            #expect(preferences.toolbarAnimationStyle == .gather)
+            let controller = InkeyApp(preferences: preferences)
+            let settings = controller.makeSettingsWindow()
+            defer { settings.close() }
+            let picker = try #require(settings.contentView?.subviews.compactMap { $0 as? NSPopUpButton }.first {
+                $0.itemArray.contains { ($0.representedObject as? String) == ToolbarAnimationStyle.fade.rawValue }
+            })
+            picker.selectItem(at: 1)
+            controller.changeToolbarAnimation(picker)
+            #expect(UserPreferences(defaults: preferences.defaults).toolbarAnimationStyle == .fade)
+            let (window, canvas) = CanvasTests().makeCanvas()
+            canvas.addSubview(palette); palette.layoutInContainer(initial: true)
+            window.orderFront(nil); window.displayIfNeeded()
+            defer { palette.setToolbarHidden(true); window.orderOut(nil) }
+            let button = try #require(palette.subviews.compactMap { $0 as? CollapseButton }.first)
+            let originalFrames = palette.subviews.filter { $0 !== button && !$0.isHidden }.map(\.frame)
+            palette.toggleCollapsed()
+            let shell = try #require(canvas.subviews.last?.layer?.sublayers?.first { $0.name == "Inkey.toolbarCollapse" })
+            let sprites = shell.sublayers?.first?.sublayers?.first?.sublayers ?? []
+            for frame in originalFrames {
+                let sprite = try #require(sprites.first { $0.position == CGPoint(x: frame.midX, y: frame.midY) })
+                #expect(sprite.transform.m11 == 1)
+                #expect(sprite.animation(forKey: "opacity")?.duration == 0.09)
+            }
+            #expect(palette.layer?.animation(forKey: "toolbarCollapseVisibility")?.duration == 0.32)
+            palette.toggleCollapsed()
+            #expect(!palette.isCollapsed)
+            #expect(canvas.subviews.last?.layer?.sublayers?.filter { $0.name == "Inkey.toolbarCollapse" }.count == 1)
+            preferences.defaults.set("unknown", forKey: "toolbarAnimationStyle")
+            #expect(preferences.toolbarAnimationStyle == .gather)
         }
     }
     func fixture(_ body: (PaletteView, CollapseButton, ToolbarCollapseAnimation) throws -> Void) throws {

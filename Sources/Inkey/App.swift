@@ -539,7 +539,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     }
 
     func makeSettingsWindow() -> NSWindow {
-        let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 420), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 470), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         panel.title = "Inkey 设置"; panel.isReleasedWhenClosed = false; panel.center()
         guard let content = panel.contentView else { return panel }
         let label = NSTextField(labelWithString: "呼出／收起快捷键")
@@ -595,6 +595,19 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         let help = NSTextField(wrappingLabelWithString: "移动指针后打字，即可在新位置输入。\n右键文字精修，拖动边框四角改字号，⌥ 拖动临时擦除。\n颜色、尺寸与窗口偏好会自动记住。")
         help.font = .systemFont(ofSize: 11); help.textColor = .secondaryLabelColor
         help.frame = NSRect(x: 28, y: 10, width: 360, height: 56); content.addSubview(help)
+        for control in content.subviews where control !== reset && control !== help {
+            control.frame.origin.y += 50
+        }
+        let animationLabel = NSTextField(labelWithString: "工具栏折叠动画")
+        animationLabel.frame = NSRect(x: 28, y: 151, width: 150, height: 20); content.addSubview(animationLabel)
+        let animation = NSPopUpButton(frame: NSRect(x: 196, y: 146, width: 190, height: 28))
+        for style in ToolbarAnimationStyle.allCases {
+            animation.addItem(withTitle: style.label)
+            animation.lastItem?.representedObject = style.rawValue
+        }
+        animation.selectItem(at: ToolbarAnimationStyle.allCases.firstIndex(of: preferences.toolbarAnimationStyle) ?? 0)
+        animation.target = self; animation.action = #selector(changeToolbarAnimation(_:))
+        animation.setAccessibilityLabel("工具栏折叠动画"); content.addSubview(animation)
         return panel
     }
     func controlTextDidEndEditing(_ notification: Notification) {
@@ -612,6 +625,11 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     }
     @objc func stepDefaultFontSize(_ sender: NSStepper) { preferences.defaultFontSize = sender.doubleValue; syncFontSizeControls() }
     @objc func changeResizeDefault(_ sender: NSButton) { preferences.resizeUpdatesDefaultFont = sender.state == .on }
+    @objc func changeToolbarAnimation(_ sender: NSPopUpButton) {
+        guard let raw = sender.selectedItem?.representedObject as? String,
+              let style = ToolbarAnimationStyle(rawValue: raw) else { return }
+        preferences.toolbarAnimationStyle = style
+    }
     @objc func changePlacement(_ sender: NSPopUpButton) { UserDefaults.standard.set(sender.indexOfSelectedItem == 1, forKey: "pointerPlacement") }
 
     func toolbarSizeMenu() -> NSMenu {

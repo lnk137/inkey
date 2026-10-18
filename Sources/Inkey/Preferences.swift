@@ -14,6 +14,12 @@ enum ShiftShape: String, CaseIterable {
 
 enum InkTool: String { case pen, eraser }
 
+enum ToolbarAnimationStyle: String, CaseIterable {
+    case gather, fade
+    var label: String { self == .gather ? "聚拢收纳" : "收缩淡出" }
+    var duration: CFTimeInterval { self == .gather ? 0.4 : 0.32 }
+}
+
 struct SavedInk: Codable, Equatable {
     var color: InkColor
     var slot: Int
@@ -66,6 +72,10 @@ final class UserPreferences {
     var toolbarCollapsed: Bool {
         get { defaults.bool(forKey: "toolbarCollapsed") }
         set { defaults.set(newValue, forKey: "toolbarCollapsed") }
+    }
+    var toolbarAnimationStyle: ToolbarAnimationStyle {
+        get { ToolbarAnimationStyle(rawValue: defaults.string(forKey: "toolbarAnimationStyle") ?? "") ?? .gather }
+        set { defaults.set(newValue.rawValue, forKey: "toolbarAnimationStyle") }
     }
     var toolbarHidden: Bool {
         get { defaults.bool(forKey: "toolbarHidden") }

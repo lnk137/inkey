@@ -484,7 +484,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         closePicker(accept: true)
         isCollapsed.toggle(); preferences.toolbarCollapsed = isCollapsed
         updateToolbarLayout(); onLayoutChange?(); onRestoreFocus?()
-        if let before { collapseAnimation.animate(from: before, in: self, button: collapseButton, collapsed: isCollapsed) }
+        if let before { collapseAnimation.animate(from: before, in: self, button: collapseButton, collapsed: isCollapsed, style: preferences.toolbarAnimationStyle) }
     }
     func setToolbarHidden(_ hidden: Bool) {
         cancelInteractions()

@@ -72,7 +72,7 @@ final class ToolbarCollapseAnimation {
                      pieces: image.map { makePieces(in: view, excluding: button, image: $0) } ?? [])
     }
 
-    func animate(from old: State, in view: NSView, button: CollapseButton, collapsed: Bool) {
+    func animate(from old: State, in view: NSView, button: CollapseButton, collapsed: Bool, style: ToolbarAnimationStyle = .gather) {
         finish()
         guard let layer = view.layer, let container = view.superview,
               let image = old.image ?? snapshot(in: view, excluding: button) else { return }
@@ -86,7 +86,8 @@ final class ToolbarCollapseAnimation {
         if old.pieces.isEmpty {
             initialPieces = makePieces(in: view, excluding: button, image: image).map { piece in
                 var folded = piece
-                folded.position = old.arrowPosition; folded.scale = 0.13; folded.opacity = 0
+                folded.position = style == .gather ? old.arrowPosition : piece.position
+                folded.scale = style == .gather ? 0.13 : 1; folded.opacity = 0
                 return folded
             }
         } else { initialPieces = old.pieces }
@@ -123,9 +124,9 @@ final class ToolbarCollapseAnimation {
             let sprite = CALayer()
             sprite.name = "Inkey.toolbarFoldPiece"
             sprite.bounds = CGRect(origin: .zero, size: piece.frame.size)
-            sprite.position = collapsed ? targetArrow : CGPoint(x: piece.frame.midX, y: piece.frame.midY)
+            sprite.position = collapsed && style == .gather ? targetArrow : CGPoint(x: piece.frame.midX, y: piece.frame.midY)
             sprite.contents = piece.image; sprite.contentsScale = layer.contentsScale
-            let scale: CGFloat = collapsed ? 0.13 : 1
+            let scale: CGFloat = collapsed && style == .gather ? 0.13 : 1
             sprite.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale))
             sprite.opacity = collapsed ? 0 : 1
             content.addSublayer(sprite)
@@ -143,7 +144,7 @@ final class ToolbarCollapseAnimation {
         shell.addSublayer(arrow)
         parent.addSublayer(shell)
         let hidden = CABasicAnimation(keyPath: "opacity")
-        hidden.fromValue = 0; hidden.toValue = 0; hidden.duration = Self.duration
+        hidden.fromValue = 0; hidden.toValue = 0; hidden.duration = style.duration
         layer.add(hidden, forKey: "toolbarCollapseVisibility")
         CATransaction.commit()
         self.shell = shell; self.arrow = arrow; self.content = content; cachedImage = image; start = old
@@ -153,7 +154,7 @@ final class ToolbarCollapseAnimation {
             return button
         }
         hitProxy = hit
-        let bodyDuration: CFTimeInterval = collapsed ? 0.36 : Self.duration
+        let bodyDuration: CFTimeInterval = style == .fade ? (collapsed ? 0.28 : 0.32) : (collapsed ? 0.36 : Self.duration)
         add(shell, "bounds", NSValue(rect: old.bounds), NSValue(rect: layer.bounds), duration: bodyDuration)
         add(shell, "position", NSValue(point: old.position), NSValue(point: layer.position), duration: bodyDuration)
         add(shell, "transform", NSValue(caTransform3D: old.transform), NSValue(caTransform3D: layer.transform), duration: bodyDuration)
@@ -161,6 +162,13 @@ final class ToolbarCollapseAnimation {
         add(clip, "bounds", NSValue(rect: innerBounds(old.bounds)), NSValue(rect: innerBounds(layer.bounds)), duration: bodyDuration)
         for (index, pair) in zip(initialPieces, pieceLayers).enumerated() {
             let (piece, sprite) = pair
+            if style == .fade {
+                add(sprite, "position", NSValue(point: piece.position), NSValue(point: sprite.position), duration: bodyDuration)
+                add(sprite, "transform", NSValue(caTransform3D: CATransform3DMakeScale(piece.scale, piece.scale, 1)),
+                    NSValue(caTransform3D: CATransform3DIdentity), duration: bodyDuration)
+                add(sprite, "opacity", piece.opacity, sprite.opacity, duration: collapsed ? 0.09 : 0.16, delay: collapsed ? 0 : 0.08)
+                continue
+            }
             let distance = min(1, hypot(piece.frame.midX - targetArrow.x, piece.frame.midY - targetArrow.y) / max(1, contentBounds.width))
             let travel = collapsed ? 0.28 + 0.06 * distance : 0.36
             let delay: CFTimeInterval = collapsed ? 0 : 0.02 * Double(index % 3) / 2
@@ -180,7 +188,7 @@ final class ToolbarCollapseAnimation {
             self.finish()
         }
         completion = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.duration, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + style.duration, execute: work)
     }
 
     func finish() {
