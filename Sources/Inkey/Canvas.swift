@@ -8,6 +8,16 @@ final class InlineTextView: NSTextView {
 
     func resetTextUndo() { textHistory.removeAllActions() }
 
+    override var layer: CALayer? {
+        get { super.layer }
+        set {
+            super.layer = newValue
+            // NSTextView rounds its frame when AppKit first installs a layer.
+            // Restore the exact canvas transform before that layer is displayed.
+            canvas?.refreshTextLayout()
+        }
+    }
+
     override func insertText(_ insertString: Any, replacementRange: NSRange) {
         canvas?.prepareInputSession()
         canvas?.showTypingCaret()
@@ -628,7 +638,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         text.textContainer?.replaceLayoutManager(InkTextLayoutManager())
         text.canvas = self
         text.delegate = self; text.isRichText = false; text.drawsBackground = false
-        text.font = NSFont.monospacedSystemFont(ofSize: 20 * draft.zoom, weight: .regular)
+        text.font = InkTypography.font(20)
         text.textColor = ink.nsColor; text.insertionPointColor = .clear
         text.textContainerInset = .zero; text.textContainer?.lineFragmentPadding = 0
         text.isAutomaticQuoteSubstitutionEnabled = false; text.isAutomaticDashSubstitutionEnabled = false
@@ -658,7 +668,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         text.allowsMouseSelection = false
         text.resetTextUndo()
         text.setFrameOrigin(screen(point))
-        let pointSize = editingFontSize * draft.zoom
+        let pointSize = editingFontSize
         (text.layoutManager as? InkTextLayoutManager)?.pointSize = pointSize
         text.font = InkTypography.font(pointSize)
         let attributes = InkTypography.attributes(size: pointSize, color: editingColor!)
@@ -686,13 +696,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     func refreshTextLayout() {
         guard let editor, let manager = editor.layoutManager, let container = editor.textContainer else { return }
-        let size = InkTypography.editorSize(manager, container, pointSize: editingFontSize * draft.zoom)
+        // Lay out in canvas units, then scale the view just like committed text.
+        // Laying out a larger font instead changes rounded baselines and glyph metrics.
+        let layoutSize = InkTypography.editorSize(manager, container, pointSize: editingFontSize)
+        let size = NSSize(width: layoutSize.width * draft.zoom, height: layoutSize.height * draft.zoom)
         let origin: NSPoint
         if let textCenterAnchor {
             let center = screen(textCenterAnchor)
             origin = NSPoint(x: center.x - size.width / 2, y: center.y - size.height / 2)
         } else { origin = screen(draft.anchor.point) }
         editor.setFrameSize(size)
+        editor.setBoundsSize(layoutSize)
         editor.setFrameOrigin(origin)
         editor.inputContext?.invalidateCharacterCoordinates()
         needsDisplay = true

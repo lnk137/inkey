@@ -58,8 +58,9 @@ struct TextLayoutTests {
                 baselines.append(rect.minY + manager.location(forGlyphAt: range.location).y)
             }
             #expect(baselines.count == 3)
-            #expect(abs(baselines[1] - baselines[0] - InkTypography.lineHeight(20 * zoom)) < 0.001)
-            #expect(abs(baselines[2] - baselines[1] - InkTypography.lineHeight(20 * zoom)) < 0.001)
+            #expect(abs(baselines[1] - baselines[0] - InkTypography.lineHeight(20)) < 0.001)
+            #expect(abs(baselines[2] - baselines[1] - InkTypography.lineHeight(20)) < 0.001)
+            #expect(abs(text.frame.height - text.bounds.height * zoom) < 0.001)
         }
     }
 }

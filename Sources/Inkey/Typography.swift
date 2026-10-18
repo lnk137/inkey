@@ -20,7 +20,9 @@ enum InkTypography {
     static func attributes(size: CGFloat, color: InkColor) -> [NSAttributedString.Key: Any] {
         let paragraph = NSMutableParagraphStyle()
         paragraph.minimumLineHeight = lineHeight(size); paragraph.maximumLineHeight = lineHeight(size)
-        return [.font: font(size), .foregroundColor: color.nsColor, .paragraphStyle: paragraph]
+        // Explicit spacing keeps mixed-script glyph positions identical in an
+        // editable text view and a freshly created layout used for saved ink.
+        return [.font: font(size), .foregroundColor: color.nsColor, .paragraphStyle: paragraph, .kern: 0]
     }
     static func layout(_ text: String, size: CGFloat, color: InkColor) -> (NSTextStorage, InkTextLayoutManager, NSTextContainer) {
         let storage = NSTextStorage(string: text, attributes: attributes(size: size, color: color))
