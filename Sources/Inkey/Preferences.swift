@@ -5,9 +5,10 @@ enum ShiftShape: String, CaseIterable {
     var kind: InkKind { InkKind(rawValue: rawValue)! }
     var symbol: String { ["arrow": "arrow.up.right", "line": "line.diagonal", "rectangle": "rectangle", "ellipse": "oval"][rawValue]! }
     var label: String { ["arrow": "箭头", "line": "直线", "rectangle": "矩形", "ellipse": "椭圆"][rawValue]! }
-    static func shortcut(_ event: NSEvent) -> ShiftShape? {
+    static func shortcut(_ event: NSEvent, order: [ShiftShape] = allCases) -> ShiftShape? {
         guard event.modifierFlags.intersection([.command, .option, .control, .shift]) == .shift else { return nil }
-        return [UInt16(18): .arrow, 19: .line, 20: .rectangle, 21: .ellipse][event.keyCode]
+        guard let index = [UInt16(18), 19, 20, 21].firstIndex(of: event.keyCode), order.indices.contains(index) else { return nil }
+        return order[index]
     }
 }
 
@@ -22,6 +23,17 @@ struct SavedInk: Codable, Equatable {
 final class UserPreferences {
     let defaults: UserDefaults
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+    var shapeOrder: [ShiftShape] {
+        get {
+            var result: [ShiftShape] = []
+            for raw in defaults.stringArray(forKey: "shapeOrder") ?? [] {
+                guard let shape = ShiftShape(rawValue: raw == "square" ? "rectangle" : raw), !result.contains(shape) else { continue }
+                result.append(shape)
+            }
+            return result + ShiftShape.allCases.filter { !result.contains($0) }
+        }
+        set { defaults.set(newValue.map(\.rawValue), forKey: "shapeOrder") }
+    }
     func migrateInteractionDefaults() {
         if defaults.integer(forKey: "pointerInteractionVersion") < 1 {
             defaults.set(true, forKey: "pointerPlacement")

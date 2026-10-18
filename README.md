@@ -50,7 +50,7 @@ Inkey lives in your menu bar. The current build is signed locally for developmen
 | **Move → type** | Start text at the pointer |
 | **Drag / ⇧ drag** | Freehand / selected shape |
 | **Right-click text / ⌘Return** | Edit and select text precisely |
-| **⇧1–4** | Choose Shift tool: arrow, line, rectangle, ellipse |
+| **⇧1–4** | Choose Shift tool in toolbar order (default: arrow, line, rectangle, ellipse) |
 | **⌥1–6** | Pick a preset color |
 | **Click / right-click eraser** | Toggle / adjust size |
 | **⌥ drag** | Erase temporarily |
@@ -68,7 +68,7 @@ Tests cover text/drawing transitions, input methods, pointer alignment, vector e
 
 [Contributions](CONTRIBUTING.md) and [thoughtful bug reports](https://github.com/lnk137/inkey/issues) are welcome.
 
-Right-click a color preset to edit or delete it. Add colors in the custom picker (up to six); restore defaults in Settings.
+Drag shape buttons or preset colors within their row to reorder them. Shortcuts stay with positions: ⇧1–4 for shapes, ⌥1–6 for colors. The order is saved; the selected tool and ink stay unchanged. Right-click a color preset to edit or delete it. Add colors in the custom picker (up to six); restore defaults in Settings.
 
 The canvas uses a crosshair; only typing shows an insertion caret, which disappears on mouse movement. Collapse the toolbar with its chevron or hide it with ×. Use ⌥⌘T to collapse/expand and ⇧⌘T to show/hide, or restore it from More.
 

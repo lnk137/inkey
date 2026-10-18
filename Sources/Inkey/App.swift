@@ -132,7 +132,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
             if self.palette.hasPopover && event.keyCode == 53 { self.palette.closePicker(accept: false); return nil }
             guard self.window.isKeyWindow else { return event }
             let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
-            if !self.palette.hasPopover, let shape = ShiftShape.shortcut(event),
+            if !self.palette.hasPopover, let shape = ShiftShape.shortcut(event, order: self.preferences.shapeOrder),
                (self.window.firstResponder as? NSTextView)?.hasMarkedText() != true {
                 self.palette.chooseShape(shape); return nil
             }

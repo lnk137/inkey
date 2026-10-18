@@ -16,7 +16,7 @@ final class HueSliderCell: NSSliderCell {
     }
 }
 
-final class SwatchButton: NSButton {
+final class SwatchButton: ReorderButton {
     var inkColor = InkColor("303735") { didSet { needsDisplay = true } }
     var selected = false { didSet { needsDisplay = true } }
     var isCustom = false
@@ -235,6 +235,16 @@ final class PaletteView: NSView, NSPopoverDelegate {
     private var previewController: ColorPanelController?
     private var dark = false
     private var previousPaper: Bool?
+    private struct ReorderGesture {
+        let source: ReorderButton
+        let originalButtons: [ReorderButton]
+        let originalIndex: Int
+        let startX: CGFloat
+        let offset: CGFloat
+        let spacing: CGFloat
+        let row: NSRect
+    }
+    private var reorderGesture: ReorderGesture?
     private var recentColors: [InkColor] {
         get { (preferences.defaults.stringArray(forKey: "recentColors") ?? []).map(InkColor.init) }
         set { preferences.defaults.set(newValue.map(\.hex), forKey: "recentColors") }
@@ -248,9 +258,11 @@ final class PaletteView: NSView, NSPopoverDelegate {
         for index in 0..<6 {
             let button = SwatchButton(frame: NSRect(x: 20 + index * 34, y: 4, width: 34, height: 36))
             button.tag = index; button.target = self; button.action = #selector(chosen(_:))
+            button.reorderGroup = "colors"
+            configureReordering(button)
             button.toolTip = "\(names[index]) · ⌥\(index + 1)"
-            button.onEdit = { [weak self] in self?.editPreset(index) }
-            button.onDelete = { [weak self] in self?.deletePreset(index) }
+            button.onEdit = { [weak self, weak button] in if let button { self?.editPreset(button.tag) } }
+            button.onDelete = { [weak self, weak button] in if let button { self?.deletePreset(button.tag) } }
             buttons.append(button); addSubview(button)
         }
         custom = SwatchButton(frame: NSRect(x: 233, y: 4, width: 34, height: 36))
@@ -263,9 +275,11 @@ final class PaletteView: NSView, NSPopoverDelegate {
         eraserButton.isBordered = false
         eraserButton.toolTip = "单击切换橡皮，右键调节尺寸 · ⌥⌘E"
         addSubview(eraserButton)
-        for (index, shape) in ShiftShape.allCases.enumerated() {
+        for (index, shape) in preferences.shapeOrder.enumerated() {
             let button = ToolButton(image: NSImage(systemSymbolName: shape.symbol, accessibilityDescription: shape.label)!, target: self, action: #selector(shapeClicked(_:)))
             button.tag = index; button.isBordered = false
+            button.reorderGroup = "shapes"
+            configureReordering(button)
             button.frame = NSRect(x: 88 + index * 36, y: 43, width: 34, height: 32)
             button.toolTip = "\(shape.label) · ⇧\(index + 1) · Shift 拖动"
             button.setAccessibilityLabel(button.toolTip)
@@ -320,8 +334,8 @@ final class PaletteView: NSView, NSPopoverDelegate {
             button.isHidden = isCollapsed || !colors.indices.contains(index)
             guard colors.indices.contains(index) else { continue }
             button.inkColor = colors[index]; button.selected = !eraserEnabled && colors[index] == current
-            let name = colors[index] == defaults[index] ? names[index] : colors[index].hex
-            button.toolTip = "\(name) · ⌥\(index + 1) · 右键编辑或删除"
+            let name = defaults.firstIndex(of: colors[index]).map { names[$0] } ?? colors[index].hex
+            button.toolTip = "\(name) · ⌥\(index + 1) · 拖动排序 · 右键编辑或删除"
             button.setAccessibilityLabel("Preset \(index + 1), \(colors[index].hex)\(button.selected ? ", selected" : "")")
         }
         custom?.frame.origin.x = 29 + CGFloat(colors.count) * 34
@@ -451,10 +465,14 @@ final class PaletteView: NSView, NSPopoverDelegate {
         preferences.shiftShape = shape; updateShapeButtons(); onShape?(shape)
         eraserEnabled = false; onEraser?(false); onRestoreFocus?()
     }
-    @objc private func shapeClicked(_ sender: NSButton) { chooseShape(ShiftShape.allCases[sender.tag]) }
+    @objc private func shapeClicked(_ sender: NSButton) { chooseShape(preferences.shapeOrder[sender.tag]) }
     private func updateShapeButtons() {
         for (index, button) in shapeButtons.enumerated() {
-            button.state = ShiftShape.allCases[index] == preferences.shiftShape ? .on : .off
+            let shape = preferences.shapeOrder[index]
+            button.image = NSImage(systemSymbolName: shape.symbol, accessibilityDescription: shape.label)
+            button.toolTip = "\(shape.label) · ⇧\(index + 1) · Shift 拖动 · 拖动按钮排序"
+            button.setAccessibilityLabel(button.toolTip)
+            button.state = shape == preferences.shiftShape ? .on : .off
             button.contentTintColor = button.state == .on ? .controlAccentColor : .secondaryLabelColor
         }
     }
@@ -483,6 +501,105 @@ final class PaletteView: NSView, NSPopoverDelegate {
         closePicker(accept: true)
         preferences.defaults.removeObject(forKey: "lightPresets"); preferences.defaults.removeObject(forKey: "darkPresets")
         refreshAppearance()
+    }
+    func moveShape(from source: Int, to destination: Int) {
+        var order = preferences.shapeOrder
+        guard source != destination, order.indices.contains(source), order.indices.contains(destination) else { return }
+        closePicker(accept: true)
+        order.insert(order.remove(at: source), at: destination)
+        preferences.shapeOrder = order; updateShapeButtons()
+    }
+    func moveColor(from source: Int, to destination: Int) {
+        guard source != destination, colors.indices.contains(source), colors.indices.contains(destination) else { return }
+        closePicker(accept: true)
+        // Move the remembered preset slot as well, including when custom ink is active.
+        var slots = Array(colors.indices)
+        slots.insert(slots.remove(at: source), at: destination)
+        slot = slots.firstIndex(of: slot) ?? slot
+        colors.insert(colors.remove(at: source), at: destination)
+        persistPresets()
+    }
+    func reorderDestination(for source: ReorderButton, at point: NSPoint) -> ReorderButton? {
+        guard source.superview === self, !isCollapsed, !isHidden, !source.isHidden else { return nil }
+        let candidates: [ReorderButton]
+        switch source.reorderGroup {
+        case "colors": candidates = buttons.filter { !$0.isHidden }
+        case "shapes": candidates = shapeButtons
+        default: return nil
+        }
+        return candidates.first { $0.frame.contains(point) }
+    }
+    private func configureReordering(_ button: ReorderButton) {
+        button.wantsLayer = true
+        button.onReorderBegin = { [weak self, weak button] point in
+            guard let self, let button else { return }
+            self.beginReordering(button, at: self.convert(point, from: nil))
+        }
+        button.onReorderMove = { [weak self] point in
+            guard let self else { return }
+            self.updateReordering(at: self.convert(point, from: nil))
+        }
+        button.onReorderEnd = { [weak self] point in
+            guard let self else { return }
+            self.endReordering(at: self.convert(point, from: nil))
+        }
+    }
+    func beginReordering(_ source: ReorderButton, at point: NSPoint) {
+        guard reorderDestination(for: source, at: point) != nil else { return }
+        closePicker(accept: true)
+        let rowButtons: [ReorderButton] = source.reorderGroup == "colors" ? buttons.filter { !$0.isHidden } : shapeButtons
+        guard let first = rowButtons.first, let index = rowButtons.firstIndex(where: { $0 === source }) else { return }
+        let row = rowButtons.reduce(NSRect.null) { $0.union($1.frame) }
+        reorderGesture = ReorderGesture(source: source, originalButtons: rowButtons, originalIndex: index,
+                                        startX: first.frame.minX, offset: point.x - source.frame.minX,
+                                        spacing: source.reorderGroup == "colors" ? 34 : 36, row: row)
+        addSubview(source, positioned: .above, relativeTo: nil)
+        source.alphaValue = 0.8
+    }
+    func updateReordering(at point: NSPoint) {
+        guard let gesture = reorderGesture else { return }
+        let source = gesture.source
+        let isColor = source.reorderGroup == "colors"
+        var ordered: [ReorderButton] = isColor ? buttons.filter { !$0.isHidden } : shapeButtons
+        guard let currentIndex = ordered.firstIndex(where: { $0 === source }) else { return }
+        let x = min(gesture.row.maxX - source.frame.width, max(gesture.startX, point.x - gesture.offset))
+        source.setFrameOrigin(NSPoint(x: x, y: gesture.row.minY))
+        let destination = min(ordered.count - 1, max(0, Int(((x - gesture.startX) / gesture.spacing).rounded())))
+        guard destination != currentIndex else { return }
+        ordered.insert(ordered.remove(at: currentIndex), at: destination)
+        if isColor {
+            buttons = ordered.compactMap { $0 as? SwatchButton } + buttons.filter { $0.isHidden }
+        } else { shapeButtons = ordered.compactMap { $0 as? ToolButton } }
+        // Only displaced neighbors animate. The dragged button follows every event directly.
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.1
+            for (index, button) in ordered.enumerated() where button !== source {
+                button.animator().setFrameOrigin(NSPoint(x: gesture.startX + CGFloat(index) * gesture.spacing, y: gesture.row.minY))
+            }
+        }
+    }
+    func endReordering(at point: NSPoint) {
+        guard let gesture = reorderGesture else { return }
+        updateReordering(at: point)
+        let isColor = gesture.source.reorderGroup == "colors"
+        let ordered: [ReorderButton] = isColor ? buttons.filter { !$0.isHidden } : shapeButtons
+        let destination = ordered.firstIndex(where: { $0 === gesture.source }) ?? gesture.originalIndex
+        let accepted = gesture.row.insetBy(dx: -8, dy: -8).contains(point)
+        let finalButtons = accepted ? ordered : gesture.originalButtons
+        if isColor { buttons = finalButtons.compactMap { $0 as? SwatchButton } + buttons.filter { $0.isHidden } }
+        else { shapeButtons = finalButtons.compactMap { $0 as? ToolButton } }
+        for (index, button) in finalButtons.enumerated() {
+            button.layer?.removeAllAnimations()
+            button.tag = index
+            button.setFrameOrigin(NSPoint(x: gesture.startX + CGFloat(index) * gesture.spacing, y: gesture.row.minY))
+        }
+        gesture.source.alphaValue = 1
+        reorderGesture = nil
+        if accepted {
+            if isColor { moveColor(from: gesture.originalIndex, to: destination) }
+            else { moveShape(from: gesture.originalIndex, to: destination) }
+        }
+        updateButtons(); updateShapeButtons(); onRestoreFocus?()
     }
     override func mouseDown(with event: NSEvent) {
         dragOrigin = event.locationInWindow; originalFrame = frame.origin

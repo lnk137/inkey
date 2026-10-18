@@ -28,7 +28,7 @@ it is not a notarized distribution build.
 | Move pointer, then type | Create a variable at the pointer, without clicking |
 | Click blank canvas | Place the next text insertion marker |
 | Drag | Draw, including a drag that starts on newly typed text |
-| Shift + 1 through 4 | Choose Shift tool: arrow, line, rectangle, ellipse |
+| Shift + 1 through 4 | Choose Shift tool by toolbar position (default: arrow, line, rectangle, ellipse) |
 | Shift + drag | Draw the selected shape (arrow by default) |
 | Click current text | Position the text caret without selecting by drag |
 | Right-click text / Command + Return | Enter precise text editing with native drag selection |
@@ -192,9 +192,9 @@ it to keep autosave verification isolated.
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md) for the English-only emoji commit convention.
 
-The shape row remembers the selected Shift tool. Shift-drag creates an arrow, straight line, rectangle with independently dragged width and height, or ellipse; ordinary dragging remains freehand. Shapes support selection, movement, recoloring, erasing, undo, editable draft storage, and PNG/PDF export. Right-click (or Control-click) the eraser to adjust its 4–120 pt size; single-click toggles erasing.
+Drag shape buttons or preset colors within their own row to reorder them. The dragged item follows the pointer immediately, neighbors slide aside as you cross their positions, and the new order is saved once on release; drop outside the row to cancel. Shortcuts remain tied to positions (Shift + 1–4 and Option + 1–6), and tooltips update to match. Ordering survives restarts without changing the selected tool or ink. Light and dark paper keep separate color orders. The shape row remembers the selected Shift tool. Shift-drag creates an arrow, straight line, rectangle with independently dragged width and height, or ellipse; ordinary dragging remains freehand. Shapes support selection, movement, recoloring, erasing, undo, editable draft storage, and PNG/PDF export. Right-click (or Control-click) the eraser to adjust its 4–120 pt size; single-click toggles erasing.
 
-The rectangle tool replaces the square tool at **Shift + 3**. Existing square shapes in saved drafts retain their original geometry; a previously selected square tool now selects the rectangle tool.
+The rectangle tool replaces the square tool at **Shift + 3** in the default order. Existing square shapes in saved drafts retain their original geometry; a previously selected square tool now selects the rectangle tool.
 
 ## Toolbar visibility
 
