@@ -77,7 +77,7 @@ struct CursorToolbarTests {
         let originalColors = palette.colors
         palette.chooseShape(.rectangle)
         palette.toggleCollapsed()
-        #expect(palette.isCollapsed && palette.frame.width == 76 && palette.frame.height == 36)
+        #expect(palette.isCollapsed && palette.frame.width == 36 && palette.frame.height == 36)
         #expect(palette.subviews.filter { !$0.isHidden }.count == 1)
         palette.choose(3)
         #expect(palette.isCollapsed)

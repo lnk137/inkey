@@ -7,6 +7,7 @@ class ReorderButton: NSButton {
     var onReorderBegin: ((NSPoint) -> Void)?
     var onReorderMove: ((NSPoint) -> Void)?
     var onReorderEnd: ((NSPoint) -> Void)?
+    var onToolbarMouseEvent: ((NSEvent) -> Void)?
     private var pressLocation: NSPoint?
     private var reordering = false
     var isTracking: Bool { pressLocation != nil }
@@ -31,9 +32,10 @@ class ReorderButton: NSButton {
     }
 
     override func mouseDown(with event: NSEvent) {
-        guard reorderGroup != nil, !event.modifierFlags.contains(.control) else {
+        guard reorderGroup != nil || onToolbarMouseEvent != nil, !event.modifierFlags.contains(.control) else {
             super.mouseDown(with: event); return
         }
+        onToolbarMouseEvent?(event)
         pressLocation = event.locationInWindow
         reordering = false
         highlight(true)
@@ -44,16 +46,20 @@ class ReorderButton: NSButton {
         if !reordering {
             guard hypot(event.locationInWindow.x - start.x, event.locationInWindow.y - start.y) >= 4 else { return }
             reordering = true; highlight(false)
-            onReorderBegin?(start)
+            if onToolbarMouseEvent == nil { onReorderBegin?(start) }
         }
-        onReorderMove?(event.locationInWindow)
+        if let onToolbarMouseEvent { onToolbarMouseEvent(event) }
+        else { onReorderMove?(event.locationInWindow) }
     }
 
     override func mouseUp(with event: NSEvent) {
-        guard reorderGroup != nil else { super.mouseUp(with: event); return }
+        guard reorderGroup != nil || onToolbarMouseEvent != nil else { super.mouseUp(with: event); return }
         let clicked = pressLocation != nil && !reordering && bounds.contains(convert(event.locationInWindow, from: nil))
+        let dragged = reordering
         pressLocation = nil; highlight(false)
-        if reordering { reordering = false; onReorderEnd?(event.locationInWindow) }
-        else if clicked { performClick(nil) }
+        reordering = false
+        if let onToolbarMouseEvent { onToolbarMouseEvent(event) }
+        else if dragged { onReorderEnd?(event.locationInWindow) }
+        if clicked { performClick(nil) }
     }
 }

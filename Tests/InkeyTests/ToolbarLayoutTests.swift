@@ -7,23 +7,26 @@ import Testing
 struct ToolbarLayoutTests {
     let helper = CanvasTests()
 
-    @Test func collapsedBlankAreaMovesTheToolbarAndClicksDoNotSaveAPosition() throws {
+    @Test func compactChevronDragsTheToolbarAndClickExpandsWithoutSavingPosition() throws {
         try PaletteReorderingTests().withPalette { palette, preferences in
             let (window, canvas) = helper.makeCanvas()
             canvas.addSubview(palette); palette.layoutInContainer(initial: true)
             palette.toggleCollapsed(); palette.layoutInContainer()
             let start = palette.convert(NSPoint(x: 18, y: 18), to: nil)
             let hit = palette.hitTest(canvas.convert(start, from: nil))
-            #expect(hit === palette)
-            palette.mouseDown(with: helper.mouse(.leftMouseDown, start, window: window))
-            palette.mouseUp(with: helper.mouse(.leftMouseUp, start, window: window))
+            let chevron = try #require(hit as? ToolButton)
+            chevron.mouseDown(with: helper.mouse(.leftMouseDown, start, window: window))
+            chevron.mouseUp(with: helper.mouse(.leftMouseUp, start, window: window))
+            #expect(!palette.isCollapsed)
             #expect(preferences.defaults.object(forKey: "palettePosition") == nil)
+            palette.toggleCollapsed(); palette.layoutInContainer()
             let original = palette.frame.origin
             let parentPoint = canvas.convert(start, from: nil)
             let end = canvas.convert(NSPoint(x: parentPoint.x + 70, y: parentPoint.y + 30), to: nil)
-            palette.mouseDown(with: helper.mouse(.leftMouseDown, start, window: window))
-            palette.mouseDragged(with: helper.mouse(.leftMouseDragged, end, window: window))
-            palette.mouseUp(with: helper.mouse(.leftMouseUp, end, window: window))
+            chevron.mouseDown(with: helper.mouse(.leftMouseDown, start, window: window))
+            chevron.mouseDragged(with: helper.mouse(.leftMouseDragged, end, window: window))
+            chevron.mouseUp(with: helper.mouse(.leftMouseUp, end, window: window))
+            #expect(palette.isCollapsed)
             #expect(palette.frame.minX == original.x + 70)
             let deltaInParent = canvas.convert(end, from: nil).y - canvas.convert(start, from: nil).y
             #expect(palette.frame.minY == original.y + deltaInParent)
@@ -45,7 +48,7 @@ struct ToolbarLayoutTests {
                     #expect(palette.hitTest(center) === button)
                 }
                 palette.toggleCollapsed(); palette.layoutInContainer()
-                #expect(palette.frame.size == NSSize(width: 76 * scale, height: 36 * scale))
+                #expect(palette.frame.size == NSSize(width: 36 * scale, height: 36 * scale))
                 palette.toggleCollapsed(); palette.layoutInContainer()
             }
             let restored = PaletteView(frame: palette.frame, preferences: preferences)
@@ -134,6 +137,28 @@ struct ToolbarLayoutTests {
             for (value, expected) in [(Double.nan, 1.0), (.infinity, 1), (-12, 0.85), (99, 1.5)] {
                 preferences.defaults.set(value, forKey: "toolbarScale")
                 #expect(preferences.toolbarScale == expected)
+            }
+        }
+    }
+
+    @Test func cancellingChevronDragRestoresPositionWithoutToggling() throws {
+        try PaletteReorderingTests().withPalette { palette, preferences in
+            let (window, canvas) = helper.makeCanvas()
+            canvas.addSubview(palette); palette.layoutInContainer(initial: true)
+            palette.setToolbarScale(1.25)
+            let chevron = try #require(palette.subviews.compactMap { $0 as? ToolButton }.first { $0.onToolbarMouseEvent != nil })
+            for collapsed in [false, true] {
+                if palette.isCollapsed != collapsed { palette.toggleCollapsed(); palette.layoutInContainer() }
+                let original = palette.frame.origin
+                let start = chevron.convert(NSPoint(x: 15, y: 16), to: nil)
+                let end = NSPoint(x: start.x + 40, y: start.y - 30)
+                chevron.mouseDown(with: helper.mouse(.leftMouseDown, start, window: window))
+                chevron.mouseDragged(with: helper.mouse(.leftMouseDragged, end, window: window))
+                #expect(palette.cancelActiveGesture())
+                chevron.mouseUp(with: helper.mouse(.leftMouseUp, end, window: window))
+                #expect(palette.frame.origin == original)
+                #expect(palette.isCollapsed == collapsed)
+                #expect(preferences.defaults.object(forKey: "palettePosition") == nil)
             }
         }
     }

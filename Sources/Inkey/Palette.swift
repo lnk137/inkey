@@ -266,7 +266,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         super.init(frame: frame)
         toolbarScale = preferences.toolbarScale
         wantsLayer = true
-        setAccessibilityRole(.toolbar); setAccessibilityLabel("工具栏，拖动空白处移动")
+        setAccessibilityRole(.toolbar); setAccessibilityLabel("工具栏，拖动箭头或空白处移动")
         let names = ["石墨", "朱红", "琥珀", "苔绿", "湖蓝", "鸢紫"]
         for index in 0..<6 {
             let button = SwatchButton(frame: NSRect(x: 20 + index * 34, y: 4, width: 34, height: 36))
@@ -293,13 +293,21 @@ final class PaletteView: NSView, NSPopoverDelegate {
             button.tag = index; button.isBordered = false
             button.reorderGroup = "shapes"
             configureReordering(button)
-            button.frame = NSRect(x: 88 + index * 36, y: 43, width: 34, height: 32)
+            button.frame = NSRect(x: 54 + index * 36, y: 43, width: 34, height: 32)
             button.toolTip = "\(shape.label) · ⇧\(index + 1) · Shift 拖动"
             button.setAccessibilityLabel(button.toolTip)
             shapeButtons.append(button); addSubview(button)
         }
         collapseButton = ToolButton(image: NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "折叠工具栏")!, target: self, action: #selector(toggleCollapsed))
         collapseButton.isBordered = false; collapseButton.contentTintColor = .secondaryLabelColor; addSubview(collapseButton)
+        collapseButton.onToolbarMouseEvent = { [weak self] event in
+            switch event.type {
+            case .leftMouseDown: self?.mouseDown(with: event)
+            case .leftMouseDragged: self?.mouseDragged(with: event)
+            case .leftMouseUp: self?.mouseUp(with: event)
+            default: break
+            }
+        }
         addSubview(resizeHandle)
         resizeHandle.onBegin = { [weak self] in self?.beginResizing(at: $0) }
         resizeHandle.onDrag = { [weak self] in self?.updateResizing(at: $0) }
@@ -480,14 +488,14 @@ final class PaletteView: NSView, NSPopoverDelegate {
     private func updateToolbarLayout() {
         applyToolbarGeometry()
         for child in subviews { child.isHidden = isCollapsed && child !== collapseButton }
-        collapseButton.frame = NSRect(x: isCollapsed ? 40 : 18, y: isCollapsed ? 2 : 43, width: 30, height: 32)
+        collapseButton.frame = NSRect(x: isCollapsed ? 3 : 18, y: isCollapsed ? 2 : 43, width: 30, height: 32)
         collapseButton.image = NSImage(systemSymbolName: isCollapsed ? "chevron.up" : "chevron.down", accessibilityDescription: isCollapsed ? "展开工具栏" : "折叠工具栏")
-        collapseButton.toolTip = isCollapsed ? "展开工具栏 · ⌥⌘T" : "折叠工具栏 · ⌥⌘T"
+        collapseButton.toolTip = isCollapsed ? "展开工具栏 · ⌥⌘T · 拖动移动" : "折叠工具栏 · ⌥⌘T · 拖动移动"
         collapseButton.setAccessibilityLabel(collapseButton.toolTip)
         updateButtons(); needsDisplay = true
         window?.invalidateCursorRects(for: self)
     }
-    private var logicalSize: NSSize { isCollapsed ? NSSize(width: 76, height: 36) : NSSize(width: Self.preferredWidth, height: 80) }
+    private var logicalSize: NSSize { isCollapsed ? NSSize(width: 36, height: 36) : NSSize(width: Self.preferredWidth, height: 80) }
     private func applyToolbarGeometry() {
         let size = logicalSize
         let available = superview?.bounds.size
@@ -538,7 +546,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         cancelInteractions()
         for (index, button) in shapeButtons.enumerated() {
             button.tag = index
-            button.frame = NSRect(x: 88 + index * 36, y: 43, width: 34, height: 32)
+            button.frame = NSRect(x: 54 + index * 36, y: 43, width: 34, height: 32)
             let shape = preferences.shapeOrder[index]
             button.image = NSImage(systemSymbolName: shape.symbol, accessibilityDescription: shape.label)
             button.toolTip = "\(shape.label) · ⇧\(index + 1) · Shift 拖动 · 拖动按钮排序"
@@ -677,13 +685,14 @@ final class PaletteView: NSView, NSPopoverDelegate {
         }
     }
     @discardableResult func cancelActiveGesture() -> Bool {
-        let active = reorderGesture != nil || dragOrigin != nil || resizeStart != nil || ((buttons as [ReorderButton]) + shapeButtons).contains { $0.isTracking }
+        let active = reorderGesture != nil || dragOrigin != nil || resizeStart != nil || collapseButton.isTracking || ((buttons as [ReorderButton]) + shapeButtons).contains { $0.isTracking }
         cancelInteractions()
         return active
     }
     func cancelInteractions() {
         cancelReordering()
         for button in (buttons as [ReorderButton]) + shapeButtons where button.isTracking { button.cancelTracking() }
+        collapseButton?.cancelTracking()
         if movedToolbar, let originalFrame { setFrameOrigin(originalFrame) }
         dragOrigin = nil; originalFrame = nil; movedToolbar = false
         if let start = resizeStart {
