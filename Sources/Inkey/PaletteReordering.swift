@@ -54,7 +54,7 @@ class ReorderButton: NSButton {
 
     override func mouseUp(with event: NSEvent) {
         guard reorderGroup != nil || onToolbarMouseEvent != nil else { super.mouseUp(with: event); return }
-        let clicked = pressLocation != nil && !reordering && bounds.contains(convert(event.locationInWindow, from: nil))
+        let clicked = pressLocation != nil && !reordering && (onToolbarMouseEvent != nil || bounds.contains(convert(event.locationInWindow, from: nil)))
         let dragged = reordering
         pressLocation = nil; highlight(false)
         reordering = false

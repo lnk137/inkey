@@ -209,6 +209,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
     var onLayoutChange: (() -> Void)?
     private(set) var isCollapsed = false
     private var collapseButton: CollapseButton!
+    private let collapseAnimation = ToolbarCollapseAnimation()
     private let resizeHandle = ToolbarResizeHandle(frame: NSRect(x: 294, y: 57, width: 22, height: 20))
     private(set) var toolbarScale: CGFloat = 1
     private(set) var effectiveScale: CGFloat = 1
@@ -299,6 +300,8 @@ final class PaletteView: NSView, NSPopoverDelegate {
             shapeButtons.append(button); addSubview(button)
         }
         collapseButton = CollapseButton(frame: .zero)
+        collapseButton.title = ""
+        collapseButton.wantsLayer = true
         collapseButton.target = self; collapseButton.action = #selector(toggleCollapsed)
         collapseButton.isBordered = false; collapseButton.contentTintColor = .secondaryLabelColor; addSubview(collapseButton)
         collapseButton.onToolbarMouseEvent = { [weak self] event in
@@ -475,10 +478,13 @@ final class PaletteView: NSView, NSPopoverDelegate {
         updateButtons(); onRestoreFocus?()
     }
     @objc func toggleCollapsed() {
+        let animated = window?.isVisible == true && !isHidden && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let before = animated ? collapseAnimation.capture(in: self, button: collapseButton, collapsed: isCollapsed) : nil
         cancelInteractions()
         closePicker(accept: true)
         isCollapsed.toggle(); preferences.toolbarCollapsed = isCollapsed
         updateToolbarLayout(); onLayoutChange?(); onRestoreFocus?()
+        if let before { collapseAnimation.animate(from: before, in: self, button: collapseButton, collapsed: isCollapsed) }
     }
     func setToolbarHidden(_ hidden: Bool) {
         cancelInteractions()
@@ -626,6 +632,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         }
     }
     func beginReordering(_ source: ReorderButton, at point: NSPoint) {
+        collapseAnimation.finish()
         cancelReordering()
         guard reorderDestination(for: source, at: point) != nil else { return }
         closePicker(accept: true)
@@ -687,11 +694,12 @@ final class PaletteView: NSView, NSPopoverDelegate {
         }
     }
     @discardableResult func cancelActiveGesture() -> Bool {
-        let active = reorderGesture != nil || dragOrigin != nil || resizeStart != nil || collapseButton.isTracking || ((buttons as [ReorderButton]) + shapeButtons).contains { $0.isTracking }
+        let active = collapseAnimation.isAnimating || reorderGesture != nil || dragOrigin != nil || resizeStart != nil || collapseButton.isTracking || ((buttons as [ReorderButton]) + shapeButtons).contains { $0.isTracking }
         cancelInteractions()
         return active
     }
-    func cancelInteractions() {
+    func cancelInteractions(finishTransition: Bool = true) {
+        if finishTransition { collapseAnimation.finish() }
         cancelReordering()
         for button in (buttons as [ReorderButton]) + shapeButtons where button.isTracking { button.cancelTracking() }
         collapseButton?.cancelTracking()
@@ -726,7 +734,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
     }
     override func mouseDown(with event: NSEvent) {
         guard let superview, !event.modifierFlags.contains(.control) else { super.mouseDown(with: event); return }
-        cancelInteractions(); closePicker(accept: true)
+        cancelInteractions(finishTransition: false); closePicker(accept: true)
         dragOrigin = superview.convert(event.locationInWindow, from: nil); originalFrame = frame.origin
     }
     override func mouseDragged(with event: NSEvent) {
@@ -734,6 +742,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         let point = superview.convert(event.locationInWindow, from: nil)
         let dx = point.x - dragOrigin.x, dy = point.y - dragOrigin.y
         guard movedToolbar || hypot(dx, dy) >= 4 else { return }
+        collapseAnimation.finish()
         movedToolbar = true
         setFrameOrigin(clampedOrigin(NSPoint(x: originalFrame.x + dx, y: originalFrame.y + dy)))
     }

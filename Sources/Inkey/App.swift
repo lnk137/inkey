@@ -188,6 +188,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         window.acceptsMouseMovedEvents = true
         window.center(); window.setFrameAutosaveName("InkeyWindow")
         guard let content = window.contentView else { return }
+        content.wantsLayer = true
         canvas.frame = content.bounds; canvas.autoresizingMask = [.width, .height]
         content.addSubview(canvas)
         statusLabel = NSTextField(labelWithString: "Inkey")
