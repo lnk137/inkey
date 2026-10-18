@@ -209,7 +209,11 @@ final class PaletteView: NSView, NSPopoverDelegate {
     var onLayoutChange: (() -> Void)?
     private(set) var isCollapsed = false
     private var collapseButton: ToolButton!
-    private var hideButton: ToolButton!
+    private let resizeHandle = ToolbarResizeHandle(frame: NSRect(x: 294, y: 57, width: 22, height: 20))
+    private(set) var toolbarScale: CGFloat = 1
+    private(set) var effectiveScale: CGFloat = 1
+    private var resizeStart: (point: NSPoint, scale: CGFloat, width: CGFloat)?
+    private var resizedToolbar = false
     private var shapeButtons: [ToolButton] = []
     var onColor: ((InkColor) -> Void)?
     var onRestoredColor: ((InkColor) -> Void)?
@@ -260,7 +264,9 @@ final class PaletteView: NSView, NSPopoverDelegate {
     init(frame: NSRect, preferences: UserPreferences = UserPreferences()) {
         self.preferences = preferences
         super.init(frame: frame)
+        toolbarScale = preferences.toolbarScale
         wantsLayer = true
+        setAccessibilityRole(.toolbar); setAccessibilityLabel("工具栏，拖动空白处移动")
         let names = ["石墨", "朱红", "琥珀", "苔绿", "湖蓝", "鸢紫"]
         for index in 0..<6 {
             let button = SwatchButton(frame: NSRect(x: 20 + index * 34, y: 4, width: 34, height: 36))
@@ -293,11 +299,12 @@ final class PaletteView: NSView, NSPopoverDelegate {
             shapeButtons.append(button); addSubview(button)
         }
         collapseButton = ToolButton(image: NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "折叠工具栏")!, target: self, action: #selector(toggleCollapsed))
-        hideButton = ToolButton(image: NSImage(systemSymbolName: "xmark", accessibilityDescription: "隐藏工具栏")!, target: self, action: #selector(hideToolbar))
-        for button in [collapseButton!, hideButton!] {
-            button.isBordered = false; button.contentTintColor = .secondaryLabelColor; addSubview(button)
-        }
-        hideButton.toolTip = "隐藏工具栏 · ⇧⌘T；从更多菜单恢复"
+        collapseButton.isBordered = false; collapseButton.contentTintColor = .secondaryLabelColor; addSubview(collapseButton)
+        addSubview(resizeHandle)
+        resizeHandle.onBegin = { [weak self] in self?.beginResizing(at: $0) }
+        resizeHandle.onDrag = { [weak self] in self?.updateResizing(at: $0) }
+        resizeHandle.onEnd = { [weak self] in self?.endResizing() }
+        resizeHandle.onReset = { [weak self] in self?.setToolbarScale(1) }
         isCollapsed = preferences.toolbarCollapsed
         isHidden = preferences.toolbarHidden
         updateToolbarLayout()
@@ -341,16 +348,23 @@ final class PaletteView: NSView, NSPopoverDelegate {
         updateButtons()
     }
     override func draw(_ dirtyRect: NSRect) {
-        guard !isCollapsed else { return }
+        if isCollapsed {
+            drawMoveGrip(at: NSPoint(x: 17, y: 12)); return
+        }
         NSColor.separatorColor.setFill(); NSRect(x: 20, y: 41, width: 280, height: 1).fill()
-        NSColor.tertiaryLabelColor.withAlphaComponent(0.5).setFill()
-        NSBezierPath(roundedRect: NSRect(x: 8, y: 16, width: 2, height: 12), xRadius: 1, yRadius: 1).fill()
         NSColor.separatorColor.setFill()
         if !colors.isEmpty { NSRect(x: custom.frame.minX - 5, y: 13, width: 1, height: 18).fill() }
         NSRect(x: 272, y: 13, width: 1, height: 18).fill()
+        drawMoveGrip(at: NSPoint(x: 61, y: 53))
+    }
+    private func drawMoveGrip(at point: NSPoint) {
+        NSColor.tertiaryLabelColor.withAlphaComponent(0.65).setFill()
+        for dx in [CGFloat(0), 4] {
+            NSBezierPath(roundedRect: NSRect(x: point.x + dx, y: point.y, width: 1.5, height: 12), xRadius: 0.75, yRadius: 0.75).fill()
+        }
     }
     func updateButtons() {
-        cancelReordering()
+        cancelInteractions()
         let names = ["石墨", "朱红", "琥珀", "苔绿", "湖蓝", "鸢紫"]
         let defaults = dark ? InkColor.dark : InkColor.light
         for (index, button) in buttons.enumerated() {
@@ -466,7 +480,6 @@ final class PaletteView: NSView, NSPopoverDelegate {
         isCollapsed.toggle(); preferences.toolbarCollapsed = isCollapsed
         updateToolbarLayout(); onLayoutChange?(); onRestoreFocus?()
     }
-    @objc private func hideToolbar() { setToolbarHidden(true) }
     func setToolbarHidden(_ hidden: Bool) {
         cancelInteractions()
         closePicker(accept: true)
@@ -474,14 +487,51 @@ final class PaletteView: NSView, NSPopoverDelegate {
         onLayoutChange?(); onRestoreFocus?()
     }
     private func updateToolbarLayout() {
-        setFrameSize(isCollapsed ? NSSize(width: 76, height: 36) : NSSize(width: Self.preferredWidth, height: 80))
-        for child in subviews { child.isHidden = isCollapsed && child !== collapseButton && child !== hideButton }
-        collapseButton.frame = NSRect(x: isCollapsed ? 6 : 18, y: isCollapsed ? 2 : 43, width: 30, height: 32)
-        hideButton.frame = NSRect(x: isCollapsed ? 40 : 50, y: isCollapsed ? 2 : 43, width: 30, height: 32)
+        applyToolbarGeometry()
+        for child in subviews { child.isHidden = isCollapsed && child !== collapseButton }
+        collapseButton.frame = NSRect(x: isCollapsed ? 40 : 18, y: isCollapsed ? 2 : 43, width: 30, height: 32)
         collapseButton.image = NSImage(systemSymbolName: isCollapsed ? "chevron.up" : "chevron.down", accessibilityDescription: isCollapsed ? "展开工具栏" : "折叠工具栏")
         collapseButton.toolTip = isCollapsed ? "展开工具栏 · ⌥⌘T" : "折叠工具栏 · ⌥⌘T"
         collapseButton.setAccessibilityLabel(collapseButton.toolTip)
         updateButtons(); needsDisplay = true
+        window?.invalidateCursorRects(for: self)
+    }
+    private var logicalSize: NSSize { isCollapsed ? NSSize(width: 76, height: 36) : NSSize(width: Self.preferredWidth, height: 80) }
+    private func applyToolbarGeometry() {
+        let size = logicalSize
+        let available = superview?.bounds.size
+        let fit = available.map { min(max(1, $0.width - 16) / size.width, max(1, $0.height - 16) / size.height) } ?? toolbarScale
+        effectiveScale = min(toolbarScale, fit)
+        setFrameSize(NSSize(width: size.width * effectiveScale, height: size.height * effectiveScale))
+        setBoundsSize(size)
+    }
+    func setToolbarScale(_ value: CGFloat) {
+        cancelInteractions(); closePicker(accept: true)
+        preferences.toolbarScale = value
+        toolbarScale = preferences.toolbarScale
+        applyToolbarGeometry(); onLayoutChange?(); onRestoreFocus?()
+    }
+    func beginResizing(at point: NSPoint) {
+        guard !isCollapsed, !isHidden, let superview else { return }
+        cancelInteractions(); closePicker(accept: true)
+        resizeStart = (superview.convert(point, from: nil), toolbarScale, frame.width)
+        resizedToolbar = false
+    }
+    func updateResizing(at point: NSPoint) {
+        guard let start = resizeStart, let superview else { return }
+        let delta = superview.convert(point, from: nil).x - start.point.x
+        guard resizedToolbar || abs(delta) >= 2 else { return }
+        resizedToolbar = true
+        let availableWidth = max(1, superview.bounds.maxX - frame.minX - 8)
+        toolbarScale = min(1.5, max(0.85, min(start.width + delta, availableWidth) / Self.preferredWidth))
+        applyToolbarGeometry(); needsDisplay = true
+    }
+    func endResizing() {
+        guard resizeStart != nil else { return }
+        resizeStart = nil
+        if resizedToolbar { preferences.toolbarScale = toolbarScale }
+        resizedToolbar = false
+        window?.invalidateCursorRects(for: self); onRestoreFocus?()
     }
     private func revealForPicker() {
         if isHidden { setToolbarHidden(false) }
@@ -494,7 +544,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
     }
     @objc private func shapeClicked(_ sender: NSButton) { chooseShape(preferences.shapeOrder[sender.tag]) }
     private func updateShapeButtons() {
-        cancelReordering()
+        cancelInteractions()
         for (index, button) in shapeButtons.enumerated() {
             button.tag = index
             button.frame = NSRect(x: 88 + index * 36, y: 43, width: 34, height: 32)
@@ -636,20 +686,26 @@ final class PaletteView: NSView, NSPopoverDelegate {
         }
     }
     @discardableResult func cancelActiveGesture() -> Bool {
-        let active = reorderGesture != nil || dragOrigin != nil || ((buttons as [ReorderButton]) + shapeButtons).contains { $0.isTracking }
+        let active = reorderGesture != nil || dragOrigin != nil || resizeStart != nil || ((buttons as [ReorderButton]) + shapeButtons).contains { $0.isTracking }
         cancelInteractions()
         return active
     }
     func cancelInteractions() {
         cancelReordering()
-        for button in (buttons as [ReorderButton]) + shapeButtons { button.cancelTracking() }
+        for button in (buttons as [ReorderButton]) + shapeButtons where button.isTracking { button.cancelTracking() }
         if movedToolbar, let originalFrame { setFrameOrigin(originalFrame) }
         dragOrigin = nil; originalFrame = nil; movedToolbar = false
+        if let start = resizeStart {
+            resizeStart = nil; toolbarScale = start.scale; applyToolbarGeometry()
+        }
+        resizeHandle.cancelTracking()
+        resizedToolbar = false
     }
     /// Clamping is temporary; growing the window restores the user's chosen location.
     func layoutInContainer(initial: Bool = false) {
         guard let superview else { return }
         cancelInteractions()
+        applyToolbarGeometry()
         if initial {
             let saved = preferences.defaults.array(forKey: "palettePosition") as? [Double]
             if let saved, saved.count == 2, saved.allSatisfy(\.isFinite) {

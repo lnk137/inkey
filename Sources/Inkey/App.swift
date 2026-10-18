@@ -67,8 +67,8 @@ final class ShortcutRecorder: NSButton {
 final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextFieldDelegate {
     var window: InkeyWindow!
     let canvas = CanvasView(frame: .zero)
-    let palette = PaletteView(frame: NSRect(x: 0, y: 0, width: PaletteView.preferredWidth, height: 80))
-    let preferences = UserPreferences()
+    let palette: PaletteView
+    let preferences: UserPreferences
     let store = DraftStore()
     let hotkey = HotKey()
     var statusItem: NSStatusItem!
@@ -84,6 +84,13 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     var statusLabel: NSTextField!
     var errorShown = false
     var fullScreen = false
+
+    override convenience init() { self.init(preferences: UserPreferences()) }
+    init(preferences: UserPreferences) {
+        self.preferences = preferences
+        palette = PaletteView(frame: NSRect(x: 0, y: 0, width: PaletteView.preferredWidth, height: 80), preferences: preferences)
+        super.init()
+    }
 
     static func main() {
 #if README_ASSETS
@@ -129,6 +136,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
                 recorder.keyDown(with: event); return nil
             }
             guard !self.canvas.isDrawing else { return event }
+            if (self.window.isVisible || self.palette.hasPopover), self.handleToolbarVisibilityShortcut(event) { return nil }
             if self.palette.hasPopover && event.keyCode == 53 { self.palette.closePicker(accept: false); return nil }
             guard self.window.isKeyWindow else { return event }
             if event.keyCode == 53, self.palette.cancelActiveGesture() { return nil }
@@ -252,7 +260,6 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         add("放大橡皮擦", #selector(largerEraser(_:)), "]", modifiers: [.command, .option], to: view)
         add("自定义颜色…", #selector(pickColor(_:)), "c", modifiers: [.command, .shift], to: view)
         add("折叠／展开工具栏", #selector(toggleToolbarCollapsed(_:)), "t", modifiers: [.command, .option], to: view)
-        add("显示／隐藏工具栏", #selector(toggleToolbarHidden(_:)), "t", modifiers: [.command, .shift], to: view)
         add("置顶常驻", #selector(togglePinned(_:)), "p", modifiers: [.command, .shift], to: view)
         add("进入／退出全屏", #selector(toggleFullScreen(_:)), "f", modifiers: [.command, .control], to: view)
         let help = NSMenu(); add("快捷键与使用说明", #selector(help(_:)), "", to: help)
@@ -493,14 +500,24 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         palette.toggleCollapsed()
     }
     @objc func toggleToolbarHidden(_ sender: Any?) { palette.setToolbarHidden(!palette.isHidden) }
+    func handleToolbarVisibilityShortcut(_ event: NSEvent) -> Bool {
+        guard event.keyCode == 17,
+              event.modifierFlags.intersection([.command, .option, .control, .shift]) == [.command, .shift] else { return false }
+        toggleToolbarHidden(nil); return true
+    }
 
     @objc func showMore(_ sender: NSButton) {
+        moreMenu().popUp(positioning: nil, at: NSPoint(x: 0, y: -4), in: sender)
+    }
+    func moreMenu() -> NSMenu {
         let menu = NSMenu()
         add("新建草稿", #selector(newDraft(_:)), "n", to: menu)
         add("最近草稿…", #selector(showRecent(_:)), "", to: menu)
         menu.addItem(.separator())
         add(palette.isCollapsed ? "展开工具栏" : "折叠工具栏", #selector(toggleToolbarCollapsed(_:)), "t", modifiers: [.command, .option], to: menu)
         add(palette.isHidden ? "显示工具栏" : "隐藏工具栏", #selector(toggleToolbarHidden(_:)), "t", modifiers: [.command, .shift], to: menu)
+        let sizeItem = NSMenuItem(title: "工具栏大小", action: nil, keyEquivalent: "")
+        sizeItem.submenu = toolbarSizeMenu(); menu.addItem(sizeItem)
         let pin = add("置顶常驻", #selector(togglePinned(_:)), "p", modifiers: [.command, .shift], to: menu); pin.state = pinned ? .on : .off
         add("进入／退出全屏", #selector(toggleFullScreen(_:)), "f", modifiers: [.command, .control], to: menu)
         add("适配全部内容", #selector(fit(_:)), "0", to: menu)
@@ -510,7 +527,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         add("另存为…", #selector(saveAs(_:)), "s", modifiers: [.command, .shift], to: menu)
         add("导出…", #selector(exportDraft(_:)), "e", to: menu)
         menu.addItem(.separator()); add("设置…", #selector(showSettings(_:)), ",", to: menu)
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -4), in: sender)
+        return menu
     }
 
     @objc func showSettings(_ sender: Any?) {
@@ -596,6 +613,16 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     @objc func changeResizeDefault(_ sender: NSButton) { preferences.resizeUpdatesDefaultFont = sender.state == .on }
     @objc func changePlacement(_ sender: NSPopUpButton) { UserDefaults.standard.set(sender.indexOfSelectedItem == 1, forKey: "pointerPlacement") }
 
+    func toolbarSizeMenu() -> NSMenu {
+        let menu = NSMenu()
+        for (title, percent) in [("小 · 85%", 85), ("标准 · 100%", 100), ("大 · 125%", 125), ("特大 · 150%", 150)] {
+            let item = add(title, #selector(changeToolbarSize(_:)), "", to: menu)
+            item.tag = percent
+            item.state = abs(palette.toolbarScale - CGFloat(percent) / 100) < 0.005 ? .on : .off
+        }
+        return menu
+    }
+    @objc func changeToolbarSize(_ sender: NSMenuItem) { palette.setToolbarScale(CGFloat(sender.tag) / 100) }
     @objc func changeCursorTrail(_ sender: NSSwitch) { preferences.cursorTrail = sender.state == .on; canvas.cursorTrailEnabled = preferences.cursorTrail }
     @objc func resetColors(_ sender: Any?) { palette.resetPresets() }
     @objc func help(_ sender: Any?) {

@@ -71,6 +71,14 @@ final class UserPreferences {
         get { defaults.bool(forKey: "toolbarHidden") }
         set { defaults.set(newValue, forKey: "toolbarHidden") }
     }
+    var toolbarScale: Double {
+        get {
+            guard defaults.object(forKey: "toolbarScale") != nil else { return 1 }
+            let value = defaults.double(forKey: "toolbarScale")
+            return value.isFinite ? min(1.5, max(0.85, value)) : 1
+        }
+        set { defaults.set(newValue.isFinite ? min(1.5, max(0.85, newValue)) : 1, forKey: "toolbarScale") }
+    }
     var tool: InkTool {
         get { InkTool(rawValue: defaults.string(forKey: "drawingTool") ?? "") ?? .pen }
         set { defaults.set(newValue.rawValue, forKey: "drawingTool") }

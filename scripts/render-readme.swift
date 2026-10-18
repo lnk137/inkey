@@ -6,7 +6,10 @@ enum DocumentationRenderer {
     static func render() {
         _ = NSApplication.shared
         NSApp.appearance = NSAppearance(named: .aqua)
-        let controller = InkeyApp()
+        let suite = "InkeyReadme.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let controller = InkeyApp(preferences: UserPreferences(defaults: defaults))
         controller.buildWindow()
         controller.canvas.onChange = nil
         controller.canvas.onToolChange = nil

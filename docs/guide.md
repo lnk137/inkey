@@ -36,7 +36,7 @@ it is not a notarized distribution build.
 | Command + drag | Move an object |
 | Delete | Delete the selected object; delete characters while editing |
 | Return / Shift + Return | Commit text / insert a newline |
-| Escape | Commit text, deselect an object, or hide the window |
+| Escape | Cancel a toolbar gesture; otherwise commit text, deselect, or hide the window |
 | Two-finger scroll / pinch | Pan / zoom |
 | Command + 0 | Fit all content |
 | Command + Z / Shift + Command + Z | Undo / redo |
@@ -114,7 +114,7 @@ painting over it, so exports and paper colors remain correct.
 
 Inkey automatically remembers the active pen/eraser tool, eraser diameter, selected
 preset or custom ink, customized presets, recent colors, text placement mode,
-global shortcut, toolbar collapse/visibility, palette position, window size/location, persistent mode, and
+global shortcut, toolbar size/collapse/visibility, palette position, window size/location, persistent mode, and
 full-screen mode. Ink preferences are stored separately for light and dark paper.
 Transient state such as a text selection, temporary Option erasing, and an open
 popover is not restored. Preferences are saved locally in macOS UserDefaults;
@@ -198,7 +198,7 @@ The rectangle tool replaces the square tool at **Shift + 3** in the default orde
 
 ## Toolbar visibility
 
-Use the chevron to collapse the tool and color rows into a small handle; click it again to expand. The × button hides the entire toolbar. **Option + Command + T** toggles collapse; **Shift + Command + T** toggles visibility. Both actions are also in the View and More menus, so a hidden toolbar can always be restored. Collapse and visibility are remembered separately across launches. Color and shape shortcuts still work while hidden; opening a color or size picker reveals and expands its toolbar anchor.
+Use the chevron to collapse the tool and color rows into a small handle; click it again to expand. Drag the left grip or empty toolbar background to move it, including when collapsed. Drag the upper-right size handle horizontally to resize the expanded toolbar from 85% to 150%, or double-click it to restore 100%. More (···) offers the same size presets. Resizing previews immediately and saves on release; Escape or losing focus cancels. When the window is too small, the toolbar fits temporarily and restores the requested size as space returns. **Option + Command + T** toggles collapse (also in View and More); hiding or restoring is available only in More and through **Shift + Command + T**. There is no hide button on the toolbar. Collapse and visibility are remembered separately across launches. Color and shape shortcuts still work while hidden; opening a color or size picker reveals and expands its toolbar anchor.
 
 ## Text size and global shortcut
 

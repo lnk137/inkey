@@ -24,7 +24,7 @@ Solving a problem in your browser? Press **⌃⌥Space**, sketch the idea, and p
 
 - **Type, then draw.** Move the pointer to start another variable. Drag to sketch—even over newly typed text. Right-click a word for precise editing.
 - **Made for a trackpad.** Shift-drag arrows, lines, rectangles, or ellipses, pinch to zoom, or Option-drag to erase. Single-click the eraser to toggle it; right-click to resize it.
-- **Only what you need.** Editable color presets, a custom color picker, a collapsible, hideable toolbar, an optional crosshair trail, and floating, pinned, or full-screen windows.
+- **Only what you need.** Editable color presets, a custom color picker, a resizable, draggable, collapsible toolbar, an optional crosshair trail, and floating, pinned, or full-screen windows.
 - **Pick up where you left off.** Local autosave, remembered preferences, editable `.inkey` drafts, and PNG/PDF export.
 
 Swift + AppKit. No web view, account, telemetry, or third-party dependencies.
@@ -70,7 +70,7 @@ Tests cover text/drawing transitions, input methods, pointer alignment, vector e
 
 Drag shape buttons or preset colors within their row to reorder them. Shortcuts stay with positions: ⇧1–4 for shapes, ⌥1–6 for colors. The order is saved; the selected tool and ink stay unchanged. Right-click a color preset to edit or delete it. Add colors in the custom picker (up to six); restore defaults in Settings.
 
-The canvas uses a crosshair; only typing shows an insertion caret, which disappears on mouse movement. Collapse the toolbar with its chevron or hide it with ×. Use ⌥⌘T to collapse/expand and ⇧⌘T to show/hide, or restore it from More.
+The canvas uses a crosshair; only typing shows an insertion caret, which disappears on mouse movement. Collapse the toolbar with its chevron; its left grip remains draggable when collapsed. Drag the upper-right size handle horizontally to resize it (85–150%); double-click it to reset. More (···) also offers size presets. Use ⌥⌘T to collapse/expand; hide or restore the toolbar only through More or ⇧⌘T. Size, position, and visibility are remembered.
 
 Right-click text and drag a corner to resize it. The resized font becomes the next typing size by default; disable this in Settings or set a default directly (6–200 pt). Click the show/hide shortcut recorder in Settings to choose another global combination.
 

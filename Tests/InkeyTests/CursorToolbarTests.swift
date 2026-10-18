@@ -78,7 +78,7 @@ struct CursorToolbarTests {
         palette.chooseShape(.rectangle)
         palette.toggleCollapsed()
         #expect(palette.isCollapsed && palette.frame.width == 76 && palette.frame.height == 36)
-        #expect(palette.subviews.filter { !$0.isHidden }.count == 2)
+        #expect(palette.subviews.filter { !$0.isHidden }.count == 1)
         palette.choose(3)
         #expect(palette.isCollapsed)
         #expect(palette.subviews.compactMap { $0 as? SwatchButton }.allSatisfy { $0.isHidden })
