@@ -85,7 +85,7 @@ struct PaletteReorderingTests {
         try withPalette { palette, preferences in
             let colors = palette.subviews.compactMap { $0 as? SwatchButton }.filter { $0.reorderGroup == "colors" }
             let shapes = palette.subviews.compactMap { $0 as? ToolButton }.filter { $0.reorderGroup == "shapes" }
-            func center(_ view: NSView) -> NSPoint { NSPoint(x: view.frame.midX, y: view.frame.midY) }
+            @MainActor func center(_ view: NSView) -> NSPoint { NSPoint(x: view.frame.midX, y: view.frame.midY) }
             #expect(palette.reorderDestination(for: colors[0], at: center(colors[3])) === colors[3])
             #expect(palette.reorderDestination(for: shapes[0], at: center(shapes[2])) === shapes[2])
             #expect(palette.reorderDestination(for: colors[0], at: center(shapes[0])) == nil)
@@ -168,6 +168,83 @@ struct PaletteReorderingTests {
             source.mouseUp(with: helper.mouse(.leftMouseUp, destination, window: window))
             #expect(preferences.shapeOrder == [.rectangle, .arrow, .line, .ellipse])
             #expect(preferences.shiftShape == .rectangle)
+        }
+    }
+
+    @Test func refreshingDuringPreviewRestoresIdentityAndCancelsPendingMouseUp() throws {
+        try withPalette { palette, preferences in
+            let colors = palette.subviews.compactMap { $0 as? SwatchButton }.filter { $0.reorderGroup == "colors" }
+            let original = palette.colors
+            let start = NSPoint(x: colors[0].frame.midX, y: colors[0].frame.midY)
+            let target = NSPoint(x: colors[4].frame.midX, y: colors[4].frame.midY)
+            for action in [0, 1, 2, 3] {
+                palette.beginReordering(colors[0], at: start)
+                palette.updateReordering(at: target)
+                switch action {
+                case 0: palette.refreshAppearance()
+                case 1: palette.choose(3)
+                case 2: palette.toggleCollapsed(); palette.toggleCollapsed()
+                default: palette.setToolbarHidden(true); palette.setToolbarHidden(false)
+                }
+                palette.endReordering(at: target)
+                #expect(palette.colors == original)
+                #expect(colors.enumerated().allSatisfy { $0.element.inkColor == original[$0.offset] && $0.element.tag == $0.offset })
+                #expect(colors.allSatisfy { $0.alphaValue == 1 && ($0.layer?.animationKeys() ?? []).isEmpty })
+            }
+            #expect(preferences.defaults.stringArray(forKey: "lightPresets") == nil)
+        }
+    }
+
+    @Test func rapidReversalsCancelWithoutDelayedFrameChanges() throws {
+        try withPalette { palette, _ in
+            let shapes = palette.subviews.compactMap { $0 as? ToolButton }.filter { $0.reorderGroup == "shapes" }
+            let original = shapes.map(\.frame)
+            let start = NSPoint(x: shapes[0].frame.midX, y: shapes[0].frame.midY)
+            palette.beginReordering(shapes[0], at: start)
+            for x in [213.0, 140, 212, 115, 211, 109] { palette.updateReordering(at: NSPoint(x: x, y: start.y)) }
+            #expect(palette.cancelActiveGesture())
+            #expect(shapes.map(\.frame) == original)
+            #expect(shapes.allSatisfy { ($0.layer?.animationKeys() ?? []).isEmpty })
+            #expect(!palette.cancelActiveGesture())
+        }
+    }
+
+    @Test func windowClampingRestoresPreferredLocationAndRejectsCorruptPreferences() throws {
+        try withPalette { palette, preferences in
+            let container = NSView(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
+            container.addSubview(palette)
+            preferences.defaults.set([850.0, 620.0], forKey: "palettePosition")
+            palette.layoutInContainer(initial: true)
+            #expect(palette.frame.origin == NSPoint(x: 850, y: 620))
+            container.setFrameSize(NSSize(width: 420, height: 320)); palette.layoutInContainer()
+            #expect(container.bounds.contains(palette.frame))
+            container.setFrameSize(NSSize(width: 1200, height: 800)); palette.layoutInContainer()
+            #expect(palette.frame.origin == NSPoint(x: 850, y: 620))
+            preferences.defaults.set([Double.nan, Double.infinity], forKey: "palettePosition")
+            palette.layoutInContainer(initial: true)
+            #expect(palette.frame.minX.isFinite && palette.frame.minY.isFinite)
+        }
+    }
+
+    @Test func losingWindowFocusCancelsSortWithoutSavingAndDeletionKeepsSlotsContiguous() throws {
+        try withPalette { palette, preferences in
+            let (window, canvas) = CanvasTests().makeCanvas()
+            canvas.addSubview(palette)
+            let colors = palette.subviews.compactMap { $0 as? SwatchButton }.filter { $0.reorderGroup == "colors" }
+            let original = palette.colors
+            let start = NSPoint(x: colors[0].frame.midX, y: colors[0].frame.midY)
+            let end = NSPoint(x: colors[5].frame.midX, y: colors[5].frame.midY)
+            palette.beginReordering(colors[0], at: start); palette.updateReordering(at: end)
+            NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: window)
+            palette.endReordering(at: end)
+            #expect(palette.colors == original)
+            #expect(preferences.defaults.stringArray(forKey: "lightPresets") == nil)
+            palette.beginReordering(colors[0], at: start); palette.updateReordering(at: end)
+            palette.deletePreset(2)
+            palette.endReordering(at: end)
+            #expect(palette.colors == original.enumerated().filter { $0.offset != 2 }.map(\.element))
+            let visible = colors.filter { !$0.isHidden }.sorted { $0.tag < $1.tag }
+            #expect(visible.enumerated().allSatisfy { $0.element.frame.minX == CGFloat(20 + $0.offset * 34) })
         }
     }
 }

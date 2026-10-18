@@ -23,6 +23,7 @@ final class SwatchButton: ReorderButton {
     var onEdit: (() -> Void)?
     var onDelete: (() -> Void)?
     var hovering = false
+    private var hoverArea: NSTrackingArea?
     override var acceptsFirstResponder: Bool { false }
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -30,8 +31,10 @@ final class SwatchButton: ReorderButton {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override func updateTrackingAreas() {
-        trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: bounds, options: [.activeAlways, .mouseEnteredAndExited], owner: self))
+        super.updateTrackingAreas()
+        if let hoverArea { removeTrackingArea(hoverArea) }
+        let area = NSTrackingArea(rect: .zero, options: [.activeInKeyWindow, .mouseEnteredAndExited, .inVisibleRect], owner: self)
+        addTrackingArea(area); hoverArea = area
     }
     override func menu(for event: NSEvent) -> NSMenu? {
         guard onEdit != nil else { return nil }
@@ -229,6 +232,9 @@ final class PaletteView: NSView, NSPopoverDelegate {
     private var custom: SwatchButton!
     private var dragOrigin: NSPoint?
     private var originalFrame: NSPoint?
+    private var movedToolbar = false
+    private var desiredOrigin: NSPoint?
+    private var windowObservers: [NSObjectProtocol] = []
     private var editingPreset: Int?
     private var initialColor: InkColor?
     private var acceptPreview = true
@@ -243,6 +249,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         let offset: CGFloat
         let spacing: CGFloat
         let row: NSRect
+        var ordered: [ReorderButton]
     }
     private var reorderGesture: ReorderGesture?
     private var recentColors: [InkColor] {
@@ -298,8 +305,22 @@ final class PaletteView: NSView, NSPopoverDelegate {
         refreshAppearance()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        windowObservers.forEach(NotificationCenter.default.removeObserver)
+        windowObservers = []
+        guard let window else { cancelInteractions(); return }
+        for name in [NSWindow.didResignKeyNotification, NSWindow.willCloseNotification] {
+            windowObservers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                self?.cancelInteractions()
+            })
+        }
+    }
+    deinit { windowObservers.forEach(NotificationCenter.default.removeObserver) }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); refreshAppearance() }
     func refreshAppearance() {
+        cancelInteractions()
         let newDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let previous = colors
         dark = paperIsDark ?? newDark
@@ -324,13 +345,17 @@ final class PaletteView: NSView, NSPopoverDelegate {
         NSColor.separatorColor.setFill(); NSRect(x: 20, y: 41, width: 280, height: 1).fill()
         NSColor.tertiaryLabelColor.withAlphaComponent(0.5).setFill()
         NSBezierPath(roundedRect: NSRect(x: 8, y: 16, width: 2, height: 12), xRadius: 1, yRadius: 1).fill()
-        NSColor.separatorColor.setFill(); NSRect(x: 228, y: 13, width: 1, height: 18).fill()
+        NSColor.separatorColor.setFill()
+        if !colors.isEmpty { NSRect(x: custom.frame.minX - 5, y: 13, width: 1, height: 18).fill() }
         NSRect(x: 272, y: 13, width: 1, height: 18).fill()
     }
     func updateButtons() {
+        cancelReordering()
         let names = ["石墨", "朱红", "琥珀", "苔绿", "湖蓝", "鸢紫"]
         let defaults = dark ? InkColor.dark : InkColor.light
         for (index, button) in buttons.enumerated() {
+            button.tag = index
+            button.frame = NSRect(x: 20 + index * 34, y: 4, width: 34, height: 36)
             button.isHidden = isCollapsed || !colors.indices.contains(index)
             guard colors.indices.contains(index) else { continue }
             button.inkColor = colors[index]; button.selected = !eraserEnabled && colors[index] == current
@@ -346,7 +371,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         eraserButton?.contentTintColor = eraserEnabled ? .controlAccentColor : .secondaryLabelColor
         eraserButton?.setAccessibilityLabel(eraserEnabled ? "Eraser, selected" : "Eraser")
         eraserButton?.needsDisplay = true
-        updateButtons()
+        updateButtons(); updateShapeButtons()
     }
     func saveCurrentColor() {
         let index = colors.firstIndex(of: current)
@@ -436,12 +461,14 @@ final class PaletteView: NSView, NSPopoverDelegate {
         updateButtons(); onRestoreFocus?()
     }
     @objc func toggleCollapsed() {
+        cancelInteractions()
         closePicker(accept: true)
         isCollapsed.toggle(); preferences.toolbarCollapsed = isCollapsed
         updateToolbarLayout(); onLayoutChange?(); onRestoreFocus?()
     }
     @objc private func hideToolbar() { setToolbarHidden(true) }
     func setToolbarHidden(_ hidden: Bool) {
+        cancelInteractions()
         closePicker(accept: true)
         isHidden = hidden; preferences.toolbarHidden = hidden
         onLayoutChange?(); onRestoreFocus?()
@@ -467,12 +494,15 @@ final class PaletteView: NSView, NSPopoverDelegate {
     }
     @objc private func shapeClicked(_ sender: NSButton) { chooseShape(preferences.shapeOrder[sender.tag]) }
     private func updateShapeButtons() {
+        cancelReordering()
         for (index, button) in shapeButtons.enumerated() {
+            button.tag = index
+            button.frame = NSRect(x: 88 + index * 36, y: 43, width: 34, height: 32)
             let shape = preferences.shapeOrder[index]
             button.image = NSImage(systemSymbolName: shape.symbol, accessibilityDescription: shape.label)
             button.toolTip = "\(shape.label) · ⇧\(index + 1) · Shift 拖动 · 拖动按钮排序"
             button.setAccessibilityLabel(button.toolTip)
-            button.state = shape == preferences.shiftShape ? .on : .off
+            button.state = !eraserEnabled && shape == preferences.shiftShape ? .on : .off
             button.contentTintColor = button.state == .on ? .controlAccentColor : .secondaryLabelColor
         }
     }
@@ -545,6 +575,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         }
     }
     func beginReordering(_ source: ReorderButton, at point: NSPoint) {
+        cancelReordering()
         guard reorderDestination(for: source, at: point) != nil else { return }
         closePicker(accept: true)
         let rowButtons: [ReorderButton] = source.reorderGroup == "colors" ? buttons.filter { !$0.isHidden } : shapeButtons
@@ -552,46 +583,41 @@ final class PaletteView: NSView, NSPopoverDelegate {
         let row = rowButtons.reduce(NSRect.null) { $0.union($1.frame) }
         reorderGesture = ReorderGesture(source: source, originalButtons: rowButtons, originalIndex: index,
                                         startX: first.frame.minX, offset: point.x - source.frame.minX,
-                                        spacing: source.reorderGroup == "colors" ? 34 : 36, row: row)
+                                        spacing: source.reorderGroup == "colors" ? 34 : 36, row: row, ordered: rowButtons)
         addSubview(source, positioned: .above, relativeTo: nil)
         source.alphaValue = 0.8
     }
     func updateReordering(at point: NSPoint) {
-        guard let gesture = reorderGesture else { return }
+        guard var gesture = reorderGesture else { return }
         let source = gesture.source
-        let isColor = source.reorderGroup == "colors"
-        var ordered: [ReorderButton] = isColor ? buttons.filter { !$0.isHidden } : shapeButtons
+        var ordered = gesture.ordered
         guard let currentIndex = ordered.firstIndex(where: { $0 === source }) else { return }
         let x = min(gesture.row.maxX - source.frame.width, max(gesture.startX, point.x - gesture.offset))
-        source.setFrameOrigin(NSPoint(x: x, y: gesture.row.minY))
+        source.move(to: NSPoint(x: x, y: gesture.row.minY), animated: false)
         let destination = min(ordered.count - 1, max(0, Int(((x - gesture.startX) / gesture.spacing).rounded())))
         guard destination != currentIndex else { return }
+        let boundary = gesture.startX + (CGFloat(currentIndex) + (destination > currentIndex ? 0.5 : -0.5)) * gesture.spacing
+        guard destination > currentIndex ? x >= boundary + 2 : x <= boundary - 2 else { return }
         ordered.insert(ordered.remove(at: currentIndex), at: destination)
-        if isColor {
-            buttons = ordered.compactMap { $0 as? SwatchButton } + buttons.filter { $0.isHidden }
-        } else { shapeButtons = ordered.compactMap { $0 as? ToolButton } }
+        gesture.ordered = ordered; reorderGesture = gesture
         // Only displaced neighbors animate. The dragged button follows every event directly.
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.1
-            for (index, button) in ordered.enumerated() where button !== source {
-                button.animator().setFrameOrigin(NSPoint(x: gesture.startX + CGFloat(index) * gesture.spacing, y: gesture.row.minY))
-            }
+        for (index, button) in ordered.enumerated() where button !== source {
+            button.move(to: NSPoint(x: gesture.startX + CGFloat(index) * gesture.spacing, y: gesture.row.minY), animated: true)
         }
     }
     func endReordering(at point: NSPoint) {
-        guard let gesture = reorderGesture else { return }
         updateReordering(at: point)
+        guard let gesture = reorderGesture else { return }
         let isColor = gesture.source.reorderGroup == "colors"
-        let ordered: [ReorderButton] = isColor ? buttons.filter { !$0.isHidden } : shapeButtons
+        let ordered = gesture.ordered
         let destination = ordered.firstIndex(where: { $0 === gesture.source }) ?? gesture.originalIndex
         let accepted = gesture.row.insetBy(dx: -8, dy: -8).contains(point)
         let finalButtons = accepted ? ordered : gesture.originalButtons
         if isColor { buttons = finalButtons.compactMap { $0 as? SwatchButton } + buttons.filter { $0.isHidden } }
         else { shapeButtons = finalButtons.compactMap { $0 as? ToolButton } }
         for (index, button) in finalButtons.enumerated() {
-            button.layer?.removeAllAnimations()
             button.tag = index
-            button.setFrameOrigin(NSPoint(x: gesture.startX + CGFloat(index) * gesture.spacing, y: gesture.row.minY))
+            button.move(to: NSPoint(x: gesture.startX + CGFloat(index) * gesture.spacing, y: gesture.row.minY), animated: false)
         }
         gesture.source.alphaValue = 1
         reorderGesture = nil
@@ -601,19 +627,63 @@ final class PaletteView: NSView, NSPopoverDelegate {
         }
         updateButtons(); updateShapeButtons(); onRestoreFocus?()
     }
+    func cancelReordering() {
+        guard let gesture = reorderGesture else { return }
+        reorderGesture = nil
+        for (index, button) in gesture.originalButtons.enumerated() {
+            button.move(to: NSPoint(x: gesture.startX + CGFloat(index) * gesture.spacing, y: gesture.row.minY), animated: false)
+            button.alphaValue = 1; button.cancelTracking()
+        }
+    }
+    @discardableResult func cancelActiveGesture() -> Bool {
+        let active = reorderGesture != nil || dragOrigin != nil || ((buttons as [ReorderButton]) + shapeButtons).contains { $0.isTracking }
+        cancelInteractions()
+        return active
+    }
+    func cancelInteractions() {
+        cancelReordering()
+        for button in (buttons as [ReorderButton]) + shapeButtons { button.cancelTracking() }
+        if movedToolbar, let originalFrame { setFrameOrigin(originalFrame) }
+        dragOrigin = nil; originalFrame = nil; movedToolbar = false
+    }
+    /// Clamping is temporary; growing the window restores the user's chosen location.
+    func layoutInContainer(initial: Bool = false) {
+        guard let superview else { return }
+        cancelInteractions()
+        if initial {
+            let saved = preferences.defaults.array(forKey: "palettePosition") as? [Double]
+            if let saved, saved.count == 2, saved.allSatisfy(\.isFinite) {
+                desiredOrigin = NSPoint(x: saved[0], y: saved[1])
+            } else { desiredOrigin = NSPoint(x: (superview.bounds.width - frame.width) / 2, y: 18) }
+        }
+        setFrameOrigin(clampedOrigin(desiredOrigin ?? frame.origin))
+    }
+    private func clampedOrigin(_ origin: NSPoint) -> NSPoint {
+        guard let superview else { return origin }
+        let area = superview.bounds
+        let marginX = min(8, max(0, (area.width - frame.width) / 2))
+        let marginY = min(8, max(0, (area.height - frame.height) / 2))
+        return NSPoint(x: min(max(area.minX + marginX, origin.x), max(area.minX + marginX, area.maxX - frame.width - marginX)),
+                       y: min(max(area.minY + marginY, origin.y), max(area.minY + marginY, area.maxY - frame.height - marginY)))
+    }
     override func mouseDown(with event: NSEvent) {
-        dragOrigin = event.locationInWindow; originalFrame = frame.origin
+        guard let superview, !event.modifierFlags.contains(.control) else { super.mouseDown(with: event); return }
+        cancelInteractions(); closePicker(accept: true)
+        dragOrigin = superview.convert(event.locationInWindow, from: nil); originalFrame = frame.origin
     }
     override func mouseDragged(with event: NSEvent) {
         guard let dragOrigin, let originalFrame, let superview else { return }
-        let dx = event.locationInWindow.x - dragOrigin.x
-        let dy = event.locationInWindow.y - dragOrigin.y
-        let x = min(max(8, originalFrame.x + dx), max(8, superview.bounds.width - frame.width - 8))
-        let y = min(max(8, originalFrame.y + (superview.isFlipped ? -dy : dy)), max(8, superview.bounds.height - frame.height - 8))
-        setFrameOrigin(NSPoint(x: x, y: y))
+        let point = superview.convert(event.locationInWindow, from: nil)
+        let dx = point.x - dragOrigin.x, dy = point.y - dragOrigin.y
+        guard movedToolbar || hypot(dx, dy) >= 4 else { return }
+        movedToolbar = true
+        setFrameOrigin(clampedOrigin(NSPoint(x: originalFrame.x + dx, y: originalFrame.y + dy)))
     }
     override func mouseUp(with event: NSEvent) {
-        preferences.defaults.set([frame.origin.x, frame.origin.y], forKey: "palettePosition")
-        dragOrigin = nil; originalFrame = nil
+        if movedToolbar {
+            desiredOrigin = frame.origin
+            preferences.defaults.set([frame.origin.x, frame.origin.y], forKey: "palettePosition")
+        }
+        dragOrigin = nil; originalFrame = nil; movedToolbar = false
     }
 }

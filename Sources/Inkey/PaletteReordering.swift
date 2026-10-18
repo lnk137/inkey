@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 
 /// Track in the view directly so movement never waits for a system drag session.
 class ReorderButton: NSButton {
@@ -8,6 +9,26 @@ class ReorderButton: NSButton {
     var onReorderEnd: ((NSPoint) -> Void)?
     private var pressLocation: NSPoint?
     private var reordering = false
+    var isTracking: Bool { pressLocation != nil }
+    func cancelTracking() {
+        pressLocation = nil; reordering = false; highlight(false)
+    }
+
+    /// Animate presentation only; hit testing and model geometry update immediately.
+    func move(to origin: NSPoint, animated: Bool) {
+        let previous = layer?.presentation()?.position ?? layer?.position
+        layer?.removeAllAnimations()
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0
+            setFrameOrigin(origin)
+        }
+        guard animated, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+              let layer, let previous, previous != layer.position else { return }
+        let motion = CABasicAnimation(keyPath: "position")
+        motion.fromValue = NSValue(point: previous); motion.toValue = NSValue(point: layer.position)
+        motion.duration = 0.1; motion.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(motion, forKey: "palettePosition")
+    }
 
     override func mouseDown(with event: NSEvent) {
         guard reorderGroup != nil, !event.modifierFlags.contains(.control) else {

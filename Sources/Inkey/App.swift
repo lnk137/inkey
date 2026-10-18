@@ -131,6 +131,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
             guard !self.canvas.isDrawing else { return event }
             if self.palette.hasPopover && event.keyCode == 53 { self.palette.closePicker(accept: false); return nil }
             guard self.window.isKeyWindow else { return event }
+            if event.keyCode == 53, self.palette.cancelActiveGesture() { return nil }
             let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
             if !self.palette.hasPopover, let shape = ShiftShape.shortcut(event, order: self.preferences.shapeOrder),
                (self.window.firstResponder as? NSTextView)?.hasMarkedText() != true {
@@ -222,12 +223,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     }
 
     func layoutPalette(initial: Bool) {
-        guard let content = window?.contentView else { return }
-        if initial {
-            let position = UserDefaults.standard.array(forKey: "palettePosition") as? [Double]
-            palette.setFrameOrigin(NSPoint(x: position?.first ?? (content.bounds.width - palette.frame.width) / 2, y: position?.last ?? 18))
-        }
-        palette.setFrameOrigin(NSPoint(x: min(max(8, palette.frame.minX), content.bounds.width - palette.frame.width - 8), y: min(max(8, palette.frame.minY), content.bounds.height - palette.frame.height - 10)))
+        palette.layoutInContainer(initial: initial)
     }
 
     func buildMenu() {
@@ -307,7 +303,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         window.makeKeyAndOrderFront(nil); canvas.restoreFocus()
     }
     func hideWindow() {
-        palette.closePicker(accept: true); canvas.flush(); window.orderOut(nil)
+        palette.cancelInteractions(); palette.closePicker(accept: true); canvas.flush(); window.orderOut(nil)
         settings?.orderOut(nil)
         previousApp?.activate()
     }
