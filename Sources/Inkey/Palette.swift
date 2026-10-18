@@ -348,20 +348,11 @@ final class PaletteView: NSView, NSPopoverDelegate {
         updateButtons()
     }
     override func draw(_ dirtyRect: NSRect) {
-        if isCollapsed {
-            drawMoveGrip(at: NSPoint(x: 17, y: 12)); return
-        }
+        guard !isCollapsed else { return }
         NSColor.separatorColor.setFill(); NSRect(x: 20, y: 41, width: 280, height: 1).fill()
         NSColor.separatorColor.setFill()
         if !colors.isEmpty { NSRect(x: custom.frame.minX - 5, y: 13, width: 1, height: 18).fill() }
         NSRect(x: 272, y: 13, width: 1, height: 18).fill()
-        drawMoveGrip(at: NSPoint(x: 61, y: 53))
-    }
-    private func drawMoveGrip(at point: NSPoint) {
-        NSColor.tertiaryLabelColor.withAlphaComponent(0.65).setFill()
-        for dx in [CGFloat(0), 4] {
-            NSBezierPath(roundedRect: NSRect(x: point.x + dx, y: point.y, width: 1.5, height: 12), xRadius: 0.75, yRadius: 0.75).fill()
-        }
     }
     func updateButtons() {
         cancelInteractions()

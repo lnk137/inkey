@@ -7,7 +7,7 @@ import Testing
 struct ToolbarLayoutTests {
     let helper = CanvasTests()
 
-    @Test func collapsedHandleMovesTheToolbarAndClicksDoNotSaveAPosition() throws {
+    @Test func collapsedBlankAreaMovesTheToolbarAndClicksDoNotSaveAPosition() throws {
         try PaletteReorderingTests().withPalette { palette, preferences in
             let (window, canvas) = helper.makeCanvas()
             canvas.addSubview(palette); palette.layoutInContainer(initial: true)
