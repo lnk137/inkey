@@ -5,10 +5,32 @@ import Testing
 @Suite("Toolbar collapse compositor", .serialized)
 @MainActor
 struct ToolbarCollapseAnimationTests {
+    @Test func visibleCompositorSurvivesAppKitLayerSynchronization() throws {
+        try fixture { palette, button, animation in
+            let window = try #require(palette.window)
+            window.orderFront(nil)
+            defer { window.orderOut(nil) }
+            let before = try #require(animation.capture(in: palette, button: button, collapsed: false))
+            palette.toggleCollapsed()
+            animation.animate(from: before, in: palette, button: button, collapsed: true)
+            let parent = try #require(palette.superview?.subviews.last?.layer)
+            let shell = try #require(parent.sublayers?.first { $0.name == "Inkey.toolbarCollapse" })
+            RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+            window.displayIfNeeded()
+            #expect(shell.superlayer === parent)
+            let shown = try #require(shell.presentation())
+            #expect(shown.bounds.width > 36 && shown.bounds.width < before.bounds.width)
+            animation.finish()
+        }
+    }
     func fixture(_ body: (PaletteView, CollapseButton, ToolbarCollapseAnimation) throws -> Void) throws {
         try PaletteReorderingTests().withPalette { palette, _ in
             let (window, canvas) = CanvasTests().makeCanvas()
-            canvas.addSubview(palette); palette.layoutInContainer(initial: true)
+            let content = NSView(frame: canvas.bounds)
+            content.wantsLayer = true
+            window.contentView = content
+            content.addSubview(canvas)
+            content.addSubview(palette); palette.layoutInContainer(initial: true)
             window.displayIfNeeded(); canvas.displayIfNeeded()
             let button = try #require(palette.subviews.compactMap { $0 as? CollapseButton }.first)
             try body(palette, button, ToolbarCollapseAnimation())
@@ -31,7 +53,7 @@ struct ToolbarCollapseAnimationTests {
             #expect(layer.animation(forKey: "toolbarCollapseVisibility")?.duration == ToolbarCollapseAnimation.duration)
             let center = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: palette.superview)
             #expect(palette.hitTest(center) === button)
-            #expect(parent.sublayers?.filter { $0.name == "Inkey.toolbarCollapse" }.count == 1)
+            #expect(palette.superview?.subviews.last?.layer?.sublayers?.filter { $0.name == "Inkey.toolbarCollapse" }.count == 1)
             let container = try #require(palette.superview)
             let oldCenter = NSPoint(x: before.arrowFrame.midX, y: before.arrowFrame.midY)
             #expect(container.subviews.last?.hitTest(oldCenter) === button)
@@ -55,7 +77,7 @@ struct ToolbarCollapseAnimationTests {
                 animation.animate(from: state, in: palette, button: button, collapsed: palette.isCollapsed)
                 state = try #require(animation.capture(in: palette, button: button, collapsed: palette.isCollapsed))
                 #expect(state.image === image)
-                #expect(parent.sublayers?.filter { $0.name == "Inkey.toolbarCollapse" }.count == 1)
+                #expect(palette.superview?.subviews.last?.layer?.sublayers?.filter { $0.name == "Inkey.toolbarCollapse" }.count == 1)
                 #expect(button.frame.size == NSSize(width: 36, height: 36))
             }
             animation.finish()
@@ -131,7 +153,7 @@ struct ToolbarCollapseAnimationTests {
             for control in controls { #expect(initial.pieces.contains { $0.frame == control.frame }) }
             palette.toggleCollapsed()
             animation.animate(from: initial, in: palette, button: button, collapsed: true)
-            let shell = try #require(palette.layer?.superlayer?.sublayers?.first { $0.name == "Inkey.toolbarCollapse" })
+            let shell = try #require(palette.superview?.subviews.last?.layer?.sublayers?.first { $0.name == "Inkey.toolbarCollapse" })
             let sprites = shell.sublayers?.first?.sublayers?.first?.sublayers ?? []
             #expect(sprites.count == initial.pieces.count)
             // The model arrow's final center is the center of the compact toolbar.

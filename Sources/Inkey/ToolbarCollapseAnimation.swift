@@ -2,6 +2,8 @@ import AppKit
 import QuartzCore
 
 private final class CollapseHitProxy: NSView {
+    var usesFlippedCoordinates = false
+    override var isFlipped: Bool { usesFlippedCoordinates }
     var resolveHit: ((NSPoint) -> NSView?)?
     override func hitTest(_ point: NSPoint) -> NSView? { resolveHit?(point) }
 }
@@ -72,7 +74,7 @@ final class ToolbarCollapseAnimation {
 
     func animate(from old: State, in view: NSView, button: CollapseButton, collapsed: Bool) {
         finish()
-        guard let layer = view.layer, let parent = layer.superlayer,
+        guard let layer = view.layer, let container = view.superview,
               let image = old.image ?? snapshot(in: view, excluding: button) else { return }
         self.view = view
         view.layoutSubtreeIfNeeded(); layer.layoutIfNeeded()
@@ -89,6 +91,14 @@ final class ToolbarCollapseAnimation {
             }
         } else { initialPieces = old.pieces }
         CATransaction.begin(); CATransaction.setDisableActions(true)
+        // AppKit rebuilds the content view's sublayers when its subviews change.
+        // Give the compositor an owned hosting view so that synchronization cannot
+        // discard it while the real toolbar is temporarily invisible.
+        let hit = CollapseHitProxy(frame: container.bounds)
+        hit.usesFlippedCoordinates = container.isFlipped
+        hit.layer = CALayer(); hit.wantsLayer = true
+        container.addSubview(hit, positioned: .above, relativeTo: view)
+        guard let parent = hit.layer else { CATransaction.commit(); return }
         let shell = CALayer()
         shell.name = "Inkey.toolbarCollapse"
         shell.bounds = layer.bounds; shell.position = layer.position
@@ -131,23 +141,18 @@ final class ToolbarCollapseAnimation {
         arrow.lineCap = .round; arrow.lineJoin = .round
         arrow.position = targetArrow; arrow.setValue(angle, forKeyPath: "transform.rotation.z")
         shell.addSublayer(arrow)
-        parent.insertSublayer(shell, above: layer)
+        parent.addSublayer(shell)
         let hidden = CABasicAnimation(keyPath: "opacity")
         hidden.fromValue = 0; hidden.toValue = 0; hidden.duration = Self.duration
         layer.add(hidden, forKey: "toolbarCollapseVisibility")
         CATransaction.commit()
         self.shell = shell; self.arrow = arrow; self.content = content; cachedImage = image; start = old
         self.pieces = initialPieces; self.pieceLayers = pieceLayers
-        if let container = view.superview {
-            let targetFrame = button.convert(button.bounds, to: container)
-            let hit = CollapseHitProxy(frame: old.arrowFrame.union(targetFrame).insetBy(dx: -1, dy: -1))
-            hit.resolveHit = { [weak self, weak button] point in
-                guard let self, let rect = self.presentedArrowFrame() ?? self.start?.arrowFrame, rect.contains(point) else { return nil }
-                return button
-            }
-            container.addSubview(hit, positioned: .above, relativeTo: view)
-            hitProxy = hit
+        hit.resolveHit = { [weak self, weak button] point in
+            guard let self, let rect = self.presentedArrowFrame() ?? self.start?.arrowFrame, rect.contains(point) else { return nil }
+            return button
         }
+        hitProxy = hit
         let bodyDuration: CFTimeInterval = collapsed ? 0.36 : Self.duration
         add(shell, "bounds", NSValue(rect: old.bounds), NSValue(rect: layer.bounds), duration: bodyDuration)
         add(shell, "position", NSValue(point: old.position), NSValue(point: layer.position), duration: bodyDuration)
