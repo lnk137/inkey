@@ -7,26 +7,35 @@ private final class CollapseHitProxy: NSView {
 }
 
 /// A temporary compositor: native controls keep their final geometry and hit regions.
-/// Only a small cached texture, a rounded shell, and a vector chevron animate.
+/// Controls share one small atlas; each piece folds into the chevron independently.
 @MainActor
 final class ToolbarCollapseAnimation {
-    static let duration: CFTimeInterval = 0.32
+    static let duration: CFTimeInterval = 0.4
+    struct Piece {
+        var frame: CGRect
+        var position: CGPoint
+        var scale: CGFloat
+        var opacity: Float
+        var image: CGImage
+    }
     struct State {
         var bounds: CGRect
         var position: CGPoint
         var transform: CATransform3D
         var arrowPosition: CGPoint
         var arrowAngle: CGFloat
-        var contentOpacity: Float
         var image: CGImage?
         var contentBounds: CGRect
         var arrowFrame: NSRect
+        var pieces: [Piece]
     }
     private weak var view: NSView?
     private var shell: CALayer?
     private var arrow: CAShapeLayer?
     private var content: CALayer?
     private var cachedImage: CGImage?
+    private var pieces: [Piece] = []
+    private var pieceLayers: [CALayer] = []
     private var hitProxy: CollapseHitProxy?
     private var start: State?
     private var completion: DispatchWorkItem?
@@ -42,15 +51,23 @@ final class ToolbarCollapseAnimation {
                          transform: shell.presentation()?.transform ?? start.transform,
                          arrowPosition: arrow.presentation()?.position ?? start.arrowPosition,
                          arrowAngle: (arrow.presentation()?.value(forKeyPath: "transform.rotation.z") as? NSNumber).map { CGFloat($0.doubleValue) } ?? start.arrowAngle,
-                         contentOpacity: content.presentation()?.opacity ?? start.contentOpacity,
                          image: cachedImage, contentBounds: content.bounds,
-                         arrowFrame: presentedArrowFrame() ?? start.arrowFrame)
+                         arrowFrame: presentedArrowFrame() ?? start.arrowFrame,
+                         pieces: zip(pieces, pieceLayers).map { piece, layer in
+                             var current = piece
+                             if let shown = layer.presentation() {
+                                 current.position = shown.position; current.opacity = shown.opacity
+                                 current.scale = shown.transform.m11
+                             }
+                             return current
+                         })
         }
+        let image = collapsed ? nil : snapshot(in: view, excluding: button)
         return State(bounds: layer.bounds, position: layer.position, transform: layer.transform,
                      arrowPosition: arrowCenter(in: view, button: button), arrowAngle: collapsed ? .pi : 0,
-                     contentOpacity: collapsed ? 0 : 1,
-                     image: collapsed ? nil : snapshot(in: view, excluding: button), contentBounds: layer.bounds,
-                     arrowFrame: button.convert(button.bounds, to: view.superview))
+                     image: image, contentBounds: layer.bounds,
+                     arrowFrame: button.convert(button.bounds, to: view.superview),
+                     pieces: image.map { makePieces(in: view, excluding: button, image: $0) } ?? [])
     }
 
     func animate(from old: State, in view: NSView, button: CollapseButton, collapsed: Bool) {
@@ -63,6 +80,14 @@ final class ToolbarCollapseAnimation {
         let targetArrow = arrowCenter(in: view, button: button)
         let angle: CGFloat = collapsed ? .pi : 0
         let ratio = layer.bounds.width / view.bounds.width
+        let initialPieces: [Piece]
+        if old.pieces.isEmpty {
+            initialPieces = makePieces(in: view, excluding: button, image: image).map { piece in
+                var folded = piece
+                folded.position = old.arrowPosition; folded.scale = 0.13; folded.opacity = 0
+                return folded
+            }
+        } else { initialPieces = old.pieces }
         CATransaction.begin(); CATransaction.setDisableActions(true)
         let shell = CALayer()
         shell.name = "Inkey.toolbarCollapse"
@@ -84,8 +109,18 @@ final class ToolbarCollapseAnimation {
         clip.cornerRadius = max(0, layer.cornerRadius - border); clip.masksToBounds = true
         let content = CALayer()
         content.anchorPoint = .zero; content.position = CGPoint(x: -border, y: -border); content.bounds = contentBounds
-        content.contents = image; content.contentsScale = layer.contentsScale
-        content.opacity = collapsed ? 0 : 1
+        let pieceLayers = initialPieces.map { piece -> CALayer in
+            let sprite = CALayer()
+            sprite.name = "Inkey.toolbarFoldPiece"
+            sprite.bounds = CGRect(origin: .zero, size: piece.frame.size)
+            sprite.position = collapsed ? targetArrow : CGPoint(x: piece.frame.midX, y: piece.frame.midY)
+            sprite.contents = piece.image; sprite.contentsScale = layer.contentsScale
+            let scale: CGFloat = collapsed ? 0.13 : 1
+            sprite.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale))
+            sprite.opacity = collapsed ? 0 : 1
+            content.addSublayer(sprite)
+            return sprite
+        }
         clip.addSublayer(content); shell.addSublayer(clip)
         let arrow = CAShapeLayer()
         arrow.contentsScale = layer.contentsScale
@@ -102,6 +137,7 @@ final class ToolbarCollapseAnimation {
         layer.add(hidden, forKey: "toolbarCollapseVisibility")
         CATransaction.commit()
         self.shell = shell; self.arrow = arrow; self.content = content; cachedImage = image; start = old
+        self.pieces = initialPieces; self.pieceLayers = pieceLayers
         if let container = view.superview {
             let targetFrame = button.convert(button.bounds, to: container)
             let hit = CollapseHitProxy(frame: old.arrowFrame.union(targetFrame).insetBy(dx: -1, dy: -1))
@@ -112,14 +148,24 @@ final class ToolbarCollapseAnimation {
             container.addSubview(hit, positioned: .above, relativeTo: view)
             hitProxy = hit
         }
-        let bodyDuration: CFTimeInterval = collapsed ? 0.28 : Self.duration
+        let bodyDuration: CFTimeInterval = collapsed ? 0.36 : Self.duration
         add(shell, "bounds", NSValue(rect: old.bounds), NSValue(rect: layer.bounds), duration: bodyDuration)
         add(shell, "position", NSValue(point: old.position), NSValue(point: layer.position), duration: bodyDuration)
         add(shell, "transform", NSValue(caTransform3D: old.transform), NSValue(caTransform3D: layer.transform), duration: bodyDuration)
         add(shell, "shadowPath", CGPath(roundedRect: old.bounds, cornerWidth: shell.cornerRadius, cornerHeight: shell.cornerRadius, transform: nil), shell.shadowPath!, duration: bodyDuration)
         add(clip, "bounds", NSValue(rect: innerBounds(old.bounds)), NSValue(rect: innerBounds(layer.bounds)), duration: bodyDuration)
-        // Contents leave before the shell closes; on expansion they enter after space opens.
-        add(content, "opacity", old.contentOpacity, content.opacity, duration: collapsed ? 0.09 : 0.16, delay: collapsed ? 0 : 0.08)
+        for (index, pair) in zip(initialPieces, pieceLayers).enumerated() {
+            let (piece, sprite) = pair
+            let distance = min(1, hypot(piece.frame.midX - targetArrow.x, piece.frame.midY - targetArrow.y) / max(1, contentBounds.width))
+            let travel = collapsed ? 0.28 + 0.06 * distance : 0.36
+            let delay: CFTimeInterval = collapsed ? 0 : 0.02 * Double(index % 3) / 2
+            add(sprite, "position", NSValue(point: piece.position), NSValue(point: sprite.position), duration: travel, delay: delay)
+            let scale: CGFloat = collapsed ? 0.13 : 1
+            add(sprite, "transform", NSValue(caTransform3D: CATransform3DMakeScale(piece.scale, piece.scale, 1)),
+                NSValue(caTransform3D: CATransform3DMakeScale(scale, scale, 1)), duration: travel, delay: delay)
+            // Keep every piece visible during gathering; hide only as it enters the chevron.
+            add(sprite, "opacity", piece.opacity, sprite.opacity, duration: collapsed ? 0.1 : 0.13, delay: collapsed ? travel * 0.68 : delay)
+        }
         add(arrow, "position", NSValue(point: old.arrowPosition), NSValue(point: targetArrow), duration: bodyDuration)
         add(arrow, "transform.rotation.z", old.arrowAngle, angle, duration: 0.26)
         generation += 1
@@ -140,6 +186,7 @@ final class ToolbarCollapseAnimation {
         hitProxy?.removeFromSuperview(); hitProxy = nil
         CATransaction.commit()
         shell = nil; arrow = nil; content = nil; cachedImage = nil; start = nil; view = nil
+        pieces = []; pieceLayers = []
     }
     private func add(_ layer: CALayer, _ key: String, _ from: Any, _ to: Any, duration: CFTimeInterval, delay: CFTimeInterval = 0) {
         let motion = CABasicAnimation(keyPath: key)
@@ -165,19 +212,36 @@ final class ToolbarCollapseAnimation {
         return CGPoint(x: button.frame.midX, y: button.frame.midY)
     }
     private func snapshot(in view: NSView, excluding button: CollapseButton) -> CGImage? {
-        guard let layer = view.layer else { return nil }
-        let background = layer.backgroundColor, border = layer.borderWidth, shadow = layer.shadowOpacity
-        let hidden = button.isHidden
-        CATransaction.begin(); CATransaction.setDisableActions(true)
-        layer.backgroundColor = nil; layer.borderWidth = 0; layer.shadowOpacity = 0
-        button.isHidden = true
-        defer {
-            button.isHidden = hidden
-            layer.backgroundColor = background; layer.borderWidth = border; layer.shadowOpacity = shadow
-            CATransaction.commit()
+        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds),
+              let context = NSGraphicsContext(bitmapImageRep: bitmap) else { return nil }
+        NSGraphicsContext.saveGraphicsState()
+        defer { NSGraphicsContext.restoreGraphicsState() }
+        NSGraphicsContext.current = context
+        context.cgContext.clear(CGRect(x: 0, y: 0, width: bitmap.pixelsWide, height: bitmap.pixelsHigh))
+        view.effectiveAppearance.performAsCurrentDrawingAppearance {
+            view.draw(view.bounds)
+            for child in view.subviews where child !== button && !child.isHidden {
+                guard let pixels = child.bitmapImageRepForCachingDisplay(in: child.bounds) else { continue }
+                child.cacheDisplay(in: child.bounds, to: pixels)
+                pixels.draw(in: child.frame)
+            }
         }
-        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
-        view.cacheDisplay(in: view.bounds, to: bitmap)
         return bitmap.cgImage
+    }
+    private func makePieces(in view: NSView, excluding button: CollapseButton, image: CGImage) -> [Piece] {
+        let sx = CGFloat(image.width) / view.bounds.width, sy = CGFloat(image.height) / view.bounds.height
+        var frames = view.subviews.filter { $0 !== button && !$0.isHidden }.map(\.frame)
+        frames.append(NSRect(x: 20, y: 40, width: 280, height: 3))
+        frames.append(NSRect(x: 271, y: 12, width: 3, height: 20))
+        if view.subviews.contains(where: { ($0 as? SwatchButton)?.reorderGroup == "colors" && !$0.isHidden }),
+           let custom = view.subviews.first(where: { ($0 as? SwatchButton)?.isCustom == true }) {
+            frames.append(NSRect(x: custom.frame.minX - 6, y: 12, width: 3, height: 20))
+        }
+        return frames.compactMap { frame in
+            let crop = CGRect(x: frame.minX * sx, y: (view.bounds.height - frame.maxY) * sy,
+                              width: frame.width * sx, height: frame.height * sy).integral
+            guard let pixels = image.cropping(to: crop) else { return nil }
+            return Piece(frame: frame, position: CGPoint(x: frame.midX, y: frame.midY), scale: 1, opacity: 1, image: pixels)
+        }
     }
 }

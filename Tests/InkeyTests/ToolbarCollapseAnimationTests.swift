@@ -93,7 +93,7 @@ struct ToolbarCollapseAnimationTests {
         palette.toggleCollapsed()
         animation.animate(from: before, in: palette, button: button, collapsed: true)
         #expect(animation.isAnimating)
-        try await Task.sleep(nanoseconds: 400_000_000)
+        try await Task.sleep(nanoseconds: 600_000_000)
         #expect(!animation.isAnimating)
         #expect(palette.layer?.animation(forKey: "toolbarCollapseVisibility") == nil)
         #expect(palette.alphaValue == 1)
@@ -120,6 +120,51 @@ struct ToolbarCollapseAnimationTests {
             palette.setToolbarHidden(true)
             #expect(palette.layer?.animation(forKey: "toolbarCollapseVisibility") == nil)
             #expect(canvas.subviews.filter { $0 !== palette && !($0 is InlineTextView) }.isEmpty)
+        }
+    }
+
+    @Test func everyVisibleControlTravelsIntoTheChevronBeforeDisappearing() throws {
+        try fixture { palette, button, animation in
+            let initial = try #require(animation.capture(in: palette, button: button, collapsed: false))
+            let controls = palette.subviews.filter { $0 !== button && !$0.isHidden }
+            #expect(initial.pieces.count >= controls.count)
+            for control in controls { #expect(initial.pieces.contains { $0.frame == control.frame }) }
+            palette.toggleCollapsed()
+            animation.animate(from: initial, in: palette, button: button, collapsed: true)
+            let shell = try #require(palette.layer?.superlayer?.sublayers?.first { $0.name == "Inkey.toolbarCollapse" })
+            let sprites = shell.sublayers?.first?.sublayers?.first?.sublayers ?? []
+            #expect(sprites.count == initial.pieces.count)
+            // The model arrow's final center is the center of the compact toolbar.
+            for sprite in sprites {
+                #expect(sprite.position == CGPoint(x: 18, y: 18))
+                #expect(sprite.animation(forKey: "position") != nil)
+                #expect(sprite.animation(forKey: "transform") != nil)
+                #expect(sprite.transform.m11 < 1 && sprite.transform.m33 == 1)
+                #expect((sprite.animation(forKey: "opacity")?.beginTime ?? 0) > 0)
+            }
+            animation.finish()
+        }
+    }
+
+    @Test func retinaAtlasKeepsEachSwatchColorAndTransparentPaddingAtDifferentScales() throws {
+        try fixture { palette, button, animation in
+            for scale in [0.85, 1.0, 1.5] {
+                palette.setToolbarScale(scale)
+                let state = try #require(animation.capture(in: palette, button: button, collapsed: false))
+                let swatches = palette.subviews.compactMap { $0 as? SwatchButton }.filter { $0.reorderGroup == "colors" && !$0.isHidden }
+                for swatch in swatches {
+                    let piece = try #require(state.pieces.first { $0.frame == swatch.frame })
+                    let sprite = NSBitmapImageRep(cgImage: piece.image)
+                    let native = try #require(swatch.bitmapImageRepForCachingDisplay(in: swatch.bounds))
+                    swatch.cacheDisplay(in: swatch.bounds, to: native)
+                    let expected = try #require(native.colorAt(x: native.pixelsWide / 2, y: native.pixelsHigh / 2)?.usingColorSpace(.deviceRGB))
+                    let actual = try #require(sprite.colorAt(x: sprite.pixelsWide / 2, y: sprite.pixelsHigh / 2)?.usingColorSpace(.deviceRGB))
+                    #expect(abs(actual.redComponent - expected.redComponent) < 0.02)
+                    #expect(abs(actual.greenComponent - expected.greenComponent) < 0.02)
+                    #expect(abs(actual.blueComponent - expected.blueComponent) < 0.02)
+                    #expect((sprite.colorAt(x: 0, y: 0)?.alphaComponent ?? 1) < 0.01)
+                }
+            }
         }
     }
 }
