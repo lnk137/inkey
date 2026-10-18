@@ -141,6 +141,25 @@ struct ToolbarLayoutTests {
         }
     }
 
+    @Test func chevronHasTheSameScreenSizeAndNoBlueHighlightInBothStates() throws {
+        try PaletteReorderingTests().withPalette { palette, _ in
+            let container = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 320))
+            container.addSubview(palette); palette.layoutInContainer(initial: true)
+            palette.setToolbarScale(1.5); palette.layoutInContainer()
+            let chevron = try #require(palette.subviews.compactMap { $0 as? CollapseButton }.first)
+            let screenSize = chevron.convert(chevron.bounds, to: container).size
+            for _ in 0..<4 {
+                chevron.highlight(true)
+                #expect(chevron.cell?.isHighlighted == false)
+                #expect(chevron.frame.size == NSSize(width: 36, height: 36))
+                let actual = chevron.convert(chevron.bounds, to: container).size
+                #expect(abs(actual.width - screenSize.width) < 0.000001)
+                #expect(abs(actual.height - screenSize.height) < 0.000001)
+                palette.toggleCollapsed(); palette.layoutInContainer()
+            }
+        }
+    }
+
     @Test func cancellingChevronDragRestoresPositionWithoutToggling() throws {
         try PaletteReorderingTests().withPalette { palette, preferences in
             let (window, canvas) = helper.makeCanvas()

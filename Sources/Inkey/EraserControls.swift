@@ -1,6 +1,6 @@
 import AppKit
 
-final class ToolButton: ReorderButton {
+class ToolButton: ReorderButton {
     var onRightClick: (() -> Void)?
     override var acceptsFirstResponder: Bool { false }
     override func rightMouseDown(with event: NSEvent) { onRightClick?() }

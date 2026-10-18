@@ -208,7 +208,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
     var onShape: ((ShiftShape) -> Void)?
     var onLayoutChange: (() -> Void)?
     private(set) var isCollapsed = false
-    private var collapseButton: ToolButton!
+    private var collapseButton: CollapseButton!
     private let resizeHandle = ToolbarResizeHandle(frame: NSRect(x: 294, y: 57, width: 22, height: 20))
     private(set) var toolbarScale: CGFloat = 1
     private(set) var effectiveScale: CGFloat = 1
@@ -298,7 +298,8 @@ final class PaletteView: NSView, NSPopoverDelegate {
             button.setAccessibilityLabel(button.toolTip)
             shapeButtons.append(button); addSubview(button)
         }
-        collapseButton = ToolButton(image: NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "折叠工具栏")!, target: self, action: #selector(toggleCollapsed))
+        collapseButton = CollapseButton(frame: .zero)
+        collapseButton.target = self; collapseButton.action = #selector(toggleCollapsed)
         collapseButton.isBordered = false; collapseButton.contentTintColor = .secondaryLabelColor; addSubview(collapseButton)
         collapseButton.onToolbarMouseEvent = { [weak self] event in
             switch event.type {
@@ -488,8 +489,8 @@ final class PaletteView: NSView, NSPopoverDelegate {
     private func updateToolbarLayout() {
         applyToolbarGeometry()
         for child in subviews { child.isHidden = isCollapsed && child !== collapseButton }
-        collapseButton.frame = NSRect(x: isCollapsed ? 3 : 18, y: isCollapsed ? 2 : 43, width: 30, height: 32)
-        collapseButton.image = NSImage(systemSymbolName: isCollapsed ? "chevron.up" : "chevron.down", accessibilityDescription: isCollapsed ? "展开工具栏" : "折叠工具栏")
+        collapseButton.frame = NSRect(x: isCollapsed ? 0 : 15, y: isCollapsed ? 0 : 41, width: 36, height: 36)
+        collapseButton.collapsed = isCollapsed
         collapseButton.toolTip = isCollapsed ? "展开工具栏 · ⌥⌘T · 拖动移动" : "折叠工具栏 · ⌥⌘T · 拖动移动"
         collapseButton.setAccessibilityLabel(collapseButton.toolTip)
         updateButtons(); needsDisplay = true
@@ -499,7 +500,8 @@ final class PaletteView: NSView, NSPopoverDelegate {
     private func applyToolbarGeometry() {
         let size = logicalSize
         let available = superview?.bounds.size
-        let fit = available.map { min(max(1, $0.width - 16) / size.width, max(1, $0.height - 16) / size.height) } ?? toolbarScale
+        // Use the same scale in both states, including when a narrow window limits it.
+        let fit = available.map { min(max(1, $0.width - 16) / Self.preferredWidth, max(1, $0.height - 16) / 80) } ?? toolbarScale
         effectiveScale = min(toolbarScale, fit)
         setFrameSize(NSSize(width: size.width * effectiveScale, height: size.height * effectiveScale))
         setBoundsSize(size)
