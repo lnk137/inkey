@@ -37,7 +37,8 @@ git config commit.template .gitmessage
 ## Documentation
 
 Keep the English and Simplified Chinese overviews concise. Put detailed behavior
-in `docs/guide.md`. Regenerate the preview with `./scripts/render-readme.sh`; it
-renders the actual AppKit components with a non-personal example, without reading
-or changing the user's drafts. Keep generated images in `docs/assets/` and scratch
+in `docs/guide.md`. Regenerate the README logo and preview with
+`./scripts/render-readme.sh`; it uses the app icon source and renders the actual
+AppKit components with a non-personal example, without reading or changing the
+user's drafts. Keep generated images in `docs/assets/` and scratch
 build tools under the ignored `build/` directory.

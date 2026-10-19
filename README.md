@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/assets/inkey-logo.png" width="128" height="128" alt="Inkey logo: a handwritten dark green i on warm ivory">
+
 # Inkey
 
 **Type to write. Drag to draw. Let your actions choose the tool.**
@@ -10,38 +12,59 @@ A native macOS scratchpad where variables, sketches, and diagrams flow together.
 ![Swift 6+](https://img.shields.io/badge/Swift-6%2B-C36A44?style=flat-square)
 ![AppKit](https://img.shields.io/badge/UI-AppKit-3E795E?style=flat-square)
 
-[简体中文](README.zh-CN.md) · [User guide](docs/guide.md) · [Report an issue](https://github.com/lnk137/inkey/issues)
+**English** · [简体中文](README.zh-CN.md)
+
+[Usage](#usage) · [Installation](#installation) · [User guide](docs/guide.md) · [Report an issue](https://github.com/lnk137/inkey/issues)
 
 </div>
 
-## Write, draw, and erase in one continuous flow
+## Contents
 
-Inkey brings typing, freehand drawing, and temporary tools into the same interaction. Switching follows what your hands do, keeping tool selection out of the way of your thinking.
+- [Usage](#usage)
+- [Features](#features)
+- [Installation](#installation)
+- [Shortcuts and settings](#shortcuts)
+- [FAQ](#faq)
+- [Development and contributing](#contributing)
 
-- **To write, start typing.** Enter a variable or note directly on the canvas without selecting a text tool. Move the pointer to start text at another position.
-- **To draw, start dragging.** Go straight from typing to sketching, even over newly typed text, without switching back to a pen tool.
-- **For temporary tools, hold a key.** Shift-drag to draw the selected shape. Option-drag to erase temporarily; release Option to return to your previous tool.
+<a id="usage"></a>
 
-Type `left`, drag a connecting line, move the pointer and type `right`, then hold Option to erase an extra stroke. Writing, drawing, and correcting stay connected, with tool changes folded into the actions themselves.
+## Usage
+
+Inkey brings typing, freehand drawing, and temporary tools into the same interaction. **Start typing without selecting a text tool, then draw without switching back to a pen.** Tool changes follow your actions, keeping writing, drawing, and correcting connected.
+
+| Type directly | Drag to draw | Hold for temporary tools |
+| :--- | :--- | :--- |
+| Type a variable or note on the canvas. Move the pointer to start text at another position. | Drag to sketch, even over newly typed text. | Shift-drag to draw the selected shape. Option-drag to erase; release Option to return to your previous tool. |
+
+Type `left`, drag a connecting line, move the pointer and type `right`, then hold Option to erase an extra stroke. Keep working through the idea as your hands move between typing and drawing.
+
+Solving a problem in your browser? Press **⌃⌥Space** to bring up the scratchpad, then press it again to return. For precise text changes, click existing text to place the caret, right-click for full editing and selection, or drag its corners to change its size.
 
 ![Inkey's native canvas showing a two-pointer algorithm with typed variables, hand-drawn circles, arrows, and a compact color palette.](docs/assets/inkey-canvas.png)
 
 <sub>Example draft rendered with Inkey's native AppKit components.</sub>
 
-## Bring it up. Keep thinking.
+<a id="features"></a>
 
-Solving a problem in your browser? Press **⌃⌥Space**, sketch the idea, and press it again to return to the problem.
+## Features
 
-- **Refine text when you need to.** Click existing text to place the caret, right-click for full text editing and selection, or drag its corners to change its size.
-- **Made for a trackpad.** Scroll with two fingers to pan, pinch to zoom, or Shift-drag arrows, lines, rectangles, or ellipses. Single-click the eraser to toggle it; right-click to resize it.
-- **Only what you need.** Editable color presets, a custom color picker, a resizable, draggable, collapsible toolbar, an optional crosshair trail, and floating, pinned, or full-screen windows.
-- **Pick up where you left off.** Local autosave, remembered preferences, editable `.inkey` drafts, and PNG/PDF export.
+- **Connected writing and drawing**: type directly, drag to sketch, and use native input methods. New text stays centered on the crosshair through typing and composition.
+- **Trackpad controls**: scroll with two fingers to pan and pinch to zoom. Shift-drag arrows, lines, rectangles, or ellipses; Option-drag to erase temporarily.
+- **Compact toolbar**: reorder shapes and colors, edit up to six color presets, and move, resize, hide, or collapse the toolbar. Two folding animations respect Reduce Motion.
+- **Precise text editing**: native selection and editing, corner handles for proportional font resizing, and an option to reuse the resized size for subsequent typing.
+- **Ready when you need it**: menu bar access, floating, pinned, and full-screen windows, plus silent launch at login.
+- **Configurable shortcuts**: record, clear, or restore 35 actions, with search, conflict checks, and matching menu shortcuts and toolbar hints.
+- **Drafts and references**: local autosave and recent-draft restoration, editable `.inkey` files, PNG/PDF export, and image/PDF reference backgrounds.
+- **Native and local**: Swift + AppKit, with no web view, account, telemetry, or third-party dependencies.
 
-Swift + AppKit. No web view, account, telemetry, or third-party dependencies.
+<a id="installation"></a>
 
-## Get started
+## Installation
 
-Requires **macOS 14+**, **Swift 6+**, and the Xcode command line tools.
+Build from source to use Inkey. A notarized installer is not available yet.
+
+**Requirements**: macOS 14+, Swift 6+, and the Xcode command line tools.
 
 ```sh
 git clone https://github.com/lnk137/inkey.git
@@ -50,42 +73,65 @@ cd inkey
 open build/Inkey.app
 ```
 
-Inkey lives in your menu bar. The current build is signed locally for development; a notarized download is not available yet.
+The locally signed app is created at `build/Inkey.app`. Inkey lives in your menu bar; use its menu or the global shortcut to show and hide the scratchpad.
 
-## A few gestures to remember
+<a id="shortcuts"></a>
 
-| Action | Result |
+## Shortcuts and settings
+
+These are the default shortcuts. Existing custom bindings are preserved.
+
+| Action | Control |
 | :--- | :--- |
-| **⌃⌥Space** | Show / hide the scratchpad |
-| **Move → type** | Start text at the pointer |
-| **Drag / ⇧ drag** | Freehand / selected shape |
-| **Right-click text / ⌘Return** | Edit and select text precisely |
-| **⇧1–4** | Choose Shift tool in toolbar order (default: arrow, line, rectangle, ellipse) |
-| **⌥1–6** | Pick a preset color |
-| **Click / right-click eraser** | Toggle / adjust size |
-| **⌥ drag** | Erase temporarily |
-| **⌘E** | Export PNG, PDF, or an editable draft |
+| Show / hide the scratchpad | **⌃⌥Space** |
+| Start text at another position | **Move the pointer → type** |
+| Freehand / selected shape | **Drag / ⇧ drag** |
+| Edit text precisely | **Right-click text / ⌘Return** |
+| Choose shape position 1–4 | **⇧1–4** |
+| Choose color position 1–6 | **⌥1–6** |
+| Erase temporarily | **⌥ drag** |
+| Toggle / resize the eraser | **Click / right-click eraser** |
+| Collapse / expand the toolbar | **⌥⌘T** |
+| Hide / show the toolbar | **⇧⌘T** |
+| Export a draft | **⌘E** |
+| Open Settings | **⌘,** |
 
-Settings → Shortcuts offers 35 configurable actions, including the global shortcut, file and text editing commands, canvas tools, window controls, and shape/color positions. The keyboard combinations above are defaults. Text placement, toolbar visibility, colors, eraser size, and window preferences are remembered. [See all controls →](docs/guide.md)
+**Settings → Shortcuts** offers 35 configurable actions for files, editing, canvas tools, the toolbar, windows, and shape/color positions. Click to record; Delete clears a binding while recording, and Esc cancels. Right-click to restore one default, or restore all defaults at once. Shapes and colors follow toolbar positions from left to right, including after reordering. Only Show/hide Inkey is global.
 
-## Built to stay small
+**Settings → General** controls launch at login, text placement, default font size, reusing resized text sizes, crosshair trail, and folding animation. Colors, toolbar size and position, and window preferences are remembered automatically.
+
+See the [user guide](docs/guide.md) for full controls, input behavior, and file details.
+
+<a id="faq"></a>
+
+## FAQ
+
+### Does launch at login open a window?
+
+No. With this option enabled, Inkey starts quietly in the menu bar after sign-in, without opening a canvas, Settings, or full-screen window or taking focus. Use the shortcut or menu bar to show the canvas. If macOS requires approval, allow Inkey in System Settings → General → Login Items.
+
+### Do drafts require an internet connection or an account?
+
+No. Drafts are saved locally and automatically. Export an editable `.inkey` file, or share a PNG/PDF export.
+
+### Do shortcuts move with reordered tools?
+
+Shortcuts stay with positions. By default, ⇧1 always selects the first shape position and ⌥1 selects the first preset color position. Reorder tools and colors independently.
+
+<a id="contributing"></a>
+
+## Development and contributing
+
+[Bug reports](https://github.com/lnk137/inkey/issues) and [contributions](CONTRIBUTING.md) are welcome. Include your macOS version, reproduction steps, and screenshots or recordings without private drafts when reporting an interaction issue.
 
 ```sh
 swift test
 ```
 
-Tests cover text/drawing transitions, input methods, pointer alignment, vector erasing, persistence, exports, and window toggling. To regenerate the native preview, run `./scripts/render-readme.sh`.
+Tests cover text/drawing transitions, input methods, pointer alignment, vector erasing, persistence, exports, window toggling, and keyboard shortcuts. See the [contributing guide](CONTRIBUTING.md) for development conventions.
 
-[Contributions](CONTRIBUTING.md) and [thoughtful bug reports](https://github.com/lnk137/inkey/issues) are welcome.
+```sh
+./scripts/render-readme.sh
+```
 
-Drag shape buttons or preset colors within their row to reorder them. Shortcuts stay with positions: ⇧1–4 for shapes, ⌥1–6 for colors. The order is saved; the selected tool and ink stay unchanged. Right-click a color preset to edit or delete it. Add colors in the custom picker (up to six); restore defaults in Settings.
-
-The canvas uses a crosshair; only typing shows an insertion caret, which disappears on mouse movement. Click the chevron to collapse or expand; drag it directly to move the toolbar. The collapsed toolbar is a single compact chevron with no reserved drag area. Tools, colors, and separators gather and shrink into the fixed-size chevron, then unfold from it. Settings → Toolbar folding animation switches between Gather (the default) and Shrink & Fade (the earlier transition). The choice is saved. No blue pressed background; both respect Reduce Motion. Empty background also remains draggable. Drag the upper-right size handle horizontally to resize it (85–150%); double-click it to reset. More (···) also offers size presets. Use ⌥⌘T to collapse/expand; hide or restore the toolbar only through More or ⇧⌘T. Size, position, and visibility are remembered.
-
-Right-click text and drag a corner to resize it. The resized font becomes the next typing size by default; disable this in Settings or set a default directly (6–200 pt). Click the show/hide shortcut recorder in Settings to choose another global combination.
-
-Enable **Launch at login / 开机自启动** in Settings to start quietly after signing in to macOS. Only the menu bar and global shortcut become available; no canvas, Settings, or full-screen window opens and focus stays with your current app. Open Inkey manually, use the shortcut, or choose its menu bar action to show the canvas. The switch reflects the system login-item state; if macOS requires approval, allow Inkey in System Settings → General → Login Items.
-
-Settings has General and Shortcuts pages. General groups startup, text input, and canvas options. Shortcuts provides search, click-to-record bindings, conflict feedback, clearing with Delete while recording, and restoring individual defaults from a right-click menu or all defaults at once. Esc cancels recording. Changes save automatically; existing global shortcuts are preserved.
-
-New text boxes stay centered on the crosshair while typing, composing, and committing.
+This script generates the README logo from the app icon source and updates the native AppKit preview with synthetic content. Images are saved in `docs/assets/`.
