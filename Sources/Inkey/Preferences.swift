@@ -14,6 +14,15 @@ enum ShiftShape: String, CaseIterable {
 
 enum InkTool: String { case pen, eraser }
 
+enum TemporaryEraserModifier: String, CaseIterable {
+    case option, command
+    var flag: NSEvent.ModifierFlags { self == .option ? .option : .command }
+    var moveFlag: NSEvent.ModifierFlags { self == .option ? .command : .option }
+    var symbol: String { self == .option ? "⌥" : "⌘" }
+    var moveSymbol: String { self == .option ? "⌘" : "⌥" }
+    var label: String { self == .option ? "⌥ Option" : "⌘ Command" }
+}
+
 enum ToolbarAnimationStyle: String, CaseIterable {
     case gather, fade
     var label: String { self == .gather ? "聚拢收纳" : "收缩淡出" }
@@ -29,6 +38,10 @@ struct SavedInk: Codable, Equatable {
 final class UserPreferences {
     let defaults: UserDefaults
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+    var temporaryEraserModifier: TemporaryEraserModifier {
+        get { TemporaryEraserModifier(rawValue: defaults.string(forKey: "temporaryEraserModifier") ?? "") ?? .option }
+        set { defaults.set(newValue.rawValue, forKey: "temporaryEraserModifier") }
+    }
     var shapeOrder: [ShiftShape] {
         get {
             var result: [ShiftShape] = []

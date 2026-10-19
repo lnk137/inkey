@@ -62,7 +62,7 @@ final class InlineTextView: NSTextView {
     }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .crosshair) }
     override func cursorUpdate(with event: NSEvent) { NSCursor.crosshair.set() }
-    override func mouseMoved(with event: NSEvent) { canvas?.updatePointerLocation(event.locationInWindow) }
+    override func mouseMoved(with event: NSEvent) { canvas?.mouseMoved(with: event) }
 
     override func keyDown(with event: NSEvent) {
         if let canvas, !canvas.isEditing {
@@ -126,6 +126,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
     var isCanvasLocation: ((NSPoint) -> Bool)?
     private var eraseOriginal: [InkItem]?
     private var erasePrevious: InkPoint?
+    private var temporaryEraseFlag: NSEvent.ModifierFlags?
+    private var heldModifiers: NSEvent.ModifierFlags = []
+    private var ignoreDragUntilMouseUp = false
+    private var focusObserver: NSObjectProtocol?
     private(set) var eraserEnabled = false
     var eraserDiameter: Double = 24 {
         didSet { window?.invalidateCursorRects(for: self) }
@@ -150,10 +154,16 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        if let focusObserver { NotificationCenter.default.removeObserver(focusObserver); self.focusObserver = nil }
+        if let window {
+            focusObserver = NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: window, queue: .main) { [weak self] _ in
+                self?.resetTemporaryEraser()
+            }
+        }
         if window != nil { restoreFocus() }
     }
 
-    deinit { trailTimer?.invalidate(); saveTimer?.invalidate() }
+    deinit { trailTimer?.invalidate(); saveTimer?.invalidate(); if let focusObserver { NotificationCenter.default.removeObserver(focusObserver) } }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -161,8 +171,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.inVisibleRect, .activeInKeyWindow, .mouseMoved, .mouseEnteredAndExited], owner: self))
     }
 
-    override func mouseMoved(with event: NSEvent) { updatePointerLocation(event.locationInWindow) }
-    override func mouseEntered(with event: NSEvent) { updatePointerLocation(event.locationInWindow) }
+    override func mouseMoved(with event: NSEvent) { heldModifiers = event.modifierFlags; updatePointerLocation(event.locationInWindow) }
+    override func mouseEntered(with event: NSEvent) { heldModifiers = event.modifierFlags; updatePointerLocation(event.locationInWindow) }
     override func mouseExited(with event: NSEvent) { pointerPreview = nil; clearPointerTrail(); hideTypingCaret() }
 
     func updatePointerLocation(_ windowPoint: NSPoint) {
@@ -172,7 +182,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             hideTypingCaret()
         }
         lastPointerLocation = windowPoint
-        if cursorTrailEnabled, pointerPreview != nil, !isDrawing, !eraserEnabled, !typingCaretVisible {
+        if cursorTrailEnabled, pointerPreview != nil, !isDrawing, !effectiveEraserEnabled, !typingCaretVisible {
             let now = ProcessInfo.processInfo.systemUptime
             pointerTrail.removeAll { now - $0.time > 0.18 }
             if let last = pointerTrail.last, hypot(point.x - last.point.x, point.y - last.point.y) > 160 { clearPointerTrail() }
@@ -261,12 +271,26 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func flagsChanged(with event: NSEvent) {
+        heldModifiers = event.modifierFlags
+        endTemporaryEraseIfReleased(event.modifierFlags)
+        if effectiveEraserEnabled { clearPointerTrail(); hideTypingCaret() }
         window?.invalidateCursorRects(for: self)
         if let editor { window?.invalidateCursorRects(for: editor) }
     }
 
     override func resetCursorRects() { addCursorRect(bounds, cursor: .crosshair) }
     override func cursorUpdate(with event: NSEvent) { NSCursor.crosshair.set() }
+
+    var effectiveEraserEnabled: Bool { eraserEnabled || heldModifiers.contains(preferences.temporaryEraserModifier.flag) }
+    private func endTemporaryEraseIfReleased(_ flags: NSEvent.ModifierFlags) {
+        guard let temporaryEraseFlag, !flags.contains(temporaryEraseFlag) else { return }
+        finishPointerGesture()
+        ignoreDragUntilMouseUp = true
+    }
+    func resetTemporaryEraser() {
+        if temporaryEraseFlag != nil { finishPointerGesture(); ignoreDragUntilMouseUp = true }
+        heldModifiers = []
+    }
 
     func restoreFocus() {
         guard window != nil else { return }
@@ -373,7 +397,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         if editor == nil, let selection, let item = draft.items.first(where: { $0.id == selection }), item.kind == .text {
             drawTextResizeHandles(in: viewRect(item.bounds).insetBy(dx: -5, dy: -4))
         }
-        if cursorTrailEnabled, !typingCaretVisible, !isDrawing, !eraserEnabled {
+        if cursorTrailEnabled, !typingCaretVisible, !isDrawing, !effectiveEraserEnabled {
             let now = ProcessInfo.processInfo.systemUptime
             for (a, b) in zip(pointerTrail, pointerTrail.dropFirst()) {
                 let remaining = max(0, 1 - (now - a.time) / 0.18)
@@ -444,24 +468,26 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     override func mouseDown(with event: NSEvent) {
         if event.modifierFlags.contains(.control) { rightMouseDown(with: event); return }
+        ignoreDragUntilMouseUp = false; heldModifiers = event.modifierFlags
         clearPointerTrail()
         hideTypingCaret()
         onInteraction?()
-        if !eraserEnabled, !event.modifierFlags.contains(.option), let corner = textResizeHandle(at: event.locationInWindow) {
+        if !effectiveEraserEnabled, let corner = textResizeHandle(at: event.locationInWindow) {
             beginTextResize(corner, at: event.locationInWindow); return
         }
         updatePointerLocation(event.locationInWindow)
         let viewPoint = convert(event.locationInWindow, from: nil)
         let p = world(viewPoint)
         dismissHint()
-        if eraserEnabled || event.modifierFlags.contains(.option) {
+        if effectiveEraserEnabled {
             commitText(); restoreFocus(); selection = nil
+            temporaryEraseFlag = eraserEnabled ? nil : preferences.temporaryEraserModifier.flag
             eraseOriginal = draft.items
             let point = InkPoint(p); erasePrevious = point
             draft.items = InkEraser.erase(draft.items, from: point, to: point, radius: eraserDiameter / (2 * draft.zoom))
             needsDisplay = true; return
         }
-        if event.modifierFlags.contains(.command) {
+        if event.modifierFlags.contains(preferences.temporaryEraserModifier.moveFlag) {
             commitText(); restoreFocus()
             selection = item(at: p)?.id
             if selection != nil { moveStart = p; moveOriginal = draft.items }
@@ -537,6 +563,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        heldModifiers = event.modifierFlags
+        endTemporaryEraseIfReleased(event.modifierFlags)
+        if effectiveEraserEnabled || ignoreDragUntilMouseUp { updatePointerLocation(event.locationInWindow) }
+        guard !ignoreDragUntilMouseUp else { return }
         let p = world(convert(event.locationInWindow, from: nil))
         if let resize = textResize {
             let item = resize.resized(to: p)
@@ -568,11 +598,14 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func mouseUp(with event: NSEvent) {
+        heldModifiers = event.modifierFlags
+        if effectiveEraserEnabled || eraseOriginal != nil || ignoreDragUntilMouseUp { updatePointerLocation(event.locationInWindow) }
         if let pending = pendingPointer {
             if pending.textClick { positionTextCaret(at: event.locationInWindow) }
             else { draft.anchor = InkPoint(pending.start); changed() }
         }
         finishPointerGesture()
+        ignoreDragUntilMouseUp = false
     }
 
     private func finishPointerGesture() {
@@ -598,6 +631,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         }
         active = nil; moveStart = nil; moveOriginal = nil
         eraseOriginal = nil; erasePrevious = nil; pendingPointer = nil
+        temporaryEraseFlag = nil
         needsDisplay = true
     }
 

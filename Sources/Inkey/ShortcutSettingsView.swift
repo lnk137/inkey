@@ -13,9 +13,22 @@ final class ShortcutSettingsView: NSView, NSSearchFieldDelegate {
     private var groups: [(String, [(ShortcutAction, NSView)])] = []
     var onResetAll: (() -> Void)?
     private var query = ""
+    let temporaryEraserPicker = NSPopUpButton()
+    private let modifierHint = NSTextField(wrappingLabelWithString: "")
+    private let preferences: UserPreferences
+    private var modifierSection: NSView!
+    var onModifierChange: (() -> Void)?
 
-    init(makeRecorder: (ShortcutAction) -> ShortcutRecorder, title: (ShortcutAction) -> String) {
+    init(preferences: UserPreferences, makeRecorder: (ShortcutAction) -> ShortcutRecorder, title: (ShortcutAction) -> String) {
+        self.preferences = preferences
         super.init(frame: .zero)
+        temporaryEraserPicker.widthAnchor.constraint(equalToConstant: 156).isActive = true
+        temporaryEraserPicker.addItems(withTitles: TemporaryEraserModifier.allCases.map(\.label))
+        temporaryEraserPicker.selectItem(at: preferences.temporaryEraserModifier == .option ? 0 : 1)
+        temporaryEraserPicker.target = self; temporaryEraserPicker.action = #selector(changeTemporaryEraser(_:))
+        temporaryEraserPicker.setAccessibilityLabel("临时橡皮修饰键")
+        updateModifierHint()
+        modifierSection = SettingsLayout.section("修饰键", rows: [SettingsLayout.row("临时橡皮", detail: modifierHint, control: temporaryEraserPicker)])
         searchField.placeholderString = "搜索操作或分组"; searchField.delegate = self
         searchField.setAccessibilityLabel("搜索快捷键")
         let instructions = NSTextField(labelWithString: "点击录制 · Delete 清除 · Esc 取消 · 右键恢复此项默认")
@@ -66,6 +79,16 @@ final class ShortcutSettingsView: NSView, NSSearchFieldDelegate {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     @objc private func resetAll() { onResetAll?() }
+    @objc func changeTemporaryEraser(_ sender: NSPopUpButton) {
+        guard TemporaryEraserModifier.allCases.indices.contains(sender.indexOfSelectedItem) else { return }
+        preferences.temporaryEraserModifier = TemporaryEraserModifier.allCases[sender.indexOfSelectedItem]
+        updateModifierHint(); rebuild(); onModifierChange?()
+        showMessage("临时橡皮已设为 \(preferences.temporaryEraserModifier.label)，松开恢复原工具。")
+    }
+    private func updateModifierHint() {
+        let modifier = preferences.temporaryEraserModifier
+        modifierHint.stringValue = "按住 \(modifier.symbol) 擦除，松开恢复；\(modifier.moveSymbol) 拖动选择／移动"
+    }
     func controlTextDidChange(_ obj: Notification) {
         query = searchField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         rebuild()
@@ -73,6 +96,10 @@ final class ShortcutSettingsView: NSView, NSSearchFieldDelegate {
     private func rebuild() {
         for view in list.arrangedSubviews { list.removeArrangedSubview(view); view.removeFromSuperview() }
         var found = false
+        if query.isEmpty || "修饰键 临时橡皮 选择 移动 Option Command".localizedCaseInsensitiveContains(query) {
+            found = true; list.addArrangedSubview(modifierSection)
+            modifierSection.widthAnchor.constraint(equalTo: list.widthAnchor).isActive = true
+        }
         for (name, entries) in groups {
             let rows = entries.filter { query.isEmpty || name.localizedCaseInsensitiveContains(query) || $0.0.title.localizedCaseInsensitiveContains(query) }.map(\.1)
             guard !rows.isEmpty else { continue }
@@ -84,7 +111,7 @@ final class ShortcutSettingsView: NSView, NSSearchFieldDelegate {
             let empty = NSTextField(labelWithString: "没有匹配的操作")
             empty.textColor = .secondaryLabelColor; list.addArrangedSubview(empty)
         } else if query.isEmpty {
-            let fixed = NSTextField(wrappingLabelWithString: "固定操作：Enter 提交，Shift＋Enter 换行，Esc 取消／收起。Shift 拖动绘制形状，Option 拖动临时擦除；双指平移、捏合缩放。")
+            let fixed = NSTextField(wrappingLabelWithString: "固定操作：Enter 提交，Shift＋Enter 换行，Esc 取消／收起。Shift 拖动绘制形状；双指平移、捏合缩放。临时擦除修饰键可在本页设置。")
             fixed.font = .systemFont(ofSize: 11); fixed.textColor = .secondaryLabelColor
             list.addArrangedSubview(fixed); fixed.widthAnchor.constraint(equalTo: list.widthAnchor).isActive = true
         }
@@ -110,7 +137,8 @@ extension InkeyApp {
         let root = NSView(); panel.contentView = root
         let tabs = NSSegmentedControl(labels: ["常规", "快捷键"], trackingMode: .selectOne, target: self, action: #selector(changeSettingsTab(_:)))
         tabs.selectedSegment = 0; tabs.setAccessibilityLabel("设置分类"); settingsTab = tabs
-        let page = ShortcutSettingsView(makeRecorder: { self.makeShortcutRecorder(for: $0) }, title: { $0.title })
+        let page = ShortcutSettingsView(preferences: preferences, makeRecorder: { self.makeShortcutRecorder(for: $0) }, title: { $0.title })
+        page.onModifierChange = { [weak self] in self?.canvas.resetTemporaryEraser() }
         page.onResetAll = { [weak self] in self?.resetAllShortcuts() }
         shortcutPage = page; shortcutsSettingsView = page; page.isHidden = true
         for view in [tabs, general, page] { view.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(view) }

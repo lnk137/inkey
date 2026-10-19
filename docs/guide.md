@@ -103,6 +103,8 @@ Login startup initializes the menu bar, draft, and global shortcut without showi
 
 ## Eraser
 
+In **Settings → Shortcuts → 修饰键 → 临时橡皮**, choose Option (the default) or Command for hold-to-erase. Releasing the modifier restores the previous tool without changing the persistent tool preference. With Command selected, Option-click/drag selects and moves; with Option selected, Command-click/drag selects and moves. Release during an erasing drag stops it immediately; the remaining mouse movement is ignored until mouse-up, so it cannot erase further or create an unintended stroke. Focus loss also ends temporary erasing. Each erase gesture remains one undo step.
+
 The eraser uses one button next to the colors: single-click to toggle it, and
 right-click to enable it and open a live size preview with a continuous
 **4–120 pt** diameter slider. There is no separate size button. The size preview shows the erasing footprint; its screen diameter remains constant while zooming. The canvas pointer stays a crosshair. Option + drag
@@ -122,7 +124,7 @@ Inkey automatically remembers the active pen/eraser tool, eraser diameter, selec
 preset or custom ink, customized presets, recent colors, text placement mode,
 global shortcut, toolbar size/collapse/visibility, palette position, window size/location, persistent mode, and
 full-screen mode. Ink preferences are stored separately for light and dark paper.
-Transient state such as a text selection, temporary Option erasing, and an open
+Transient state such as a text selection, temporary modifier erasing, and an open
 popover is not restored. Preferences are saved locally in macOS UserDefaults;
 there is no Apply button. Invalid stored values fall back to safe defaults.
 
@@ -227,6 +229,6 @@ Click a shortcut to record it. Use Control, Option, or Command, or a function ke
 
 Only Show/hide Inkey is global. Other shortcuts work within Inkey; text editing actions follow the focused native text editor and its undo history. The recorder consumes commands such as Command-Q and Command-S while recording, so they cannot quit or save accidentally. Existing app-level conflicts and reserved macOS combinations are rejected without changing the old binding. Global registration failure restores the previous registration when available. Shortcuts intercepted by macOS may require choosing another combination.
 
-Changes apply immediately to event handling, menus, and toolbar hints and persist across launches. Existing customized global shortcuts are preserved automatically. Shapes and colors stay bound to toolbar **positions**, including after drag reordering. Shape/color shortcuts do not interrupt marked input-method text. Enter/Shift-Enter, Esc, deletion/navigation, modifier-drag gestures, scrolling, and pinching remain fixed to preserve native text input and gestures. The shortcut combinations elsewhere in this guide are defaults. Help → Keyboard shortcuts opens the same searchable settings page.
+Changes apply immediately to event handling, menus, and toolbar hints and persist across launches. Existing customized global shortcuts are preserved automatically. Shapes and colors stay bound to toolbar **positions**, including after drag reordering. Shape/color shortcuts do not interrupt marked input-method text. Enter/Shift-Enter, Esc, deletion/navigation, Shift-drag shapes, scrolling, and pinching remain fixed to preserve native text input and gestures. The shortcut combinations elsewhere in this guide are defaults. Help → Keyboard shortcuts opens the same searchable settings page.
 
 New text boxes keep their geometric center at the crosshair location throughout typing, Pinyin composition, deletion, and line breaks. Committing saves the corresponding top-left drawing origin so the center remains unchanged. Existing text boxes keep their stored position when reopened for editing. Live and saved text use the same canvas-space font metrics, line grid, and explicit character spacing; zoom scales the editor rather than changing its font size. Starting another label therefore keeps the previous label's position and layout unchanged, including at fractional zoom levels.

@@ -102,6 +102,8 @@ These are the default shortcuts. Existing custom bindings are preserved.
 
 See the [user guide](docs/guide.md) for full controls, input behavior, and file details.
 
+Choose Option (the default) or Command in **Settings → Shortcuts → Modifiers → Temporary eraser**. Hold the selected key to erase and release it to restore the previous tool. Selection/moving uses the other key: with Command erasing, Option selects/moves. Releasing the key mid-drag stops erasing immediately without starting a stroke.
+
 <a id="faq"></a>
 
 ## FAQ
