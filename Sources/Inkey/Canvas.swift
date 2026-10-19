@@ -69,7 +69,7 @@ final class InlineTextView: NSTextView {
             canvas.keyDown(with: event)
             return
         }
-        if event.keyCode == 36 && event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command {
+        if canvas?.preferences.shortcuts.binding(for: .preciseEdit)?.matches(event) == true {
             canvas?.promoteTextEditing(); return
         }
         if [UInt16(51), 117, 123, 124, 125, 126].contains(event.keyCode) {

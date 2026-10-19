@@ -26,6 +26,9 @@ final class HotKey {
             return noErr
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), &handler)
     }
+    func unregister() {
+        if let reference { UnregisterEventHotKey(reference); self.reference = nil }
+    }
     func register(keyCode: UInt32, modifiers: UInt32) -> Bool {
         if let reference { UnregisterEventHotKey(reference); self.reference = nil }
         let id = EventHotKeyID(signature: 0x494E4B59, id: 1)
@@ -40,34 +43,50 @@ final class HotKey {
 final class ShortcutRecorder: NSButton {
     var recording = false
     var savedLabel = UserDefaults.standard.string(forKey: "shortcutLabel") ?? "⌃⌥Space"
-    func finishRecording() { recording = false; title = savedLabel }
     var onRecord: ((UInt32, UInt32, String) -> Bool)?
+    var onChange: ((KeyBinding?) -> Bool)?
+    var onBegin: (() -> Void)?
+    var onReset: (() -> Void)?
+    var allowsShiftNumbers = false
+    func finishRecording() { recording = false; title = savedLabel }
     override var acceptsFirstResponder: Bool { true }
+    override func resignFirstResponder() -> Bool { finishRecording(); return super.resignFirstResponder() }
     @objc func beginRecording() {
-        recording = true; title = "按下快捷键…"; window?.makeFirstResponder(self)
+        onBegin?(); recording = true; title = "按下快捷键…"; window?.makeFirstResponder(self)
     }
     override func mouseDown(with event: NSEvent) { beginRecording() }
+    override func rightMouseDown(with event: NSEvent) {
+        guard onChange != nil else { return }
+        finishRecording()
+        let menu = NSMenu()
+        for (title, action) in [("清除快捷键", #selector(clearShortcut)), ("恢复此项默认", #selector(resetShortcut))] {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: ""); item.target = self; menu.addItem(item)
+        }
+        NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
+    @objc func clearShortcut() { accept(nil) }
+    @objc func resetShortcut() { finishRecording(); onReset?() }
+    func accept(_ binding: KeyBinding?) {
+        let accepted: Bool
+        if let onChange { accepted = onChange(binding) }
+        else if let binding { accepted = onRecord?(UInt32(binding.keyCode), binding.modifiers, binding.label) == true }
+        else { accepted = false }
+        if accepted { savedLabel = binding?.label ?? "未设置"; finishRecording() }
+    }
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 { finishRecording(); return }
         guard recording else { super.keyDown(with: event); return }
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard flags.contains(.control) || flags.contains(.option) || flags.contains(.command) else { NSSound.beep(); return }
-        var modifiers: UInt32 = 0
-        var label = ""
-        if flags.contains(.control) { modifiers |= UInt32(controlKey); label += "⌃" }
-        if flags.contains(.option) { modifiers |= UInt32(optionKey); label += "⌥" }
-        if flags.contains(.shift) { modifiers |= UInt32(shiftKey); label += "⇧" }
-        if flags.contains(.command) { modifiers |= UInt32(cmdKey); label += "⌘" }
-        let names: [UInt16: String] = [49: "Space", 36: "Return", 48: "Tab", 123: "←", 124: "→", 125: "↓", 126: "↑"]
-        label += names[event.keyCode] ?? event.charactersIgnoringModifiers?.uppercased() ?? "Key \(event.keyCode)"
-        if onRecord?(UInt32(event.keyCode), modifiers, label) == true { savedLabel = label; finishRecording() }
+        let binding = KeyBinding(event: event)
+        if [UInt16(51),117].contains(event.keyCode), binding.flags.isEmpty { accept(nil); return }
+        guard binding.isFunctionKey || !binding.flags.intersection([.command,.control,.option]).isEmpty || (allowsShiftNumbers && binding.flags == .shift) else { NSSound.beep(); return }
+        accept(binding)
     }
 }
 
 @main
 final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextFieldDelegate {
     var window: InkeyWindow!
-    let canvas = CanvasView(frame: .zero)
+    let canvas: CanvasView
     let palette: PaletteView
     let preferences: UserPreferences
     let store = DraftStore()
@@ -77,6 +96,13 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     var fontSizeField: NSTextField?
     var fontSizeStepper: NSStepper?
     var shortcutRecorder: ShortcutRecorder?
+    var shortcutRecorders: [ShortcutAction: [ShortcutRecorder]] = [:]
+    var shortcutPage: ShortcutSettingsView?
+    var settingsTab: NSSegmentedControl?
+    var generalSettingsView: NSView?
+    var shortcutsSettingsView: NSView?
+    var shortcuts: ShortcutSettings { preferences.shortcuts }
+    var activeShortcutRecorder: ShortcutRecorder? { shortcutRecorders.values.flatMap { $0 }.first { $0.recording } }
     var settings: NSWindow?
     var keyMonitor: Any?
     var pinned = false
@@ -93,6 +119,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     override convenience init() { self.init(preferences: UserPreferences()) }
     init(preferences: UserPreferences) {
         self.preferences = preferences
+        canvas = CanvasView(frame: .zero, preferences: preferences)
         palette = PaletteView(frame: NSRect(x: 0, y: 0, width: PaletteView.preferredWidth, height: 80), preferences: preferences)
         super.init()
     }
@@ -130,8 +157,8 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         buildStatusItem()
         hotkey.onTrigger = { [weak self] in
             guard let self else { return }
-            if self.settings?.isKeyWindow == true, self.shortcutRecorder?.recording == true {
-                self.shortcutRecorder?.finishRecording()
+            if self.settings?.isKeyWindow == true, let recorder = self.activeShortcutRecorder {
+                recorder.accept(self.shortcuts.binding(for: .toggleWindow))
             } else { self.toggleWindow() }
         }
         if !ProcessInfo.processInfo.arguments.contains("--smoke-test") && !registerSavedHotkey() {
@@ -139,22 +166,15 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
-            if self.settings?.isKeyWindow == true, let recorder = self.shortcutRecorder, recorder.recording {
+            if self.settings?.isKeyWindow == true, let recorder = self.activeShortcutRecorder {
                 recorder.keyDown(with: event); return nil
             }
             guard !self.canvas.isDrawing else { return event }
-            if (self.window.isVisible || self.palette.hasPopover), self.handleToolbarVisibilityShortcut(event) { return nil }
+            if (self.window.isKeyWindow || self.palette.hasPopover), self.handleToolbarVisibilityShortcut(event) { return nil }
             if self.palette.hasPopover && event.keyCode == 53 { self.palette.closePicker(accept: false); return nil }
             guard self.window.isKeyWindow else { return event }
             if event.keyCode == 53, self.palette.cancelActiveGesture() { return nil }
-            let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
-            if !self.palette.hasPopover, let shape = ShiftShape.shortcut(event, order: self.preferences.shapeOrder),
-               (self.window.firstResponder as? NSTextView)?.hasMarkedText() != true {
-                self.palette.chooseShape(shape); return nil
-            }
-            if modifiers == [.option], let char = event.charactersIgnoringModifiers, let number = Int(char), (1...6).contains(number) {
-                self.palette.choose(number - 1); return nil
-            }
+            if self.handleConfiguredShortcut(event) { return nil }
             return event
         }
         let restored = UserDefaults.standard.string(forKey: "currentDraft").flatMap { id in store.recent().first { $0.1.id.uuidString == id }?.1 } ?? store.recent().first?.1
@@ -282,13 +302,16 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.keyEquivalentModifierMask = modifiers
         item.target = target ?? ((["undo:", "redo:", "cut:", "copy:", "paste:", "selectAll:"].contains(NSStringFromSelector(action))) ? nil : self)
+        if let action = ShortcutAction.allCases.first(where: { $0.selectorName == NSStringFromSelector(action) }), action != .toggleWindow {
+            applyShortcut(action, to: item)
+        }
         menu.addItem(item); return item
     }
 
     func buildStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "pencil.tip.crop.circle", accessibilityDescription: "Inkey")
-        statusItem.button?.toolTip = "Inkey · \(UserDefaults.standard.string(forKey: "shortcutLabel") ?? "⌃⌥Space")"
+        statusItem.button?.toolTip = "Inkey · \(shortcuts.label(for: .toggleWindow))"
         let menu = NSMenu()
         add("呼出／收起 Inkey", #selector(toggleAction(_:)), "", to: menu)
         add("新建草稿", #selector(newDraft(_:)), "", to: menu)
@@ -299,10 +322,8 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     }
 
     func registerSavedHotkey() -> Bool {
-        let defaults = UserDefaults.standard
-        let key = defaults.object(forKey: "shortcutCode") as? UInt32 ?? 49
-        let modifiers = defaults.object(forKey: "shortcutModifiers") as? UInt32 ?? UInt32(controlKey | optionKey)
-        return hotkey.register(keyCode: key, modifiers: modifiers)
+        guard let binding = shortcuts.binding(for: .toggleWindow) else { hotkey.unregister(); return true }
+        return hotkey.register(keyCode: UInt32(binding.keyCode), modifiers: binding.modifiers)
     }
 
     func showWindow() {
@@ -517,8 +538,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     }
     @objc func toggleToolbarHidden(_ sender: Any?) { palette.setToolbarHidden(!palette.isHidden) }
     func handleToolbarVisibilityShortcut(_ event: NSEvent) -> Bool {
-        guard event.keyCode == 17,
-              event.modifierFlags.intersection([.command, .option, .control, .shift]) == [.command, .shift] else { return false }
+        guard shortcuts.binding(for: .hideToolbar)?.matches(event) == true else { return false }
         toggleToolbarHidden(nil); return true
     }
 
@@ -563,23 +583,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         loginLaunchHint = loginHint
         refreshLoginLaunchControls()
 
-        let recorder = ShortcutRecorder(title: UserDefaults.standard.string(forKey: "shortcutLabel") ?? "⌃⌥Space", target: nil, action: nil)
-        recorder.target = recorder; recorder.action = #selector(ShortcutRecorder.beginRecording)
-        recorder.bezelStyle = .rounded
-        recorder.widthAnchor.constraint(equalToConstant: 156).isActive = true
-        recorder.setAccessibilityLabel("呼出／收起快捷键")
-        recorder.onRecord = { [weak self] key, modifiers, label in
-            guard let self else { return false }
-            if self.hotkey.register(keyCode: key, modifiers: modifiers) {
-                UserDefaults.standard.set(Int(key), forKey: "shortcutCode")
-                UserDefaults.standard.set(Int(modifiers), forKey: "shortcutModifiers")
-                UserDefaults.standard.set(label, forKey: "shortcutLabel")
-                self.statusItem.button?.toolTip = "Inkey · \(label)"; return true
-            }
-            _ = self.registerSavedHotkey()
-            self.alert("快捷键不可用", "该组合可能已被其他应用使用，请更换。")
-            return false
-        }
+        let recorder = makeShortcutRecorder(for: .toggleWindow)
         shortcutRecorder = recorder
         let general = SettingsLayout.section("通用", rows: [
             SettingsLayout.row("开机自启动", detail: loginHint, control: loginSwitch),
@@ -638,7 +642,9 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
             SettingsLayout.row("折叠动画", control: animation),
             SettingsLayout.row("预设颜色", control: reset)
         ])
-        return SettingsLayout.window(sections: [general, typing, canvas])
+        let panel = SettingsLayout.window(sections: [general, typing, canvas])
+        installShortcutSettings(in: panel)
+        return panel
     }
     func applicationDidBecomeActive(_ notification: Notification) { refreshLoginLaunchControls() }
 
@@ -699,7 +705,9 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     @objc func changeCursorTrail(_ sender: NSSwitch) { preferences.cursorTrail = sender.state == .on; canvas.cursorTrailEnabled = preferences.cursorTrail }
     @objc func resetColors(_ sender: Any?) { palette.resetPresets() }
     @objc func help(_ sender: Any?) {
-        alert("Inkey", "直接打字，拖动绘画。\n单击当前文字：移动光标\n右键文字／⌘Return：完整编辑，可拖选\nShift＋拖动：当前形状　⇧1—4：切换形状\n⌘＋单击／拖动：选择／移动\n⌥＋拖动：临时擦除　⌥⌘E：切换橡皮\n右键橡皮：调节尺寸　⌥⌘[ / ]：缩小／放大橡皮\nEnter：提交　Shift＋Enter：换行\n⌥1—6：换色　⇧⌘C：调色盘\n⌥⌘T：折叠工具栏　⇧⌘T：显示／隐藏\n双指滚动：平移　捏合：缩放\n⌘0：适配内容\n⇧⌘P：常驻　⌃⌘F：全屏\n⌘O：导入　⌘S：保存　⇧⌘S：另存为\n⌘E：导出\nEsc：结束编辑／取消选择／收起\n偏好自动保存，重启后恢复。")
+        showSettings(nil)
+        settingsTab?.selectedSegment = 1
+        if let settingsTab { changeSettingsTab(settingsTab) }
     }
     @objc func about(_ sender: Any?) { NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Inkey", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.5.1", .credits: NSAttributedString(string: "A quiet place to think.")]) }
     @objc func quit(_ sender: Any?) { NSApp.terminate(nil) }

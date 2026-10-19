@@ -274,20 +274,20 @@ final class PaletteView: NSView, NSPopoverDelegate {
             button.tag = index; button.target = self; button.action = #selector(chosen(_:))
             button.reorderGroup = "colors"
             configureReordering(button)
-            button.toolTip = "\(names[index]) · ⌥\(index + 1)"
+            button.toolTip = "\(names[index])\(shortcutHint(ShortcutAction.colors[index]))"
             button.onEdit = { [weak self, weak button] in if let button { self?.editPreset(button.tag) } }
             button.onDelete = { [weak self, weak button] in if let button { self?.deletePreset(button.tag) } }
             buttons.append(button); addSubview(button)
         }
         custom = SwatchButton(frame: NSRect(x: 233, y: 4, width: 34, height: 36))
         custom.isCustom = true; custom.target = self; custom.action = #selector(togglePicker)
-        custom.toolTip = "自定义颜色 · ⇧⌘C"; custom.setAccessibilityLabel("Custom color")
+        custom.toolTip = "自定义颜色\(shortcutHint(.colorPicker))"; custom.setAccessibilityLabel("Custom color")
         addSubview(custom)
         eraserButton = ToolButton(image: NSImage(systemSymbolName: "eraser", accessibilityDescription: "Eraser")!, target: self, action: #selector(toggleEraser))
         eraserButton.onRightClick = { [weak self] in self?.openEraserSizing() }
         eraserButton.frame = NSRect(x: 275, y: 4, width: 34, height: 36)
         eraserButton.isBordered = false
-        eraserButton.toolTip = "单击切换橡皮，右键调节尺寸 · ⌥⌘E"
+        eraserButton.toolTip = "单击切换橡皮，右键调节尺寸\(shortcutHint(.eraser))"
         addSubview(eraserButton)
         for (index, shape) in preferences.shapeOrder.enumerated() {
             let button = ToolButton(image: NSImage(systemSymbolName: shape.symbol, accessibilityDescription: shape.label)!, target: self, action: #selector(shapeClicked(_:)))
@@ -295,7 +295,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
             button.reorderGroup = "shapes"
             configureReordering(button)
             button.frame = NSRect(x: 54 + index * 36, y: 43, width: 34, height: 32)
-            button.toolTip = "\(shape.label) · ⇧\(index + 1) · Shift 拖动"
+            button.toolTip = "\(shape.label)\(shortcutHint(ShortcutAction.shapes[index])) · Shift 拖动"
             button.setAccessibilityLabel(button.toolTip)
             shapeButtons.append(button); addSubview(button)
         }
@@ -338,6 +338,16 @@ final class PaletteView: NSView, NSPopoverDelegate {
     deinit { windowObservers.forEach(NotificationCenter.default.removeObserver) }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); refreshAppearance() }
+    private func shortcutHint(_ action: ShortcutAction) -> String {
+        preferences.shortcuts.binding(for: action).map { " · " + $0.label } ?? ""
+    }
+    func refreshShortcutHints() {
+        updateButtons(); updateShapeButtons()
+        custom.toolTip = "自定义颜色\(shortcutHint(.colorPicker))"
+        eraserButton.toolTip = "单击切换橡皮，右键调节尺寸\(shortcutHint(.eraser))"
+        collapseButton.toolTip = (isCollapsed ? "展开工具栏" : "折叠工具栏") + shortcutHint(.collapseToolbar) + " · 拖动移动"
+        collapseButton.setAccessibilityLabel(collapseButton.toolTip)
+    }
     func refreshAppearance() {
         cancelInteractions()
         let newDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -377,7 +387,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
             guard colors.indices.contains(index) else { continue }
             button.inkColor = colors[index]; button.selected = !eraserEnabled && colors[index] == current
             let name = defaults.firstIndex(of: colors[index]).map { names[$0] } ?? colors[index].hex
-            button.toolTip = "\(name) · ⌥\(index + 1) · 拖动排序 · 右键编辑或删除"
+            button.toolTip = "\(name)\(shortcutHint(ShortcutAction.colors[index])) · 拖动排序 · 右键编辑或删除"
             button.setAccessibilityLabel("Preset \(index + 1), \(colors[index].hex)\(button.selected ? ", selected" : "")")
         }
         custom?.frame.origin.x = 29 + CGFloat(colors.count) * 34
@@ -497,7 +507,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         for child in subviews { child.isHidden = isCollapsed && child !== collapseButton }
         collapseButton.frame = NSRect(x: isCollapsed ? 0 : 15, y: isCollapsed ? 0 : 41, width: 36, height: 36)
         collapseButton.collapsed = isCollapsed
-        collapseButton.toolTip = isCollapsed ? "展开工具栏 · ⌥⌘T · 拖动移动" : "折叠工具栏 · ⌥⌘T · 拖动移动"
+        collapseButton.toolTip = isCollapsed ? "展开工具栏\(shortcutHint(.collapseToolbar)) · 拖动移动" : "折叠工具栏\(shortcutHint(.collapseToolbar)) · 拖动移动"
         collapseButton.setAccessibilityLabel(collapseButton.toolTip)
         updateButtons(); needsDisplay = true
         window?.invalidateCursorRects(for: self)
@@ -557,7 +567,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
             button.frame = NSRect(x: 54 + index * 36, y: 43, width: 34, height: 32)
             let shape = preferences.shapeOrder[index]
             button.image = NSImage(systemSymbolName: shape.symbol, accessibilityDescription: shape.label)
-            button.toolTip = "\(shape.label) · ⇧\(index + 1) · Shift 拖动 · 拖动按钮排序"
+            button.toolTip = "\(shape.label)\(shortcutHint(ShortcutAction.shapes[index])) · Shift 拖动 · 拖动按钮排序"
             button.setAccessibilityLabel(button.toolTip)
             button.state = !eraserEnabled && shape == preferences.shiftShape ? .on : .off
             button.contentTintColor = button.state == .on ? .controlAccentColor : .secondaryLabelColor

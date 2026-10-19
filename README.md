@@ -56,7 +56,7 @@ Inkey lives in your menu bar. The current build is signed locally for developmen
 | **⌥ drag** | Erase temporarily |
 | **⌘E** | Export PNG, PDF, or an editable draft |
 
-The global shortcut is customizable. Text placement, toolbar visibility, colors, eraser size, and window preferences are remembered. [See all controls →](docs/guide.md)
+Settings → Shortcuts offers 35 configurable actions, including the global shortcut, file and text editing commands, canvas tools, window controls, and shape/color positions. The keyboard combinations above are defaults. Text placement, toolbar visibility, colors, eraser size, and window preferences are remembered. [See all controls →](docs/guide.md)
 
 ## Built to stay small
 
@@ -76,6 +76,6 @@ Right-click text and drag a corner to resize it. The resized font becomes the ne
 
 Enable **Launch at login / 开机自启动** in Settings to start quietly after signing in to macOS. Only the menu bar and global shortcut become available; no canvas, Settings, or full-screen window opens and focus stays with your current app. Open Inkey manually, use the shortcut, or choose its menu bar action to show the canvas. The switch reflects the system login-item state; if macOS requires approval, allow Inkey in System Settings → General → Login Items.
 
-Settings are grouped into General, Text Input, and Canvas & Toolbar, with descriptions beside the relevant options. Changes save automatically.
+Settings has General and Shortcuts pages. General groups startup, text input, and canvas options. Shortcuts provides search, click-to-record bindings, conflict feedback, clearing with Delete while recording, and restoring individual defaults from a right-click menu or all defaults at once. Esc cancels recording. Changes save automatically; existing global shortcuts are preserved.
 
 New text boxes stay centered on the crosshair while typing, composing, and committing.

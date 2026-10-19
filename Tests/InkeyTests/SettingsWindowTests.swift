@@ -17,7 +17,7 @@ struct SettingsWindowTests {
         let app = InkeyApp(preferences: UserPreferences(defaults: defaults))
         let window = app.makeSettingsWindow()
         defer { window.close() }
-        let content = try #require(window.contentView)
+        let content = try #require(app.generalSettingsView)
         let recorder = try #require(app.shortcutRecorder)
         recorder.title = "⌃⌥⇧⌘Return"
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {
