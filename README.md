@@ -104,6 +104,8 @@ See the [user guide](docs/guide.md) for full controls, input behavior, and file 
 
 Choose Option (the default) or Command in **Settings → Shortcuts → Modifiers → Temporary eraser**. Hold the selected key to erase and release it to restore the previous tool. Selection/moving uses the other key: with Command erasing, Option selects/moves. Releasing the key mid-drag stops erasing immediately without starting a stroke.
 
+Both persistent and temporary erasers show a black-and-white outline matching the on-screen erasing diameter. Its size stays constant while zooming; it hides outside the canvas or on focus loss and never appears in exports.
+
 <a id="faq"></a>
 
 ## FAQ

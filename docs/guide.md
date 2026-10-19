@@ -105,6 +105,8 @@ Login startup initializes the menu bar, draft, and global shortcut without showi
 
 In **Settings → Shortcuts → 修饰键 → 临时橡皮**, choose Option (the default) or Command for hold-to-erase. Releasing the modifier restores the previous tool without changing the persistent tool preference. With Command selected, Option-click/drag selects and moves; with Option selected, Command-click/drag selects and moves. Release during an erasing drag stops it immediately; the remaining mouse movement is ignored until mouse-up, so it cannot erase further or create an unintended stroke. Focus loss also ends temporary erasing. Each erase gesture remains one undo step.
 
+The crosshair is accompanied by a black-and-white circular outline for both persistent and temporary erasing. Its center follows the latest canvas mouse event, and its diameter matches the screen-space erasing footprint at every zoom and eraser size. The outline stays above text without intercepting mouse events, hides over toolbar controls, outside the canvas, or on focus loss, and is excluded from PNG/PDF exports.
+
 The eraser uses one button next to the colors: single-click to toggle it, and
 right-click to enable it and open a live size preview with a continuous
 **4–120 pt** diameter slider. There is no separate size button. The size preview shows the erasing footprint; its screen diameter remains constant while zooming. The canvas pointer stays a crosshair. Option + drag
