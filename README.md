@@ -2,9 +2,9 @@
 
 # Inkey
 
-**Type where you point. Drag to draw. Keep thinking.**
+**Type to write. Drag to draw. Let your actions choose the tool.**
 
-A native macOS scratchpad for variables, diagrams, and the next step in your algorithm.
+A native macOS scratchpad where variables, sketches, and diagrams flow together. Start typing without selecting a text tool.
 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-303735?style=flat-square)
 ![Swift 6+](https://img.shields.io/badge/Swift-6%2B-C36A44?style=flat-square)
@@ -14,16 +14,26 @@ A native macOS scratchpad for variables, diagrams, and the next step in your alg
 
 </div>
 
+## Write, draw, and erase in one continuous flow
+
+Inkey brings typing, freehand drawing, and temporary tools into the same interaction. Switching follows what your hands do, keeping tool selection out of the way of your thinking.
+
+- **To write, start typing.** Enter a variable or note directly on the canvas without selecting a text tool. Move the pointer to start text at another position.
+- **To draw, start dragging.** Go straight from typing to sketching, even over newly typed text, without switching back to a pen tool.
+- **For temporary tools, hold a key.** Shift-drag to draw the selected shape. Option-drag to erase temporarily; release Option to return to your previous tool.
+
+Type `left`, drag a connecting line, move the pointer and type `right`, then hold Option to erase an extra stroke. Writing, drawing, and correcting stay connected, with tool changes folded into the actions themselves.
+
 ![Inkey's native canvas showing a two-pointer algorithm with typed variables, hand-drawn circles, arrows, and a compact color palette.](docs/assets/inkey-canvas.png)
 
 <sub>Example draft rendered with Inkey's native AppKit components.</sub>
 
-## A scratchpad that follows your thinking
+## Bring it up. Keep thinking.
 
-Solving a problem in your browser? Press **⌃⌥Space**, sketch the idea, and press it again to return. No text tool to hunt for. No drawing mode to get stuck in.
+Solving a problem in your browser? Press **⌃⌥Space**, sketch the idea, and press it again to return to the problem.
 
-- **Type, then draw.** Move the pointer to start another variable. Drag to sketch—even over newly typed text. Right-click a word for precise editing.
-- **Made for a trackpad.** Shift-drag arrows, lines, rectangles, or ellipses, pinch to zoom, or Option-drag to erase. Single-click the eraser to toggle it; right-click to resize it.
+- **Refine text when you need to.** Click existing text to place the caret, right-click for full text editing and selection, or drag its corners to change its size.
+- **Made for a trackpad.** Scroll with two fingers to pan, pinch to zoom, or Shift-drag arrows, lines, rectangles, or ellipses. Single-click the eraser to toggle it; right-click to resize it.
 - **Only what you need.** Editable color presets, a custom color picker, a resizable, draggable, collapsible toolbar, an optional crosshair trail, and floating, pinned, or full-screen windows.
 - **Pick up where you left off.** Local autosave, remembered preferences, editable `.inkey` drafts, and PNG/PDF export.
 
