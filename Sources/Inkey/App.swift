@@ -555,14 +555,19 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     }
 
     func makeSettingsWindow() -> NSWindow {
-        let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 530), styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        panel.title = "Inkey 设置"; panel.isReleasedWhenClosed = false; panel.center()
-        guard let content = panel.contentView else { return panel }
-        let label = NSTextField(labelWithString: "呼出／收起快捷键")
-        label.frame = NSRect(x: 28, y: 364, width: 140, height: 20); content.addSubview(label)
+        let loginSwitch = NSSwitch()
+        loginSwitch.target = self; loginSwitch.action = #selector(changeLoginLaunch(_:))
+        loginSwitch.setAccessibilityLabel("开机自启动（静默）")
+        loginLaunchSwitch = loginSwitch
+        let loginHint = NSTextField(wrappingLabelWithString: "")
+        loginLaunchHint = loginHint
+        refreshLoginLaunchControls()
+
         let recorder = ShortcutRecorder(title: UserDefaults.standard.string(forKey: "shortcutLabel") ?? "⌃⌥Space", target: nil, action: nil)
         recorder.target = recorder; recorder.action = #selector(ShortcutRecorder.beginRecording)
-        recorder.bezelStyle = .rounded; recorder.frame = NSRect(x: 196, y: 358, width: 190, height: 32)
+        recorder.bezelStyle = .rounded
+        recorder.widthAnchor.constraint(equalToConstant: 156).isActive = true
+        recorder.setAccessibilityLabel("呼出／收起快捷键")
         recorder.onRecord = { [weak self] key, modifiers, label in
             guard let self else { return false }
             if self.hotkey.register(keyCode: key, modifiers: modifiers) {
@@ -576,66 +581,64 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
             return false
         }
         shortcutRecorder = recorder
-        content.addSubview(recorder)
-        let shortcutHint = NSTextField(labelWithString: "点击后按下新组合，Esc 取消")
-        shortcutHint.font = .systemFont(ofSize: 11); shortcutHint.textColor = .secondaryLabelColor
-        shortcutHint.frame = NSRect(x: 196, y: 335, width: 200, height: 18); content.addSubview(shortcutHint)
-        let placementLabel = NSTextField(labelWithString: "文字落点")
-        placementLabel.frame = NSRect(x: 28, y: 301, width: 140, height: 20); content.addSubview(placementLabel)
-        let placement = NSPopUpButton(frame: NSRect(x: 196, y: 296, width: 190, height: 28))
+        let general = SettingsLayout.section("通用", rows: [
+            SettingsLayout.row("开机自启动", detail: loginHint, control: loginSwitch),
+            SettingsLayout.row("呼出／收起快捷键", detail: NSTextField(wrappingLabelWithString: "点击录制，Esc 取消"), control: recorder)
+        ])
+
+        let placement = NSPopUpButton()
+        placement.widthAnchor.constraint(equalToConstant: 156).isActive = true
         placement.addItems(withTitles: ["单击定位", "跟随指针"])
         placement.selectItem(at: UserDefaults.standard.bool(forKey: "pointerPlacement") ? 1 : 0)
-        placement.target = self; placement.action = #selector(changePlacement(_:)); content.addSubview(placement)
-        let sizeLabel = NSTextField(labelWithString: "默认输入字号")
-        sizeLabel.frame = NSRect(x: 28, y: 251, width: 150, height: 20); content.addSubview(sizeLabel)
+        placement.target = self; placement.action = #selector(changePlacement(_:))
+        placement.setAccessibilityLabel("文字落点")
         let formatter = NumberFormatter(); formatter.minimum = 6; formatter.maximum = 200
         formatter.maximumFractionDigits = 1; formatter.numberStyle = .decimal
-        let size = NSTextField(frame: NSRect(x: 258, y: 246, width: 78, height: 26))
+        let size = NSTextField()
+        size.widthAnchor.constraint(equalToConstant: 64).isActive = true
+        size.alignment = .right
         size.formatter = formatter; size.delegate = self; size.target = self; size.action = #selector(changeDefaultFontSize(_:))
-        size.setAccessibilityLabel("Default typing font size"); content.addSubview(size); fontSizeField = size
-        let stepper = NSStepper(frame: NSRect(x: 344, y: 243, width: 20, height: 28))
+        size.setAccessibilityLabel("Default typing font size"); fontSizeField = size
+        let unit = NSTextField(labelWithString: "pt")
+        unit.font = .systemFont(ofSize: 12); unit.textColor = .secondaryLabelColor
+        let stepper = NSStepper()
         stepper.minValue = 6; stepper.maxValue = 200; stepper.increment = 1; stepper.valueWraps = false
-        stepper.target = self; stepper.action = #selector(stepDefaultFontSize(_:)); stepper.setAccessibilityLabel("Adjust default typing font size")
-        content.addSubview(stepper); fontSizeStepper = stepper; syncFontSizeControls()
-        let follow = NSButton(checkboxWithTitle: "拖拽缩放后，设为下次输入字号", target: self, action: #selector(changeResizeDefault(_:)))
-        follow.frame = NSRect(x: 28, y: 207, width: 356, height: 24)
-        follow.state = preferences.resizeUpdatesDefaultFont ? .on : .off; content.addSubview(follow)
-        let trailLabel = NSTextField(labelWithString: "十字指针轨迹")
-        trailLabel.frame = NSRect(x: 28, y: 151, width: 140, height: 20); content.addSubview(trailLabel)
-        let trail = NSSwitch(frame: NSRect(x: 343, y: 145, width: 42, height: 26))
+        stepper.target = self; stepper.action = #selector(stepDefaultFontSize(_:))
+        stepper.setAccessibilityLabel("Adjust default typing font size"); fontSizeStepper = stepper
+        let sizeControls = NSStackView(views: [size, unit, stepper])
+        sizeControls.orientation = .horizontal; sizeControls.alignment = .centerY; sizeControls.spacing = 8
+        syncFontSizeControls()
+        let follow = NSSwitch()
+        follow.state = preferences.resizeUpdatesDefaultFont ? .on : .off
+        follow.target = self; follow.action = #selector(changeResizeDefault(_:))
+        follow.setAccessibilityLabel("沿用缩放后的字号")
+        let typing = SettingsLayout.section("文字输入", rows: [
+            SettingsLayout.row("文字落点", control: placement),
+            SettingsLayout.row("默认字号", control: sizeControls),
+            SettingsLayout.row("沿用缩放后的字号", detail: NSTextField(wrappingLabelWithString: "拖动文字改字号后，用于下次输入"), control: follow)
+        ])
+
+        let trail = NSSwitch()
         trail.state = preferences.cursorTrail ? .on : .off
         trail.target = self; trail.action = #selector(changeCursorTrail(_:)); trail.setAccessibilityLabel("Crosshair trail")
-        content.addSubview(trail)
-        let reset = NSButton(title: "恢复默认色板", target: self, action: #selector(resetColors(_:)))
-        reset.bezelStyle = .rounded; reset.frame = NSRect(x: 22, y: 81, width: 160, height: 30); content.addSubview(reset)
-        let help = NSTextField(wrappingLabelWithString: "移动指针后打字，即可在新位置输入。\n右键文字精修，拖动边框四角改字号，⌥ 拖动临时擦除。\n颜色、尺寸与窗口偏好会自动记住。")
-        help.font = .systemFont(ofSize: 11); help.textColor = .secondaryLabelColor
-        help.frame = NSRect(x: 28, y: 10, width: 360, height: 56); content.addSubview(help)
-        for control in content.subviews where control !== reset && control !== help {
-            control.frame.origin.y += 50
-        }
-        let animationLabel = NSTextField(labelWithString: "工具栏折叠动画")
-        animationLabel.frame = NSRect(x: 28, y: 151, width: 150, height: 20); content.addSubview(animationLabel)
-        let animation = NSPopUpButton(frame: NSRect(x: 196, y: 146, width: 190, height: 28))
+        let animation = NSPopUpButton()
+        animation.widthAnchor.constraint(equalToConstant: 156).isActive = true
         for style in ToolbarAnimationStyle.allCases {
             animation.addItem(withTitle: style.label)
             animation.lastItem?.representedObject = style.rawValue
         }
         animation.selectItem(at: ToolbarAnimationStyle.allCases.firstIndex(of: preferences.toolbarAnimationStyle) ?? 0)
         animation.target = self; animation.action = #selector(changeToolbarAnimation(_:))
-        animation.setAccessibilityLabel("工具栏折叠动画"); content.addSubview(animation)
-        let loginLabel = NSTextField(labelWithString: "开机自启动")
-        loginLabel.frame = NSRect(x: 28, y: 480, width: 150, height: 20); content.addSubview(loginLabel)
-        let loginSwitch = NSSwitch(frame: NSRect(x: 343, y: 474, width: 42, height: 26))
-        loginSwitch.target = self; loginSwitch.action = #selector(changeLoginLaunch(_:))
-        loginSwitch.setAccessibilityLabel("开机自启动（静默）")
-        content.addSubview(loginSwitch); loginLaunchSwitch = loginSwitch
-        let loginHint = NSTextField(labelWithString: "")
-        loginHint.font = .systemFont(ofSize: 11); loginHint.textColor = .secondaryLabelColor
-        loginHint.frame = NSRect(x: 28, y: 454, width: 360, height: 18)
-        content.addSubview(loginHint); loginLaunchHint = loginHint
-        refreshLoginLaunchControls()
-        return panel
+        animation.setAccessibilityLabel("工具栏折叠动画")
+        let reset = NSButton(title: "恢复默认", target: self, action: #selector(resetColors(_:)))
+        reset.bezelStyle = .rounded
+        reset.setAccessibilityLabel("恢复默认色板")
+        let canvas = SettingsLayout.section("画布与工具栏", rows: [
+            SettingsLayout.row("十字指针轨迹", control: trail),
+            SettingsLayout.row("折叠动画", control: animation),
+            SettingsLayout.row("预设颜色", control: reset)
+        ])
+        return SettingsLayout.window(sections: [general, typing, canvas])
     }
     func applicationDidBecomeActive(_ notification: Notification) { refreshLoginLaunchControls() }
 
@@ -643,7 +646,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         loginLaunchSwitch?.state = loginLaunch.isEnabled || loginLaunch.needsApproval ? .on : .off
         loginLaunchHint?.stringValue = loginLaunch.needsApproval
             ? "请在系统“登录项”中允许，或关闭此开关取消"
-            : "登录后静默运行，不弹窗口；用快捷键或菜单栏呼出"
+            : "登录后静默运行，不弹出草稿窗口"
     }
 
     @objc func changeLoginLaunch(_ sender: NSSwitch) {
@@ -675,7 +678,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         preferences.defaultFontSize = number.doubleValue; syncFontSizeControls()
     }
     @objc func stepDefaultFontSize(_ sender: NSStepper) { preferences.defaultFontSize = sender.doubleValue; syncFontSizeControls() }
-    @objc func changeResizeDefault(_ sender: NSButton) { preferences.resizeUpdatesDefaultFont = sender.state == .on }
+    @objc func changeResizeDefault(_ sender: NSSwitch) { preferences.resizeUpdatesDefaultFont = sender.state == .on }
     @objc func changeToolbarAnimation(_ sender: NSPopUpButton) {
         guard let raw = sender.selectedItem?.representedObject as? String,
               let style = ToolbarAnimationStyle(rawValue: raw) else { return }

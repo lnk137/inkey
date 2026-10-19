@@ -149,7 +149,7 @@ struct TextResizeTests {
         field.stringValue = "999"
         app.changeDefaultFontSize(field)
         #expect(app.preferences.defaultFontSize == 42)
-        let follow = try #require(window.contentView?.subviews.compactMap { $0 as? NSButton }.first { $0.title == "拖拽缩放后，设为下次输入字号" })
+        let follow = try #require(window.contentView?.allSubviews.compactMap { $0 as? NSSwitch }.first { $0.accessibilityLabel() == "沿用缩放后的字号" })
         follow.state = .off; app.changeResizeDefault(follow)
         #expect(!app.preferences.resizeUpdatesDefaultFont)
         #expect(app.canvas.draft.items.isEmpty)

@@ -30,7 +30,7 @@ struct ToolbarCollapseAnimationTests {
             let controller = InkeyApp(preferences: preferences)
             let settings = controller.makeSettingsWindow()
             defer { settings.close() }
-            let picker = try #require(settings.contentView?.subviews.compactMap { $0 as? NSPopUpButton }.first {
+            let picker = try #require(settings.contentView?.allSubviews.compactMap { $0 as? NSPopUpButton }.first {
                 $0.itemArray.contains { ($0.representedObject as? String) == ToolbarAnimationStyle.fade.rawValue }
             })
             picker.selectItem(at: 1)

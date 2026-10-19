@@ -76,4 +76,6 @@ Right-click text and drag a corner to resize it. The resized font becomes the ne
 
 Enable **Launch at login / 开机自启动** in Settings to start quietly after signing in to macOS. Only the menu bar and global shortcut become available; no canvas, Settings, or full-screen window opens and focus stays with your current app. Open Inkey manually, use the shortcut, or choose its menu bar action to show the canvas. The switch reflects the system login-item state; if macOS requires approval, allow Inkey in System Settings → General → Login Items.
 
+Settings are grouped into General, Text Input, and Canvas & Toolbar, with descriptions beside the relevant options. Changes save automatically.
+
 New text boxes stay centered on the crosshair while typing, composing, and committing.
