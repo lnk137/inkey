@@ -74,4 +74,6 @@ The canvas uses a crosshair; only typing shows an insertion caret, which disappe
 
 Right-click text and drag a corner to resize it. The resized font becomes the next typing size by default; disable this in Settings or set a default directly (6–200 pt). Click the show/hide shortcut recorder in Settings to choose another global combination.
 
+Enable **Launch at login / 开机自启动** in Settings to start quietly after signing in to macOS. Only the menu bar and global shortcut become available; no canvas, Settings, or full-screen window opens and focus stays with your current app. Open Inkey manually, use the shortcut, or choose its menu bar action to show the canvas. The switch reflects the system login-item state; if macOS requires approval, allow Inkey in System Settings → General → Login Items.
+
 New text boxes stay centered on the crosshair while typing, composing, and committing.

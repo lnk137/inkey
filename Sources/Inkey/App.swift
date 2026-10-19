@@ -2,6 +2,7 @@ import AppKit
 import Carbon.HIToolbox
 import UniformTypeIdentifiers
 import PDFKit
+import ServiceManagement
 
 final class InkeyWindow: NSWindow {
     override var canBecomeKey: Bool { true }
@@ -84,6 +85,10 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     var statusLabel: NSTextField!
     var errorShown = false
     var fullScreen = false
+    let loginLaunch = LoginLaunch()
+    var loginLaunchSwitch: NSSwitch?
+    var loginLaunchHint: NSTextField?
+    var hotkeyNeedsAttention = false
 
     override convenience init() { self.init(preferences: UserPreferences()) }
     init(preferences: UserPreferences) {
@@ -106,11 +111,15 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let silentLaunch = LoginLaunch.isSilentLaunch(event: NSAppleEventManager.shared().currentAppleEvent,
+                                                      arguments: ProcessInfo.processInfo.arguments)
         if !ProcessInfo.processInfo.arguments.contains("--smoke-test"),
            let identifier = Bundle.main.bundleIdentifier,
            let existing = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == identifier && $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }) {
-            DistributedNotificationCenter.default().postNotificationName(.init("com.lnk137.inkey.show"), object: nil, userInfo: nil, deliverImmediately: true)
-            existing.activate()
+            if !silentLaunch {
+                DistributedNotificationCenter.default().postNotificationName(.init("com.lnk137.inkey.show"), object: nil, userInfo: nil, deliverImmediately: true)
+                existing.activate()
+            }
             NSApp.terminate(nil)
             return
         }
@@ -126,9 +135,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
             } else { self.toggleWindow() }
         }
         if !ProcessInfo.processInfo.arguments.contains("--smoke-test") && !registerSavedHotkey() {
-            showWindow()
-            alert("快捷键已被占用", "请在设置中重新录制呼出快捷键。")
-            showSettings(nil)
+            hotkeyNeedsAttention = true
         }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
@@ -161,8 +168,8 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         let isSmoke = ProcessInfo.processInfo.arguments.contains("--smoke-test")
         let isUITest = ProcessInfo.processInfo.arguments.contains("--ui-test")
         setPinned(preferences.pinned || isUITest, remember: false)
-        showWindow()
-        if preferences.fullScreen && !isSmoke && !isUITest {
+        if !silentLaunch { showWindow() }
+        if preferences.fullScreen && !isSmoke && !isUITest && !silentLaunch {
             DispatchQueue.main.async { self.window.toggleFullScreen(nil) }
         }
         if ProcessInfo.processInfo.arguments.contains("--smoke-test") {
@@ -309,6 +316,14 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         NSApp.activate(ignoringOtherApps: true)
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.makeKeyAndOrderFront(nil); canvas.restoreFocus()
+        if hotkeyNeedsAttention {
+            hotkeyNeedsAttention = false
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.alert("快捷键已被占用", "请在设置中重新录制呼出快捷键。")
+                self.showSettings(nil)
+            }
+        }
     }
     func hideWindow() {
         palette.cancelInteractions(); palette.closePicker(accept: true); canvas.flush(); window.orderOut(nil)
@@ -533,13 +548,14 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
 
     @objc func showSettings(_ sender: Any?) {
         palette.closePicker(accept: true); canvas.commitText()
+        refreshLoginLaunchControls()
         if let settings { NSApp.activate(ignoringOtherApps: true); settings.makeKeyAndOrderFront(nil); return }
         let panel = makeSettingsWindow()
         settings = panel; NSApp.activate(ignoringOtherApps: true); panel.makeKeyAndOrderFront(nil)
     }
 
     func makeSettingsWindow() -> NSWindow {
-        let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 470), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 530), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         panel.title = "Inkey 设置"; panel.isReleasedWhenClosed = false; panel.center()
         guard let content = panel.contentView else { return panel }
         let label = NSTextField(labelWithString: "呼出／收起快捷键")
@@ -608,7 +624,42 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         animation.selectItem(at: ToolbarAnimationStyle.allCases.firstIndex(of: preferences.toolbarAnimationStyle) ?? 0)
         animation.target = self; animation.action = #selector(changeToolbarAnimation(_:))
         animation.setAccessibilityLabel("工具栏折叠动画"); content.addSubview(animation)
+        let loginLabel = NSTextField(labelWithString: "开机自启动")
+        loginLabel.frame = NSRect(x: 28, y: 480, width: 150, height: 20); content.addSubview(loginLabel)
+        let loginSwitch = NSSwitch(frame: NSRect(x: 343, y: 474, width: 42, height: 26))
+        loginSwitch.target = self; loginSwitch.action = #selector(changeLoginLaunch(_:))
+        loginSwitch.setAccessibilityLabel("开机自启动（静默）")
+        content.addSubview(loginSwitch); loginLaunchSwitch = loginSwitch
+        let loginHint = NSTextField(labelWithString: "")
+        loginHint.font = .systemFont(ofSize: 11); loginHint.textColor = .secondaryLabelColor
+        loginHint.frame = NSRect(x: 28, y: 454, width: 360, height: 18)
+        content.addSubview(loginHint); loginLaunchHint = loginHint
+        refreshLoginLaunchControls()
         return panel
+    }
+    func applicationDidBecomeActive(_ notification: Notification) { refreshLoginLaunchControls() }
+
+    func refreshLoginLaunchControls() {
+        loginLaunchSwitch?.state = loginLaunch.isEnabled || loginLaunch.needsApproval ? .on : .off
+        loginLaunchHint?.stringValue = loginLaunch.needsApproval
+            ? "请在系统“登录项”中允许，或关闭此开关取消"
+            : "登录后静默运行，不弹窗口；用快捷键或菜单栏呼出"
+    }
+
+    @objc func changeLoginLaunch(_ sender: NSSwitch) {
+        do {
+            // A pending registration needs approval rather than another registration.
+            if loginLaunch.needsApproval {
+                if sender.state == .off { try loginLaunch.setEnabled(false) }
+                else { SMAppService.openSystemSettingsLoginItems() }
+            } else {
+                try loginLaunch.setEnabled(sender.state == .on)
+                if loginLaunch.needsApproval { SMAppService.openSystemSettingsLoginItems() }
+            }
+        } catch {
+            alert("无法更改开机自启动", error.localizedDescription)
+        }
+        refreshLoginLaunchControls()
     }
     func controlTextDidEndEditing(_ notification: Notification) {
         if let field = notification.object as? NSTextField, field === fontSizeField { changeDefaultFontSize(field) }

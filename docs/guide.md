@@ -95,6 +95,10 @@ also hides settings and commits pending text. A minimized canvas is restored.
 Inkey keeps one running application instance; opening another copy brings the
 existing instance forward rather than competing for the global shortcut.
 
+Enable **Launch at login / 开机自启动** in Settings for silent startup after macOS login. Inkey registers its main app with the native `SMAppService` API; it does not register until you enable the switch. The switch reads the system state and refreshes when Settings is opened or Inkey becomes active, including changes made in System Settings. If approval is required, macOS Login Items settings opens; allow Inkey there or turn the switch off to cancel. Failures are reported and the switch returns to the actual system state.
+
+Login startup initializes the menu bar, draft, and global shortcut without showing any window, restoring full screen, or activating Inkey. A conflicting shortcut is reported only after you explicitly show the canvas. A second login launch leaves an existing instance hidden. Manual opening, the menu bar, and the global shortcut still show the canvas normally. Developers can use `--background` to exercise the same silent path; `--smoke-test` and `--ui-test` retain their visible test behavior.
+
 ## Eraser
 
 The eraser uses one button next to the colors: single-click to toggle it, and
