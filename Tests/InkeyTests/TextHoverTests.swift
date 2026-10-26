@@ -91,4 +91,44 @@ struct TextHoverTests {
         #expect(!canvas.isHoverEditing)
         #expect(editor.hasMarkedText())
     }
+
+    @Test func nativeTextExitRequiresANewDwellBeforeEditingAgain() throws {
+        let (window, canvas, point) = setup()
+        canvas.updatePointerLocation(point)
+        canvas.updateTextHover(at: point, time: 10)
+        canvas.updateTextHover(at: point, time: 10.46)
+        let editor = try #require(window.firstResponder as? InlineTextView)
+        #expect(canvas.isHoverEditing)
+        editor.updateTrackingAreas()
+        #expect(editor.trackingAreas.contains { $0.options.contains(.enabledDuringMouseDrag) })
+        // Native text selection can deliver an exit without a canvas mouseMoved.
+        let exit = try #require(NSEvent.enterExitEvent(with: .mouseExited, location: point, modifierFlags: [], timestamp: 11, windowNumber: window.windowNumber, context: nil, eventNumber: 1, trackingNumber: 0, userData: nil))
+        editor.mouseExited(with: exit)
+        #expect(!canvas.isPrecisionEditing && !canvas.isHoverEditing)
+        #expect(canvas.hitTest(canvas.convert(point, from: nil)) === canvas)
+        canvas.updateTextHover(at: point, time: 11)
+        canvas.updateTextHover(at: point, time: 11.2)
+        #expect(!canvas.isHoverEditing)
+        canvas.updateTextHover(at: point, time: 11.46)
+        #expect(canvas.isHoverEditing)
+    }
+
+    @Test func crossingJustOutsideTheEditorResetsEditingAndImmediateDragDraws() throws {
+        let (window, canvas, point) = setup()
+        canvas.updatePointerLocation(point)
+        canvas.updateTextHover(at: point, time: 10)
+        canvas.updateTextHover(at: point, time: 10.46)
+        let editor = try #require(window.firstResponder as? InlineTextView)
+        let outside = canvas.convert(NSPoint(x: editor.frame.midX, y: editor.frame.minY - 1), to: nil)
+        canvas.updateTextHover(at: outside, time: 11)
+        #expect(!canvas.isPrecisionEditing)
+        canvas.updateTextHover(at: point, time: 11.05)
+        #expect(canvas.hitTest(canvas.convert(point, from: nil)) === canvas)
+        canvas.mouseDown(with: helper.mouse(.leftMouseDown, point, window: window))
+        let end = NSPoint(x: point.x + 70, y: point.y + 30)
+        canvas.mouseDragged(with: helper.mouse(.leftMouseDragged, end, window: window))
+        canvas.mouseUp(with: helper.mouse(.leftMouseUp, end, window: window))
+        #expect(canvas.draft.items.last?.kind == .stroke)
+        #expect(canvas.draft.items.count == 2)
+    }
 }

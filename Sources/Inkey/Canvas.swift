@@ -66,6 +66,13 @@ final class InlineTextView: NSTextView {
     override func resetCursorRects() { addCursorRect(bounds, cursor: canvas?.isHoverEditing == true ? .iBeam : .crosshair) }
     override func cursorUpdate(with event: NSEvent) { (canvas?.isHoverEditing == true ? NSCursor.iBeam : NSCursor.crosshair).set() }
     override func mouseMoved(with event: NSEvent) { canvas?.mouseMoved(with: event) }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.inVisibleRect, .activeInKeyWindow, .mouseEnteredAndExited, .enabledDuringMouseDrag], owner: self))
+    }
+    override func mouseExited(with event: NSEvent) { canvas?.textEditorPointerExited() }
+    override func mouseEntered(with event: NSEvent) { canvas?.mouseMoved(with: event) }
 
     override func keyDown(with event: NSEvent) {
         canvas?.cancelTextHover()
@@ -192,11 +199,20 @@ final class CanvasView: NSView, NSTextViewDelegate {
         hoverTimer?.invalidate(); hoverTimer = nil; hoverStart = nil
     }
 
+    func textEditorPointerExited() {
+        // NSTextView handles selection drags in its own event loop. Track its
+        // boundary directly so leaving and returning cannot reuse editing mode.
+        cancelTextHover()
+        leaveHoverEditing()
+    }
+
     private func leaveHoverEditing() {
         guard isHoverEditing, editor?.hasMarkedText() != true else { return }
         isHoverEditing = false
         editor?.allowsMouseSelection = false
-        editor?.setSelectedRange(NSRange(location: editor?.selectedRange().location ?? 0, length: 0))
+        if NSEvent.pressedMouseButtons == 0 {
+            editor?.setSelectedRange(NSRange(location: editor?.selectedRange().location ?? 0, length: 0))
+        }
         hideTypingCaret()
         window?.invalidateCursorRects(for: self)
         if let editor { window?.invalidateCursorRects(for: editor) }
@@ -205,13 +221,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     func updateTextHover(at windowPoint: NSPoint, time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
         let point = convert(windowPoint, from: nil)
-        if isHoverEditing, let editor, !editor.frame.insetBy(dx: -3, dy: -3).contains(point) { leaveHoverEditing() }
+        if isHoverEditing, let editor, !editor.frame.contains(point) { textEditorPointerExited() }
         guard !isHoverEditing, !isPrecisionEditing, !isDrawing, !effectiveEraserEnabled,
               heldModifiers.intersection([.shift, .command, .option, .control]).isEmpty,
               NSEvent.pressedMouseButtons == 0, window?.isKeyWindow == true,
               containsCanvasPoint(point), isCanvasLocation?(windowPoint) ?? true,
               editor?.hasMarkedText() != true else { cancelTextHover(); return }
-        let liveHit = editor?.containsText(at: windowPoint) == true
+        let liveHit = editor.map { $0.frame.contains(point) && $0.containsText(at: windowPoint) } ?? false
         let saved = draft.items.reversed().first { $0.kind == .text && viewRect($0.bounds).contains(point) }
         guard liveHit || saved != nil else { cancelTextHover(); return }
         if let start = hoverStart, hypot(windowPoint.x - start.point.x, windowPoint.y - start.point.y) <= 4 {
