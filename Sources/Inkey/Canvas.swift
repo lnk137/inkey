@@ -49,7 +49,7 @@ final class InlineTextView: NSTextView {
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         let windowPoint = superview?.convert(point, to: nil) ?? point
-        if canvas?.textResizeHandle(at: windowPoint) != nil { return nil }
+        if canvas?.textResizeHandle(at: windowPoint) != nil || canvas?.canMoveText(at: windowPoint) == true { return nil }
         guard allowsMouseSelection, canvas?.eraserEnabled != true,
               !NSEvent.modifierFlags.contains(.option), !NSEvent.modifierFlags.contains(.command) else { return nil }
         return containsText(at: windowPoint) ? super.hitTest(point) : nil
@@ -513,6 +513,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
             if selection != nil { moveStart = p; moveOriginal = draft.items }
             return
         }
+        if !event.modifierFlags.contains(.shift), canMoveText(at: event.locationInWindow) {
+            beginTextMove(at: p)
+            return
+        }
         if let editor, editor.containsText(at: event.locationInWindow), !event.modifierFlags.contains(.shift) {
             pendingPointer = PointerIntent(start: p, viewStart: viewPoint, shape: .stroke, textClick: true)
             return
@@ -555,6 +559,28 @@ final class CanvasView: NSView, NSTextViewDelegate {
             let handle = $0.point(in: rect)
             return hypot(point.x - handle.x, point.y - handle.y) <= 8
         }
+    }
+    func canMoveText(at windowPoint: NSPoint) -> Bool {
+        guard let rect = textBoxFrame,
+              rect.insetBy(dx: -3, dy: -3).contains(convert(windowPoint, from: nil)),
+              textResizeHandle(at: windowPoint) == nil else { return false }
+        // Keep native selection inside text lines; use the box border and gaps to move.
+        if let editor {
+            let point = convert(windowPoint, from: nil)
+            return !rect.insetBy(dx: 4, dy: 4).contains(point) || !editor.containsText(at: windowPoint)
+        }
+        return true
+    }
+    private func beginTextMove(at point: NSPoint) {
+        let currentID = editor != nil ? editingID : selection
+        let wasEditing = editor != nil
+        commitText()
+        guard let id = currentID ?? (wasEditing ? draft.items.last?.id : nil),
+              draft.items.contains(where: { $0.id == id && $0.kind == .text }) else { return }
+        selection = id
+        moveStart = point
+        moveOriginal = draft.items
+        restoreFocus()
     }
     private func drawTextResizeHandles(in rect: NSRect) {
         for corner in TextResizeCorner.allCases {

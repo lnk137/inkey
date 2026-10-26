@@ -212,7 +212,9 @@ Click the chevron to collapse or expand. Drag the chevron itself to move the too
 
 ## Text size and keyboard shortcuts
 
-Right-click text to enter precise editing and reveal its resize box. Drag any corner to scale the font uniformly while keeping the opposite corner fixed. One drag creates one undo step. Sizes range from **6–200 pt**. By default, the resized size becomes the default for the next text label; turn off **Use resized size for subsequent typing / 拖拽缩放后，设为下次输入字号** in Settings to keep these independent. Set the default directly with the **Default typing font size / 默认输入字号** field or stepper. Existing labels keep their own size; changes to the default apply to newly created labels.
+Right-click text to enter precise editing and reveal its resize box. Drag the box border or empty space inside it to move the entire label without holding a modifier. Dragging inside text lines still selects characters. Moving commits the current edit and keeps the label selected; the selected label can then be dragged anywhere inside its box to move it again. Each move is one undo step and keeps the font size and color unchanged. Ordinary dragging over unselected text still draws.
+
+Drag any corner to scale the font uniformly while keeping the opposite corner fixed. One drag creates one undo step. Sizes range from **6–200 pt**. By default, the resized size becomes the default for the next text label; turn off **Use resized size for subsequent typing / 拖拽缩放后，设为下次输入字号** in Settings to keep these independent. Set the default directly with the **Default typing font size / 默认输入字号** field or stepper. Existing labels keep their own size; changes to the default apply to newly created labels.
 
 Settings → **Shortcuts / 快捷键** offers 35 configurable actions, searchable by action or group:
 
