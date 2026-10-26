@@ -19,6 +19,7 @@ final class InlineTextView: NSTextView {
     }
 
     override func insertText(_ insertString: Any, replacementRange: NSRange) {
+        canvas?.cancelTextHover()
         canvas?.prepareInputSession()
         canvas?.showTypingCaret()
         super.insertText(insertString, replacementRange: replacementRange)
@@ -26,6 +27,7 @@ final class InlineTextView: NSTextView {
     }
 
     override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        canvas?.cancelTextHover()
         canvas?.prepareInputSession()
         canvas?.showTypingCaret()
         super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
@@ -52,19 +54,21 @@ final class InlineTextView: NSTextView {
         if canvas?.textResizeHandle(at: windowPoint) != nil || canvas?.canMoveText(at: windowPoint) == true { return nil }
         guard allowsMouseSelection, canvas?.eraserEnabled != true,
               !NSEvent.modifierFlags.contains(.option), !NSEvent.modifierFlags.contains(.command) else { return nil }
-        return containsText(at: windowPoint) ? super.hitTest(point) : nil
+        return (canvas?.isHoverEditing == true || containsText(at: windowPoint)) ? super.hitTest(point) : nil
     }
 
     override func rightMouseDown(with event: NSEvent) { canvas?.rightMouseDown(with: event) }
     override func mouseDown(with event: NSEvent) {
+        canvas?.cancelTextHover()
         if event.modifierFlags.contains(.control) { canvas?.rightMouseDown(with: event) }
         else { super.mouseDown(with: event) }
     }
-    override func resetCursorRects() { addCursorRect(bounds, cursor: .crosshair) }
-    override func cursorUpdate(with event: NSEvent) { NSCursor.crosshair.set() }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: canvas?.isHoverEditing == true ? .iBeam : .crosshair) }
+    override func cursorUpdate(with event: NSEvent) { (canvas?.isHoverEditing == true ? NSCursor.iBeam : NSCursor.crosshair).set() }
     override func mouseMoved(with event: NSEvent) { canvas?.mouseMoved(with: event) }
 
     override func keyDown(with event: NSEvent) {
+        canvas?.cancelTextHover()
         if let canvas, !canvas.isEditing {
             canvas.keyDown(with: event)
             return
@@ -104,6 +108,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private var previewItems: [InkItem]?
     private var previewTextColor: InkColor?
     private var textResize: TextResizeGesture?
+    private var hoverTimer: Timer?
+    private var hoverStart: (point: NSPoint, time: TimeInterval)?
+    private(set) var isHoverEditing = false
     private var moveStart: NSPoint?
     private var moveOriginal: [InkItem]?
     private struct PointerIntent {
@@ -160,6 +167,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
         if let window {
             focusObserver = NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: window, queue: .main) { [weak self] _ in
                 self?.resetTemporaryEraser()
+                self?.cancelTextHover()
+                self?.leaveHoverEditing()
                 self?.outlineSuppressed = true
                 self?.eraserOutline.isHidden = true
             }
@@ -167,7 +176,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         if window != nil { restoreFocus() }
     }
 
-    deinit { trailTimer?.invalidate(); saveTimer?.invalidate(); if let focusObserver { NotificationCenter.default.removeObserver(focusObserver) } }
+    deinit { hoverTimer?.invalidate(); trailTimer?.invalidate(); saveTimer?.invalidate(); if let focusObserver { NotificationCenter.default.removeObserver(focusObserver) } }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -175,9 +184,57 @@ final class CanvasView: NSView, NSTextViewDelegate {
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.inVisibleRect, .activeInKeyWindow, .mouseMoved, .mouseEnteredAndExited], owner: self))
     }
 
-    override func mouseMoved(with event: NSEvent) { outlineSuppressed = false; heldModifiers = event.modifierFlags; updatePointerLocation(event.locationInWindow) }
-    override func mouseEntered(with event: NSEvent) { outlineSuppressed = false; heldModifiers = event.modifierFlags; updatePointerLocation(event.locationInWindow) }
-    override func mouseExited(with event: NSEvent) { pointerPreview = nil; clearPointerTrail(); hideTypingCaret(); updateEraserOutline() }
+    override func mouseMoved(with event: NSEvent) { outlineSuppressed = false; heldModifiers = event.modifierFlags; updatePointerLocation(event.locationInWindow); updateTextHover(at: event.locationInWindow) }
+    override func mouseEntered(with event: NSEvent) { mouseMoved(with: event) }
+    override func mouseExited(with event: NSEvent) { cancelTextHover(); leaveHoverEditing(); pointerPreview = nil; clearPointerTrail(); hideTypingCaret(); updateEraserOutline() }
+
+    func cancelTextHover() {
+        hoverTimer?.invalidate(); hoverTimer = nil; hoverStart = nil
+    }
+
+    private func leaveHoverEditing() {
+        guard isHoverEditing, editor?.hasMarkedText() != true else { return }
+        isHoverEditing = false
+        editor?.allowsMouseSelection = false
+        editor?.setSelectedRange(NSRange(location: editor?.selectedRange().location ?? 0, length: 0))
+        hideTypingCaret()
+        window?.invalidateCursorRects(for: self)
+        if let editor { window?.invalidateCursorRects(for: editor) }
+        NSCursor.crosshair.set()
+    }
+
+    func updateTextHover(at windowPoint: NSPoint, time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        let point = convert(windowPoint, from: nil)
+        if isHoverEditing, let editor, !editor.frame.insetBy(dx: -3, dy: -3).contains(point) { leaveHoverEditing() }
+        guard !isHoverEditing, !isPrecisionEditing, !isDrawing, !effectiveEraserEnabled,
+              heldModifiers.intersection([.shift, .command, .option, .control]).isEmpty,
+              NSEvent.pressedMouseButtons == 0, window?.isKeyWindow == true,
+              containsCanvasPoint(point), isCanvasLocation?(windowPoint) ?? true,
+              editor?.hasMarkedText() != true else { cancelTextHover(); return }
+        let liveHit = editor?.containsText(at: windowPoint) == true
+        let saved = draft.items.reversed().first { $0.kind == .text && viewRect($0.bounds).contains(point) }
+        guard liveHit || saved != nil else { cancelTextHover(); return }
+        if let start = hoverStart, hypot(windowPoint.x - start.point.x, windowPoint.y - start.point.y) <= 4 {
+            guard time - start.time >= 0.45 else { return }
+            cancelTextHover()
+            if !liveHit, let saved { commitText(); selection = nil; beginText(at: saved.points[0].point, item: saved, showCaret: false) }
+            guard let editor else { return }
+            selection = nil
+            isHoverEditing = true
+            editor.allowsMouseSelection = true
+            hideTypingCaret()
+            clearPointerTrail()
+            window?.invalidateCursorRects(for: editor)
+            NSCursor.iBeam.set()
+            needsDisplay = true
+        } else {
+            cancelTextHover()
+            hoverStart = (windowPoint, time)
+            hoverTimer = Timer.scheduledTimer(withTimeInterval: 0.46, repeats: false) { [weak self] _ in
+                self?.updateTextHover(at: self?.lastPointerLocation ?? windowPoint)
+            }
+        }
+    }
 
     func updatePointerLocation(_ windowPoint: NSPoint) {
         let point = convert(windowPoint, from: nil)
@@ -187,7 +244,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         }
         lastPointerLocation = windowPoint
         updateEraserOutline()
-        if cursorTrailEnabled, pointerPreview != nil, !isDrawing, !effectiveEraserEnabled, !typingCaretVisible {
+        if cursorTrailEnabled, pointerPreview != nil, !isDrawing, !isHoverEditing, !effectiveEraserEnabled, !typingCaretVisible {
             let now = ProcessInfo.processInfo.systemUptime
             pointerTrail.removeAll { now - $0.time > 0.18 }
             if let last = pointerTrail.last, hypot(point.x - last.point.x, point.y - last.point.y) > 160 { clearPointerTrail() }
@@ -257,6 +314,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     func setEraserEnabled(_ enabled: Bool) {
+        cancelTextHover(); leaveHoverEditing()
         clearPointerTrail()
         hideTypingCaret()
         finishPointerGesture()
@@ -270,6 +328,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     func promoteTextEditing() {
         guard let editor else { return }
+        cancelTextHover(); isHoverEditing = false
         editor.allowsMouseSelection = true
         showTypingCaret()
         needsDisplay = true
@@ -277,6 +336,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func flagsChanged(with event: NSEvent) {
+        cancelTextHover()
+        if !event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty { leaveHoverEditing() }
         heldModifiers = event.modifierFlags
         endTemporaryEraseIfReleased(event.modifierFlags)
         if effectiveEraserEnabled { clearPointerTrail(); hideTypingCaret() }
@@ -416,7 +477,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         if editor == nil, let selection, let item = draft.items.first(where: { $0.id == selection }), item.kind == .text {
             drawTextResizeHandles(in: viewRect(item.bounds).insetBy(dx: -5, dy: -4))
         }
-        if cursorTrailEnabled, !typingCaretVisible, !isDrawing, !effectiveEraserEnabled {
+        if cursorTrailEnabled, !typingCaretVisible, !isDrawing, !isHoverEditing, !effectiveEraserEnabled {
             let now = ProcessInfo.processInfo.systemUptime
             for (a, b) in zip(pointerTrail, pointerTrail.dropFirst()) {
                 let remaining = max(0, 1 - (now - a.time) / 0.18)
@@ -425,7 +486,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 trail.move(to: a.point); trail.line(to: b.point); trail.stroke()
             }
         }
-        if let editor, editor.allowsMouseSelection {
+        if let editor, editor.allowsMouseSelection, !isHoverEditing {
             NSColor.controlAccentColor.withAlphaComponent(0.25).setStroke()
             let border = NSBezierPath(roundedRect: editor.frame.insetBy(dx: -5, dy: -4), xRadius: 4, yRadius: 4)
             border.lineWidth = 1; border.stroke()
@@ -486,6 +547,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func mouseDown(with event: NSEvent) {
+        cancelTextHover()
         if event.modifierFlags.contains(.control) { rightMouseDown(with: event); return }
         ignoreDragUntilMouseUp = false; heldModifiers = event.modifierFlags
         outlineSuppressed = false
@@ -546,6 +608,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         NSRect(origin: screen(rect.origin), size: NSSize(width: rect.width * draft.zoom, height: rect.height * draft.zoom))
     }
     var textBoxFrame: NSRect? {
+        if isHoverEditing { return nil }
         if let editor, editor.allowsMouseSelection, !editor.string.isEmpty { return editor.frame.insetBy(dx: -5, dy: -4) }
         if let selection, let item = draft.items.first(where: { $0.id == selection }), item.kind == .text {
             return viewRect(item.bounds).insetBy(dx: -5, dy: -4)
@@ -735,7 +798,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         return text
     }
 
-    func beginText(at point: NSPoint, item: InkItem? = nil) {
+    func beginText(at point: NSPoint, item: InkItem? = nil, showCaret: Bool = true) {
         if eraserEnabled { setEraserEnabled(false) }
         dismissHint()
         draft.anchor = InkPoint(point)
@@ -766,7 +829,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         text.setSelectedRange(NSRange(location: text.string.utf16.count, length: 0))
         refreshTextLayout()
         text.inputContext?.invalidateCharacterCoordinates()
-        showTypingCaret()
+        if showCaret { showTypingCaret() }
         needsDisplay = true
     }
 
@@ -807,7 +870,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     func commitText() {
+        cancelTextHover(); isHoverEditing = false
         guard let text = editor else { return }
+        window?.invalidateCursorRects(for: text)
         text.unmarkText()
         let id = editingID
         var items = draft.items
@@ -841,6 +906,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func scrollWheel(with event: NSEvent) {
+        cancelTextHover()
         guard !isDrawing else { return }
         commitText()
         let multiplier = event.hasPreciseScrollingDeltas ? 1.0 : 15.0

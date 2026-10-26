@@ -52,7 +52,7 @@ Solving a problem in your browser? Press **⌃⌥Space** to bring up the scratch
 - **Connected writing and drawing**: type directly, drag to sketch, and use native input methods. New text stays centered on the crosshair through typing and composition.
 - **Trackpad controls**: scroll with two fingers to pan and pinch to zoom. Shift-drag arrows, lines, rectangles, or ellipses; Option-drag to erase temporarily.
 - **Compact toolbar**: reorder shapes and colors, edit up to six color presets, and move, resize, hide, or collapse the toolbar. Two folding animations respect Reduce Motion.
-- **Precise text editing**: native selection and editing, dragging the selected box border or empty space to move text, corner handles for proportional font resizing, and an option to reuse the resized size for subsequent typing.
+- **Precise text editing**: pause over text for about 0.45 seconds to edit without a box; drag immediately to draw. Right-click for a box with movement and proportional font resizing.
 - **Ready when you need it**: menu bar access, floating, pinned, and full-screen windows, plus silent launch at login.
 - **Configurable shortcuts**: record, clear, or restore 35 actions, with search, conflict checks, and matching menu shortcuts and toolbar hints.
 - **Drafts and references**: local autosave and recent-draft restoration, editable `.inkey` files, PNG/PDF export, and image/PDF reference backgrounds.
