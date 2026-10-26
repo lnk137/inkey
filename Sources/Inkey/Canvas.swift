@@ -54,7 +54,9 @@ final class InlineTextView: NSTextView {
         if canvas?.textResizeHandle(at: windowPoint) != nil || canvas?.canMoveText(at: windowPoint) == true { return nil }
         guard allowsMouseSelection, canvas?.eraserEnabled != true,
               !NSEvent.modifierFlags.contains(.option), !NSEvent.modifierFlags.contains(.command) else { return nil }
-        return (canvas?.isHoverEditing == true || containsText(at: windowPoint)) ? super.hitTest(point) : nil
+        // The whole native editor owns selection, including the empty ends of
+        // shorter lines. Only the outside border belongs to box movement.
+        return super.hitTest(point)
     }
 
     override func rightMouseDown(with event: NSEvent) { canvas?.rightMouseDown(with: event) }
@@ -634,6 +636,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     func textResizeHandle(at windowPoint: NSPoint) -> TextResizeCorner? {
         guard let rect = textBoxFrame else { return nil }
         let point = convert(windowPoint, from: nil)
+        if let editor, editor.frame.contains(point) { return nil }
         return TextResizeCorner.allCases.first {
             let handle = $0.point(in: rect)
             return hypot(point.x - handle.x, point.y - handle.y) <= 8
@@ -643,10 +646,11 @@ final class CanvasView: NSView, NSTextViewDelegate {
         guard let rect = textBoxFrame,
               rect.insetBy(dx: -3, dy: -3).contains(convert(windowPoint, from: nil)),
               textResizeHandle(at: windowPoint) == nil else { return false }
-        // Keep native selection inside text lines; use the box border and gaps to move.
+        // Never steal a native text drag, even when it starts between lines or
+        // beyond the end of a short line. Moving starts outside the editor only.
         if let editor {
             let point = convert(windowPoint, from: nil)
-            return !rect.insetBy(dx: 4, dy: 4).contains(point) || !editor.containsText(at: windowPoint)
+            return !editor.frame.contains(point)
         }
         return true
     }

@@ -87,4 +87,30 @@ struct TextMoveTests {
         #expect(canvas.selection == text.id)
         #expect(canvas.undoManager?.canUndo == false)
     }
+
+    @Test func explicitEditingReservesAllInteriorSpaceForNativeSelection() throws {
+        for zoom in [0.7, 1.0, 2.0] {
+            let (window, canvas) = helper.makeCanvas()
+            canvas.draft.zoom = zoom
+            canvas.beginText(at: NSPoint(x: 200, y: 160))
+            let editor = try #require(window.firstResponder as? InlineTextView)
+            editor.insertText("a long first line\nx\n\nlast", replacementRange: NSRange(location: NSNotFound, length: 0))
+            canvas.promoteTextEditing()
+            // Sample every part of the interior, including empty multiline areas
+            // and points immediately beside the border.
+            for x in [0.1, editor.frame.width / 2, editor.frame.width - 0.1] {
+                for y in [0.1, editor.frame.height / 2, editor.frame.height - 0.1] {
+                    let point = NSPoint(x: editor.frame.minX + x, y: editor.frame.minY + y)
+                    let windowPoint = canvas.convert(point, to: nil)
+                    #expect(!canvas.canMoveText(at: windowPoint))
+                    #expect(editor.hitTest(point) === editor)
+                }
+            }
+            let box = try #require(canvas.textBoxFrame)
+            for point in [NSPoint(x: box.midX, y: box.minY), NSPoint(x: box.midX, y: box.maxY), NSPoint(x: box.minX, y: box.midY), NSPoint(x: box.maxX - 0.1, y: box.midY)] {
+                #expect(canvas.canMoveText(at: canvas.convert(point, to: nil)))
+                #expect(editor.hitTest(point) == nil)
+            }
+        }
+    }
 }

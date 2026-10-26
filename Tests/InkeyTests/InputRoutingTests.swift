@@ -52,7 +52,7 @@ struct InputRoutingTests {
         #expect(canvas.draft.items.isEmpty)
     }
 
-    @Test func preciseEditingKeepsNativeHitTestingOnlyOverActualLines() {
+    @Test func preciseEditingKeepsNativeHitTestingOverTheEntireEditor() {
         let (_, canvas) = helper.makeCanvas()
         let editor = makeEditor(canvas, text: "leftPointer\nx")
         canvas.promoteTextEditing()
@@ -60,7 +60,7 @@ struct InputRoutingTests {
         let inside = editor.convert(NSPoint(x: 6, y: 10), to: canvas.superview)
         #expect(canvas.hitTest(inside) === editor)
         let blankSecondLine = editor.convert(NSPoint(x: 90, y: 38), to: canvas.superview)
-        #expect(canvas.hitTest(blankSecondLine) === canvas)
+        #expect(canvas.hitTest(blankSecondLine) === editor)
     }
 
     @Test func commandReturnPromotesInputAndOutsideDragCommitsAndDraws() {

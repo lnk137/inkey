@@ -64,11 +64,10 @@ points starts a stroke at the original press location. This also works directly
 over the word, without losing the beginning of the stroke.
 
 Right-click a word (or Control-click), or press Command + Return while typing, to enter precise
-editing. A subtle outline marks that state. Dragging inside actual text lines
-selects text normally; dragging outside commits the text and starts drawing in
-the same gesture. Empty space to the right of short lines remains canvas. Return
-or Escape ends editing, while Shift + Return inserts a newline. There are no
-idle timeouts or pointer-hover rules that unexpectedly commit text.
+editing. A subtle outline marks that state. The entire editor interior selects
+text normally, including empty space to the right of short lines. Drag the outer
+border to move the label, or start a drag beyond the box to commit and draw.
+Return or Escape ends editing, while Shift + Return inserts a newline.
 
 Pause over text for about **0.45 seconds** to enter quiet editing. Small pointer jitter is tolerated; moving more than four screen points restarts the wait. The pointer becomes an I-beam, with no box, handles, automatic selection, or insertion caret until you click or type. Click to place the caret or drag to select characters anywhere within the text view. Leaving its bounds restores drawing; dragging immediately before the dwell completes still draws. Hover activation is suspended during mouse gestures, erasing, modifier-key actions, input-method composition, or window focus loss. Right-click or Command-Return still enters explicit editing with movement and resize handles.
 
@@ -216,7 +215,7 @@ Click the chevron to collapse or expand. Drag the chevron itself to move the too
 
 ## Text size and keyboard shortcuts
 
-Right-click text to enter precise editing and reveal its resize box. Drag the box border or empty space inside it to move the entire label without holding a modifier. Dragging inside text lines still selects characters. Moving commits the current edit and keeps the label selected; the selected label can then be dragged anywhere inside its box to move it again. Each move is one undo step and keeps the font size and color unchanged. Ordinary dragging over unselected text still draws.
+Right-click text to enter precise editing and reveal its resize box. Drag the outer box border to move the entire label without holding a modifier. The entire editor interior belongs to native text selection, including empty areas after short lines and between lines; dragging there never starts a box move. Moving commits the current edit and keeps the label selected; the selected label can then be dragged anywhere inside its box to move it again. Each move is one undo step and keeps the font size and color unchanged. Ordinary dragging over unselected text still draws.
 
 Drag any corner to scale the font uniformly while keeping the opposite corner fixed. One drag creates one undo step. Sizes range from **6–200 pt**. By default, the resized size becomes the default for the next text label; turn off **Use resized size for subsequent typing / 拖拽缩放后，设为下次输入字号** in Settings to keep these independent. Set the default directly with the **Default typing font size / 默认输入字号** field or stepper. Existing labels keep their own size; changes to the default apply to newly created labels.
 
