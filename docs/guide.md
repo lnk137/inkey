@@ -117,7 +117,16 @@ Press the screen shortcut again, click the top-right Close button, or press **Es
 
 Screen drafts save and export annotation objects using the same `.inkey`, PNG, and PDF formats as paper drafts. PNG/PDF use the draft’s saved paper color and do not capture the apps underneath. The close button remains available when the toolbar is hidden.
 
+## High contrast
+
+Click the half-black/half-white circle in the toolbar, choose **高对比** in View or More, or press **Option + Command + H**. It is an independent display toggle, shown by the button highlight and menu checkmark. It works with any ink, shape, eraser, native text selection, IME composition, or active drawing gesture. A short 0.16-second fade changes only the outlines and respects Reduce Motion; it does not commit text, change tools, or add an undo step.
+
+Existing and new text, strokes, and shapes retain their original colors with a thin white outer rim and black inner rim. The rims stay 2 pt and 1 pt outside the original content at every canvas zoom. Images remain unchanged. Paper and screen canvases remember their display states independently, so leaving a screen draft restores the paper canvas’s previous state.
+
+PNG and PDF use the active high-contrast setting, including when exported during a transition. Editable `.inkey` files keep the original colors, line widths, font sizes, and objects; the display toggle never alters draft content. It can be switched off at any time.
+
 ## Eraser
+
 
 
 In **Settings → Shortcuts → 修饰键 → 临时橡皮**, choose Option (the default) or Command for hold-to-erase. Releasing the modifier restores the previous tool without changing the persistent tool preference. With Command selected, Option-click/drag selects and moves; with Option selected, Command-click/drag selects and moves. Release during an erasing drag stops it immediately; the remaining mouse movement is ignored until mouse-up, so it cannot erase further or create an unintended stroke. Focus loss also ends temporary erasing. Each erase gesture remains one undo step.
@@ -239,20 +248,20 @@ Right-click text to enter precise editing and reveal its resize box. Drag the ou
 
 Drag any corner to scale the font uniformly while keeping the opposite corner fixed. One drag creates one undo step. Sizes range from **6–200 pt**. By default, the resized size becomes the default for the next text label; turn off **Use resized size for subsequent typing / 拖拽缩放后，设为下次输入字号** in Settings to keep these independent. Set the default directly with the **Default typing font size / 默认输入字号** field or stepper. Existing labels keep their own size; changes to the default apply to newly created labels.
 
-Settings → **Shortcuts / 快捷键** offers 36 configurable actions, searchable by action or group:
+Settings → **Shortcuts / 快捷键** offers 37 configurable actions, searchable by action or group:
 
 | Group | Actions |
 | --- | --- |
 | Global | Show/hide Inkey, enter/exit screen draft |
 | File | New, open/import, recent drafts, save, save as, export |
 | Editing | Undo, redo, cut, copy, paste, select all |
-| Canvas & tools | Fit content, precise text editing, eraser, smaller/larger eraser, color picker |
+| Canvas & tools | Fit content, precise text editing, eraser, smaller/larger eraser, color picker, high contrast |
 | Toolbar & window | Collapse/expand, hide/show toolbar, pin, full screen |
 | Shape positions | Positions 1–4, from left to right |
 | Color positions | Presets 1–6, from left to right |
 | App | Settings, quit |
 
-Click a shortcut to record it. Use Control, Option, or Command, or a function key; shape positions also accept Shift-number combinations. Ordinary typing keys are protected. Esc cancels recording; unmodified Delete clears the binding. Right-click a recorder to clear or restore that action's default. **Restore all defaults / 恢复全部默认** restores all 36 bindings, including both global shortcuts. A per-action default that conflicts with another customized action is rejected until that conflict is cleared. Disabling a shortcut leaves its menu or toolbar action available.
+Click a shortcut to record it. Use Control, Option, or Command, or a function key; shape positions also accept Shift-number combinations. Ordinary typing keys are protected. Esc cancels recording; unmodified Delete clears the binding. Right-click a recorder to clear or restore that action's default. **Restore all defaults / 恢复全部默认** restores all 37 bindings, including both global shortcuts. A per-action default that conflicts with another customized action is rejected until that conflict is cleared. Disabling a shortcut leaves its menu or toolbar action available.
 
 Show/hide Inkey and Screen draft are global. Other shortcuts work within Inkey; text editing actions follow the focused native text editor and its undo history. The recorder consumes commands such as Command-Q and Command-S while recording, so they cannot quit or save accidentally. Existing app-level conflicts and reserved macOS combinations are rejected without changing the old binding. Global registration failure restores the previous registration when available. Shortcuts intercepted by macOS may require choosing another combination.
 

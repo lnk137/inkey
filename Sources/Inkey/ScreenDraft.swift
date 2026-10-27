@@ -18,6 +18,7 @@ extension InkeyApp {
         if screenCanvas == nil {
             let overlayCanvas = CanvasView(frame: NSRect(origin: .zero, size: screen.frame.size), preferences: preferences)
             overlayCanvas.transparentBackground = true
+            overlayCanvas.setHighContrast(preferences.screenHighContrast, animated: false)
             configureCanvas(overlayCanvas)
             if let id = preferences.defaults.string(forKey: "screenDraft"),
                let draft = store.recent().first(where: { $0.1.id.uuidString == id })?.1 {
@@ -49,6 +50,7 @@ extension InkeyApp {
         palette.removeFromSuperview(); content.addSubview(palette)
         updateScreenControls(in: content, screen: screen)
         syncPaletteToPaper(); syncCanvasTools(); layoutPalette(initial: false)
+        refreshHighContrastUI()
         if let settings { settings.level = NSWindow.Level(rawValue: screenWindow.level.rawValue + 1) }
         showWindow()
     }
@@ -79,6 +81,7 @@ extension InkeyApp {
         canvasPresentation = nil
         palette.removeFromSuperview(); window.contentView?.addSubview(palette)
         syncPaletteToPaper(); syncCanvasTools(); layoutPalette(initial: false)
+        refreshHighContrastUI()
         statusLabel.stringValue = canvas.draft.name + (pinned ? " · 常驻" : "")
         if restoreWindow ?? presentation.wasVisible { showWindow() }
         else if activatePrevious { previousApp?.activate() }

@@ -236,6 +236,7 @@ extension InkeyApp {
     }
     @discardableResult
     func handleConfiguredShortcut(_ event: NSEvent) -> Bool {
+        if shortcuts.binding(for: .highContrast)?.matches(event) == true { toggleHighContrast(nil); return true }
         guard !canvas.isDrawing, let action = ShortcutAction.allCases.first(where: { !$0.isGlobal && shortcuts.binding(for: $0)?.matches(event) == true }) else { return false }
         if let index = ShortcutAction.shapes.firstIndex(of: action) {
             guard !palette.hasPopover, (window.firstResponder as? NSTextView)?.hasMarkedText() != true else { return false }

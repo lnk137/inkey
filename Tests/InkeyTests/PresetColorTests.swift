@@ -114,7 +114,7 @@ struct PresetColorTests {
             #expect(palette.bounds.width < originalWidth)
             #expect(eraser.frame.minX - custom.frame.maxX == 8)
             while !palette.colors.isEmpty { palette.deletePreset(0) }
-            #expect(palette.bounds.width == 240)
+            #expect(palette.bounds.width == 272)
             #expect(eraser.frame.minX - custom.frame.maxX == 8)
             #expect(palette.bounds.contains(custom.frame) && palette.bounds.contains(eraser.frame))
             #expect(palette.subviews.filter { !$0.isHidden }.allSatisfy { palette.bounds.contains($0.frame) })

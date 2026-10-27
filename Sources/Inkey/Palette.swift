@@ -253,6 +253,14 @@ final class PaletteView: NSView, NSPopoverDelegate {
     private var eraserButton: ToolButton!
     private var buttons: [SwatchButton] = []
     private var custom: SwatchButton!
+    private var contrastButton: ToolButton!
+    var onHighContrast: (() -> Void)?
+    var highContrastEnabled = false {
+        didSet {
+            contrastButton?.state = highContrastEnabled ? .on : .off
+            contrastButton?.setAccessibilityValue(highContrastEnabled ? "开启" : "关闭")
+        }
+    }
     private var dragOrigin: NSPoint?
     private var originalFrame: NSPoint?
     private var movedToolbar = false
@@ -312,6 +320,12 @@ final class PaletteView: NSView, NSPopoverDelegate {
             shapeButtons.append(button); addSubview(button)
         }
         collapseButton = CollapseButton(frame: .zero)
+        contrastButton = ToolButton(image: NSImage(systemSymbolName: "circle.lefthalf.filled", accessibilityDescription: "高对比")!, target: self, action: #selector(toggleHighContrast))
+        contrastButton.isBordered = false
+        contrastButton.frame = NSRect(x: 208, y: 43, width: 30, height: 32)
+        contrastButton.toolTip = "高对比\(shortcutHint(.highContrast))"
+        contrastButton.setAccessibilityLabel("高对比")
+        addSubview(contrastButton)
         collapseButton.title = ""
         collapseButton.wantsLayer = true
         collapseButton.target = self; collapseButton.action = #selector(toggleCollapsed)
@@ -364,6 +378,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
     func refreshShortcutHints() {
         updateButtons(); updateShapeButtons()
         custom.toolTip = "添加预设颜色 · 右键自定义颜色\(shortcutHint(.colorPicker))"
+        contrastButton.toolTip = "高对比\(shortcutHint(.highContrast))"
         eraserButton.toolTip = "单击切换橡皮，右键调节尺寸\(shortcutHint(.eraser))"
         collapseButton.toolTip = (isCollapsed ? "展开工具栏" : "折叠工具栏") + shortcutHint(.collapseToolbar) + " · 拖动移动"
         collapseButton.setAccessibilityLabel(collapseButton.toolTip)
@@ -559,7 +574,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         NSRect(x: colorRowOffset(index / 6) + 20 + CGFloat(index % 6) * 34,
                y: 4 + extraColorHeight - CGFloat(index / 6) * 38, width: 34, height: 36)
     }
-    private var expandedSize: NSSize { NSSize(width: max(240, 116 + CGFloat(min(6, colors.count)) * 34), height: 80 + extraColorHeight) }
+    private var expandedSize: NSSize { NSSize(width: max(272, 116 + CGFloat(min(6, colors.count)) * 34), height: 80 + extraColorHeight) }
     private var logicalSize: NSSize { isCollapsed ? NSSize(width: 36, height: 36) : expandedSize }
     private func applyToolbarGeometry() {
         let size = logicalSize
@@ -573,6 +588,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         resizeHandle.frame.origin.y = 57 + extraColorHeight
         if !isCollapsed { collapseButton?.frame.origin.y = 41 + extraColorHeight }
         for button in shapeButtons { button.frame.origin.y = 43 + extraColorHeight }
+        contrastButton?.frame.origin.y = 43 + extraColorHeight
     }
     func setToolbarScale(_ value: CGFloat) {
         cancelInteractions(); closePicker(accept: true)
@@ -612,6 +628,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         eraserEnabled = false; onEraser?(false); onRestoreFocus?()
     }
     @objc private func shapeClicked(_ sender: NSButton) { chooseShape(preferences.shapeOrder[sender.tag]) }
+    @objc func toggleHighContrast() { onHighContrast?() }
     private func updateShapeButtons() {
         cancelInteractions()
         for (index, button) in shapeButtons.enumerated() {

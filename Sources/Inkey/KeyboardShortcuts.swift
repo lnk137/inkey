@@ -56,7 +56,7 @@ enum ShortcutAction: String, CaseIterable, Codable {
     case toggleWindow, screenDraft, newDraft, open, recent, save, saveAs, export
     case undo, redo, cut, copy, paste, selectAll
     case fit, preciseEdit, eraser, smallerEraser, largerEraser, colorPicker
-    case collapseToolbar, hideToolbar, pin, fullScreen
+    case collapseToolbar, hideToolbar, pin, fullScreen, highContrast
     case shape1, shape2, shape3, shape4
     case color1, color2, color3, color4, color5, color6
     case settings, quit
@@ -66,22 +66,24 @@ enum ShortcutAction: String, CaseIterable, Codable {
     static let groups: [(String, [Self])] = [
         ("全局", [.toggleWindow, .screenDraft]), ("文件", [.newDraft, .open, .recent, .save, .saveAs, .export]),
         ("编辑", [.undo, .redo, .cut, .copy, .paste, .selectAll]),
-        ("画布与工具", [.fit, .preciseEdit, .eraser, .smallerEraser, .largerEraser, .colorPicker]),
+        ("画布与工具", [.fit, .preciseEdit, .eraser, .smallerEraser, .largerEraser, .colorPicker, .highContrast]),
         ("工具栏与窗口", [.collapseToolbar, .hideToolbar, .pin, .fullScreen]),
         ("形状位置 · 从左到右", shapes), ("预设颜色位置 · 从左到右", colors), ("应用", [.settings, .quit])
     ]
     var title: String {
+        if self == .highContrast { return "高对比" }
         if self == .screenDraft { return "进入／退出屏幕草稿" }
         if let index = Self.shapes.firstIndex(of: self) { return "形状位置 \(index + 1)" }
         if let index = Self.colors.firstIndex(of: self) { return "预设颜色 \(index + 1)" }
         return [Self.toggleWindow:"呼出／收起 Inkey", .newDraft:"新建草稿", .open:"打开或导入", .recent:"最近草稿", .save:"保存", .saveAs:"另存为", .export:"导出", .undo:"撤销", .redo:"重做", .cut:"剪切", .copy:"复制", .paste:"粘贴", .selectAll:"全选", .fit:"适配全部内容", .preciseEdit:"完整编辑文字", .eraser:"切换橡皮擦", .smallerEraser:"缩小橡皮擦", .largerEraser:"放大橡皮擦", .colorPicker:"自定义颜色", .collapseToolbar:"折叠／展开工具栏", .hideToolbar:"显示／隐藏工具栏", .pin:"置顶常驻", .fullScreen:"进入／退出全屏", .settings:"打开设置", .quit:"退出 Inkey"][self]!
     }
     var selectorName: String? {
-        [Self.screenDraft:"toggleScreenDraft:", Self.toggleWindow:"toggleAction:", .newDraft:"newDraft:", .open:"openDraft:", .recent:"showRecent:", .save:"saveDraft:", .saveAs:"saveAs:", .export:"exportDraft:", .undo:"undo:", .redo:"redo:", .cut:"cut:", .copy:"copy:", .paste:"paste:", .selectAll:"selectAll:", .fit:"fit:", .preciseEdit:"editTextPrecisely:", .eraser:"toggleEraser:", .smallerEraser:"smallerEraser:", .largerEraser:"largerEraser:", .colorPicker:"pickColor:", .collapseToolbar:"toggleToolbarCollapsed:", .hideToolbar:"toggleToolbarHidden:", .pin:"togglePinned:", .fullScreen:"toggleFullScreen:", .settings:"showSettings:", .quit:"quit:"][self]
+        [Self.highContrast:"toggleHighContrast:", Self.screenDraft:"toggleScreenDraft:", Self.toggleWindow:"toggleAction:", .newDraft:"newDraft:", .open:"openDraft:", .recent:"showRecent:", .save:"saveDraft:", .saveAs:"saveAs:", .export:"exportDraft:", .undo:"undo:", .redo:"redo:", .cut:"cut:", .copy:"copy:", .paste:"paste:", .selectAll:"selectAll:", .fit:"fit:", .preciseEdit:"editTextPrecisely:", .eraser:"toggleEraser:", .smallerEraser:"smallerEraser:", .largerEraser:"largerEraser:", .colorPicker:"pickColor:", .collapseToolbar:"toggleToolbarCollapsed:", .hideToolbar:"toggleToolbarHidden:", .pin:"togglePinned:", .fullScreen:"toggleFullScreen:", .settings:"showSettings:", .quit:"quit:"][self]
     }
     var isGlobal: Bool { self == .toggleWindow || self == .screenDraft }
     var isResponderAction: Bool { [.undo, .redo, .cut, .copy, .paste, .selectAll].contains(self) }
     var defaultBinding: KeyBinding {
+        if self == .highContrast { return KeyBinding(4, [.command, .option], "h") }
         if self == .screenDraft { return KeyBinding(1, [.control, .option], "s") }
         if let index = Self.shapes.firstIndex(of: self) { return KeyBinding([18,19,20,21][index], .shift, "\(index + 1)") }
         if let index = Self.colors.firstIndex(of: self) { return KeyBinding([18,19,20,21,23,22][index], .option, "\(index + 1)") }

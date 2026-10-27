@@ -19,8 +19,8 @@ struct KeyboardShortcutTests {
     @Test func defaultsAreCompleteUniqueAndKeepLegacyGlobalShortcut() throws {
         try withPreferences { preferences in
             let shortcuts = preferences.shortcuts
-            #expect(ShortcutAction.allCases.count == 36)
-            #expect(ShortcutAction.groups.flatMap(\.1).count == 36)
+            #expect(ShortcutAction.allCases.count == 37)
+            #expect(ShortcutAction.groups.flatMap(\.1).count == 37)
             for action in ShortcutAction.allCases {
                 #expect(shortcuts.binding(for: action) == action.defaultBinding)
                 #expect(shortcuts.conflict(for: action.defaultBinding, excluding: action) == nil)
@@ -168,7 +168,7 @@ struct KeyboardShortcutTests {
             defer { window.close() }
             app.settingsTab!.selectedSegment = 1; app.changeSettingsTab(app.settingsTab!)
             let page = try #require(app.shortcutPage)
-            #expect(page.allSubviews.compactMap { $0 as? ShortcutRecorder }.count == 36)
+            #expect(page.allSubviews.compactMap { $0 as? ShortcutRecorder }.count == 37)
             page.searchField.stringValue = "橡皮"
             page.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification))
             page.layoutSubtreeIfNeeded()
@@ -179,7 +179,7 @@ struct KeyboardShortcutTests {
             page.searchField.stringValue = ""
             page.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification))
             page.layoutSubtreeIfNeeded()
-            #expect(page.allSubviews.compactMap { $0 as? ShortcutRecorder }.count == 36)
+            #expect(page.allSubviews.compactMap { $0 as? ShortcutRecorder }.count == 37)
             let first = app.shortcutRecorders[.save]!.first!, second = app.shortcutRecorders[.open]!.first!
             first.beginRecording(); second.beginRecording()
             #expect(!first.recording && second.recording)

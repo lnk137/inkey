@@ -186,6 +186,9 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
                 recorder.keyDown(with: event); return nil
             }
             if self.window.isKeyWindow, self.handleScreenDraftEscape(event) { return nil }
+            if self.window.isKeyWindow, self.shortcuts.binding(for: .highContrast)?.matches(event) == true {
+                self.toggleHighContrast(nil); return nil
+            }
             guard !self.canvas.isDrawing else { return event }
             if (self.window.isKeyWindow || self.palette.hasPopover), self.handleToolbarVisibilityShortcut(event) { return nil }
             if self.palette.hasPopover && event.keyCode == 53 { self.palette.closePicker(accept: false); return nil }
@@ -251,6 +254,9 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         layoutPalette(initial: true)
         window.onResize = { [weak self] in self?.layoutPalette(initial: false) }
         configureCanvas(canvas)
+        canvas.setHighContrast(preferences.highContrast, animated: false)
+        palette.highContrastEnabled = canvas.highContrastEnabled
+        palette.onHighContrast = { [weak self] in self?.toggleHighContrast(nil) }
         canvas.shiftShape = preferences.shiftShape
         palette.onShape = { [weak self] shape in self?.canvas.shiftShape = shape }
         palette.onColor = { [weak self] color in self?.canvas.applyColor(color) }
@@ -261,6 +267,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         palette.onEraser = { [weak self] enabled in self?.canvas.setEraserEnabled(enabled) }
         palette.onEraserSize = { [weak self] size in self?.setEraserSize(size) }
         canvas.ink = palette.current
+        refreshHighContrastUI()
     }
 
     func configureCanvas(_ canvas: CanvasView) {
@@ -305,6 +312,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         add("全选", #selector(NSText.selectAll(_:)), "a", to: edit, target: nil)
         let view = NSMenu(); add("适配全部内容", #selector(fit(_:)), "0", to: view)
         add("进入／退出屏幕草稿", #selector(toggleScreenDraft(_:)), "", to: view)
+        add("高对比", #selector(toggleHighContrast(_:)), "", to: view)
         add("完整编辑文字", #selector(editTextPrecisely(_:)), "\r", to: view)
         add("橡皮擦", #selector(toggleEraser(_:)), "e", modifiers: [.command, .option], to: view)
         add("缩小橡皮擦", #selector(smallerEraser(_:)), "[", modifiers: [.command, .option], to: view)
@@ -595,6 +603,8 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     func moreMenu() -> NSMenu {
         let menu = NSMenu()
         add(isScreenDraft ? "退出屏幕草稿" : "进入屏幕草稿", #selector(toggleScreenDraft(_:)), "", to: menu)
+        let contrast = add("高对比", #selector(toggleHighContrast(_:)), "", to: menu)
+        contrast.state = canvas.highContrastEnabled ? .on : .off
         add("新建草稿", #selector(newDraft(_:)), "n", to: menu)
         add("最近草稿…", #selector(showRecent(_:)), "", to: menu)
         menu.addItem(.separator())

@@ -106,6 +106,28 @@ final class CanvasView: NSView, NSTextViewDelegate {
     var onChange: (() -> Void)?
     var onEscape: (() -> Void)?
     var transparentBackground = false { didSet { needsDisplay = true } }
+    private(set) var highContrastEnabled = false
+    private(set) var contrastStrength: CGFloat = 0
+    private var contrastTimer: Timer?
+
+    func setHighContrast(_ enabled: Bool, animated: Bool = true) {
+        highContrastEnabled = enabled
+        contrastTimer?.invalidate(); contrastTimer = nil
+        let target: CGFloat = enabled ? 1 : 0
+        guard animated, window?.isVisible == true, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            contrastStrength = target; needsDisplay = true; editor?.needsDisplay = true; return
+        }
+        let from = contrastStrength, start = ProcessInfo.processInfo.systemUptime
+        contrastTimer = Timer(timeInterval: 1 / 60, repeats: true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            let progress = min(1, (ProcessInfo.processInfo.systemUptime - start) / 0.16)
+            let eased = progress * progress * (3 - 2 * progress)
+            self.contrastStrength = from + (target - from) * eased
+            self.needsDisplay = true; self.editor?.needsDisplay = true
+            if progress >= 1 { timer.invalidate(); self.contrastTimer = nil }
+        }
+        if let contrastTimer { RunLoop.main.add(contrastTimer, forMode: .common) }
+    }
     var onInteraction: (() -> Void)?
     var pointPlacement: Bool { UserDefaults.standard.bool(forKey: "pointerPlacement") }
     private var active: InkItem?
@@ -188,7 +210,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         if window != nil { restoreFocus() }
     }
 
-    deinit { hoverTimer?.invalidate(); trailTimer?.invalidate(); saveTimer?.invalidate(); if let focusObserver { NotificationCenter.default.removeObserver(focusObserver) } }
+    deinit { contrastTimer?.invalidate(); hoverTimer?.invalidate(); trailTimer?.invalidate(); saveTimer?.invalidate(); if let focusObserver { NotificationCenter.default.removeObserver(focusObserver) } }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -548,6 +570,16 @@ final class CanvasView: NSView, NSTextViewDelegate {
             border.lineWidth = 1 / draft.zoom; border.setLineDash([4 / draft.zoom, 3 / draft.zoom], count: 2, phase: 0); border.stroke()
         }
         context.restoreGState()
+        if contrastStrength > 0, let editor, let manager = editor.layoutManager as? InkTextLayoutManager, let container = editor.textContainer {
+            // The native editor clips at its own bounds; render only the halo
+            // outside that rectangle here so glyphs near an edge keep their rim.
+            context.saveGState()
+            context.addRect(bounds); context.addRect(editor.frame); context.clip(using: .evenOdd)
+            context.translateBy(x: editor.frame.minX, y: editor.frame.minY)
+            context.scaleBy(x: draft.zoom, y: draft.zoom)
+            manager.drawContrast(forGlyphRange: manager.glyphRange(for: container), at: editor.textContainerOrigin)
+            context.restoreGState()
+        }
         if editor == nil, let selection, let item = draft.items.first(where: { $0.id == selection }), item.kind == .text {
             drawTextResizeHandles(in: viewRect(item.bounds).insetBy(dx: -5, dy: -4))
         }
@@ -578,7 +610,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     func render(_ item: InkItem) {
         guard let first = item.points.first?.point else { return }
         if item.kind == .text {
-            InkTypography.draw(item.text, at: first, size: item.fontSize, color: item.color)
+            InkTypography.draw(item.text, at: first, size: item.fontSize, color: item.color, contrast: contrastStrength, scale: draft.zoom)
             return
         }
         if item.kind == .image {
@@ -586,29 +618,27 @@ final class CanvasView: NSView, NSTextViewDelegate {
             if let image { imageCache[item.id] = image; image.draw(in: item.bounds, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil) }
             return
         }
-        item.color.nsColor.setStroke(); item.color.nsColor.setFill()
         let path = NSBezierPath(); path.lineWidth = item.lineWidth; path.lineCapStyle = .round; path.lineJoinStyle = .round
         path.move(to: first)
         let points = item.points.map(\.point)
         if item.kind == .arrow, let end = points.last {
-            path.line(to: end); path.stroke()
+            path.line(to: end)
             let angle = atan2(end.y - first.y, end.x - first.x)
             let length = min(13.0, max(6.0, hypot(end.x - first.x, end.y - first.y) * 0.25))
             let head = NSBezierPath()
             head.move(to: NSPoint(x: end.x - length * cos(angle - 0.48), y: end.y - length * sin(angle - 0.48)))
             head.line(to: end); head.line(to: NSPoint(x: end.x - length * cos(angle + 0.48), y: end.y - length * sin(angle + 0.48)))
-            head.lineWidth = item.lineWidth; head.lineCapStyle = .round; head.lineJoinStyle = .round; head.stroke()
+            path.append(head)
         } else if item.kind == .ellipse, let end = points.last {
             let oval = NSBezierPath(ovalIn: NSRect(x: min(first.x, end.x), y: min(first.y, end.y), width: abs(end.x - first.x), height: abs(end.y - first.y)))
-            oval.lineWidth = item.lineWidth; oval.stroke()
+            path.append(oval)
         } else if [.line, .square, .rectangle].contains(item.kind) {
             let vertices = item.outline.map(\.point)
             path.removeAllPoints()
             if let start = vertices.first { path.move(to: start) }
             for point in vertices.dropFirst() { path.line(to: point) }
-            path.stroke()
         } else if points.count < 3 {
-            if let end = points.last { path.line(to: end) }; path.stroke()
+            if let end = points.last { path.line(to: end) }
         } else {
             for index in 1..<points.count - 1 {
                 let midpoint = NSPoint(x: (points[index].x + points[index + 1].x) / 2, y: (points[index].y + points[index + 1].y) / 2)
@@ -617,8 +647,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 let control2 = NSPoint(x: midpoint.x + (points[index].x - midpoint.x) * 2 / 3, y: midpoint.y + (points[index].y - midpoint.y) * 2 / 3)
                 path.curve(to: midpoint, controlPoint1: control1, controlPoint2: control2)
             }
-            path.line(to: points.last!); path.stroke()
+            path.line(to: points.last!)
         }
+        if contrastStrength > 0 {
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current?.cgContext.setAlpha(contrastStrength)
+            for (color, width) in [(NSColor.white, CGFloat(4)), (.black, CGFloat(2))] {
+                color.setStroke(); path.lineWidth = item.lineWidth + width / draft.zoom; path.stroke()
+            }
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        item.color.nsColor.setStroke(); path.lineWidth = item.lineWidth; path.stroke()
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -923,7 +962,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private func ensureInputEditor() -> InlineTextView {
         if let inputEditor { return inputEditor }
         let text = InlineTextView(frame: NSRect(origin: screen(draft.anchor.point), size: NSSize(width: 16, height: 26)))
-        text.textContainer?.replaceLayoutManager(InkTextLayoutManager())
+        let manager = InkTextLayoutManager()
+        manager.contrastStrength = { [weak self] in self?.contrastStrength ?? 0 }
+        manager.renderingScale = { [weak self] in self?.draft.zoom ?? 1 }
+        text.textContainer?.replaceLayoutManager(manager)
         text.canvas = self
         text.delegate = self; text.isRichText = false; text.drawsBackground = false
         text.font = InkTypography.font(20)
@@ -1095,6 +1137,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         let rect = exportBounds()
         guard rect.width < 20000, rect.height < 20000, rect.width * rect.height < 80_000_000 else { return nil }
         let export = CanvasView(frame: NSRect(origin: .zero, size: rect.size))
+        export.setHighContrast(highContrastEnabled, animated: false)
         export.hintVisible = false; export.draft = draft; export.draft.zoom = 1
         export.draft.offset = InkPoint(NSPoint(x: -rect.minX, y: -rect.minY))
         export.draft.anchor = InkPoint(NSPoint(x: -1_000_000, y: -1_000_000))

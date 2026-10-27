@@ -38,6 +38,14 @@ struct SavedInk: Codable, Equatable {
 final class UserPreferences {
     let defaults: UserDefaults
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+    var highContrast: Bool {
+        get { defaults.bool(forKey: "highContrast") }
+        set { defaults.set(newValue, forKey: "highContrast") }
+    }
+    var screenHighContrast: Bool {
+        get { defaults.bool(forKey: "screenHighContrast") }
+        set { defaults.set(newValue, forKey: "screenHighContrast") }
+    }
     var temporaryEraserModifier: TemporaryEraserModifier {
         get { TemporaryEraserModifier(rawValue: defaults.string(forKey: "temporaryEraserModifier") ?? "") ?? .option }
         set { defaults.set(newValue.rawValue, forKey: "temporaryEraserModifier") }
