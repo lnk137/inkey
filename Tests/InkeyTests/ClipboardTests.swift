@@ -8,9 +8,12 @@ struct ClipboardTests {
     let helper = CanvasTests()
 
     @Test func textPasteUsesPointerCenterAndConfiguredFontWithOneUndo() throws {
-        let (window, canvas) = helper.makeCanvas()
-        let previousSize = canvas.preferences.defaultFontSize
-        defer { canvas.preferences.defaultFontSize = previousSize }
+        let (window, _) = helper.makeCanvas()
+        let domain = "InkeyClipboardTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: domain))
+        defer { defaults.removePersistentDomain(forName: domain) }
+        let canvas = CanvasView(frame: NSRect(x: 0, y: 0, width: 820, height: 560), preferences: UserPreferences(defaults: defaults))
+        window.contentView = canvas
         canvas.preferences.defaultFontSize = 32
         canvas.draft.zoom = 1.7
         canvas.draft.offset = InkPoint(NSPoint(x: 25, y: -18))
