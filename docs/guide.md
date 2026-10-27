@@ -119,7 +119,7 @@ Screen drafts save and export annotation objects using the same `.inkey`, PNG, a
 
 ## High contrast
 
-Click the half-black/half-white circle in the toolbar, choose **高对比** in View or More, or press **Option + Command + H**. It is an independent display toggle, shown by the button highlight and menu checkmark. It works with any ink, shape, eraser, native text selection, IME composition, or active drawing gesture. A short 0.16-second fade changes only the outlines and respects Reduce Motion; it does not commit text, change tools, or add an undo step.
+Click the half-black/half-white circle in the toolbar, choose **高对比** in View or More, or press **Option + Command + H**. If its default combination is already assigned to one of your customized actions, that action is preserved and High contrast starts unassigned; record another combination in Settings. It is an independent display toggle, shown by the button highlight and menu checkmark. It works with any ink, shape, eraser, native text selection, IME composition, or active drawing gesture. A short 0.16-second fade changes only the outlines and respects Reduce Motion; it does not commit text, change tools, or add an undo step.
 
 Existing and new text, strokes, and shapes retain their original colors with a thin white outer rim and black inner rim. The rims stay 2 pt and 1 pt outside the original content at every canvas zoom. Images remain unchanged. Paper and screen canvases remember their display states independently, so leaving a screen draft restores the paper canvas’s previous state.
 

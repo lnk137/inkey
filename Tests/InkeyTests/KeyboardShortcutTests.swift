@@ -6,6 +6,18 @@ import Testing
 @Suite("Configurable keyboard shortcuts", .serialized)
 @MainActor
 struct KeyboardShortcutTests {
+    @Test func addingHighContrastDoesNotStealAnExistingCustomShortcut() throws {
+        try withPreferences { preferences in
+            let shortcuts = preferences.shortcuts
+            shortcuts.set(ShortcutAction.highContrast.defaultBinding, for: .eraser)
+            shortcuts.preserveExistingBindingsForHighContrast()
+            #expect(shortcuts.binding(for: .eraser) == ShortcutAction.highContrast.defaultBinding)
+            #expect(shortcuts.binding(for: .highContrast) == nil)
+            shortcuts.set(KeyBinding(40, [.control, .option], "k"), for: .highContrast)
+            shortcuts.preserveExistingBindingsForHighContrast()
+            #expect(shortcuts.label(for: .highContrast) == "⌃⌥K")
+        }
+    }
     func withPreferences(_ body: (UserPreferences) throws -> Void) throws {
         _ = NSApplication.shared
         let suite = "InkeyShortcutsTests.\(UUID().uuidString)"

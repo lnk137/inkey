@@ -124,6 +124,11 @@ struct ShortcutSettings {
               conflict(for: ShortcutAction.screenDraft.defaultBinding, excluding: .screenDraft) != nil else { return }
         set(nil, for: .screenDraft)
     }
+    func preserveExistingBindingsForHighContrast() {
+        guard overrides[ShortcutAction.highContrast.rawValue] == nil,
+              conflict(for: ShortcutAction.highContrast.defaultBinding, excluding: .highContrast) != nil else { return }
+        set(nil, for: .highContrast)
+    }
     func conflict(for binding: KeyBinding, excluding action: ShortcutAction) -> ShortcutAction? {
         ShortcutAction.allCases.first { $0 != action && self.binding(for: $0)?.sameCombination(as: binding) == true }
     }

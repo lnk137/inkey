@@ -172,6 +172,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(reopenFromAnotherInstance(_:)), name: .init("com.lnk137.inkey.show"), object: nil)
         preferences.migrateInteractionDefaults()
         shortcuts.preserveExistingBindingsForScreenDraft()
+        shortcuts.preserveExistingBindingsForHighContrast()
         buildMenu()
         buildWindow()
         buildStatusItem()
