@@ -32,7 +32,7 @@ struct SettingsWindowTests {
             let controls = content.allSubviews.filter {
                 $0 is NSSwitch || $0 is NSPopUpButton || $0 is NSButton || $0 is NSStepper || ($0 as? NSTextField)?.isEditable == true
             }
-            #expect(controls.compactMap { $0 as? NSSwitch }.count == 3)
+            #expect(controls.compactMap { $0 as? NSSwitch }.count == 4)
             #expect(controls.compactMap { $0 as? NSPopUpButton }.count == 2)
             for control in controls {
                 let frame = content.convert(control.bounds, from: control)

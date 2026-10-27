@@ -46,6 +46,10 @@ final class UserPreferences {
         get { defaults.bool(forKey: "screenHighContrast") }
         set { defaults.set(newValue, forKey: "screenHighContrast") }
     }
+    var autoHighContrastOnScreen: Bool {
+        get { defaults.bool(forKey: "autoHighContrastOnScreen") }
+        set { defaults.set(newValue, forKey: "autoHighContrastOnScreen") }
+    }
     var temporaryEraserModifier: TemporaryEraserModifier {
         get { TemporaryEraserModifier(rawValue: defaults.string(forKey: "temporaryEraserModifier") ?? "") ?? .option }
         set { defaults.set(newValue.rawValue, forKey: "temporaryEraserModifier") }

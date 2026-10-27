@@ -46,6 +46,10 @@ extension InkeyApp {
                                                wasVisible: window.isVisible && !window.isMiniaturized)
         window.orderOut(nil)
         window = screenWindow; canvas = screenCanvas; fileURL = screenFileURL
+        if preferences.autoHighContrastOnScreen {
+            canvas.setHighContrast(true, animated: false)
+            preferences.screenHighContrast = true
+        }
         screenWindow.setFrame(screen.frame, display: true)
         palette.removeFromSuperview(); content.addSubview(palette)
         updateScreenControls(in: content, screen: screen)

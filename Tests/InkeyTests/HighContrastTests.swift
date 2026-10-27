@@ -5,6 +5,31 @@ import Testing
 @Suite("High contrast display", .serialized)
 @MainActor
 struct HighContrastTests {
+    @Test func automaticEntryReenablesEachTimeAndRestoresThePaperState() throws {
+        try ScreenDraftTests().withApp { app in
+            #expect(!app.preferences.autoHighContrastOnScreen)
+            let settings = app.makeSettingsWindow()
+            defer { settings.close() }
+            let option = try #require(settings.contentView?.allSubviews.compactMap { $0 as? NSSwitch }.first {
+                $0.action == #selector(InkeyApp.changeAutoHighContrast(_:))
+            })
+            option.state = .on; app.changeAutoHighContrast(option)
+            #expect(UserPreferences(defaults: app.preferences.defaults).autoHighContrastOnScreen)
+            app.enterScreenDraft()
+            #expect(app.canvas.highContrastEnabled && app.palette.highContrastEnabled)
+            app.toggleHighContrast(nil)
+            #expect(!app.canvas.highContrastEnabled)
+            app.exitScreenDraft(restoreWindow: false, activatePrevious: false)
+            #expect(!app.canvas.highContrastEnabled && !app.preferences.highContrast)
+            app.enterScreenDraft()
+            #expect(app.canvas.highContrastEnabled)
+            app.toggleHighContrast(nil)
+            app.exitScreenDraft(restoreWindow: false, activatePrevious: false)
+            option.state = .off; app.changeAutoHighContrast(option)
+            app.enterScreenDraft()
+            #expect(!app.canvas.highContrastEnabled)
+        }
+    }
     @Test func rapidTogglesFadeToTheLatestStateWithoutEndingEditing() throws {
         try ScreenDraftTests().withApp { app in
             app.window.orderFront(nil)

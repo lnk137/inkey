@@ -1,6 +1,9 @@
 import AppKit
 
 extension InkeyApp {
+    @objc func changeAutoHighContrast(_ sender: NSSwitch) {
+        preferences.autoHighContrastOnScreen = sender.state == .on
+    }
     @objc func toggleHighContrast(_ sender: Any?) {
         canvas.setHighContrast(!canvas.highContrastEnabled)
         if isScreenDraft { preferences.screenHighContrast = canvas.highContrastEnabled }

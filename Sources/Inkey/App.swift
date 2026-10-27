@@ -699,7 +699,12 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         let reset = NSButton(title: "恢复默认", target: self, action: #selector(resetColors(_:)))
         reset.bezelStyle = .rounded
         reset.setAccessibilityLabel("恢复默认色板")
+        let autoContrast = NSSwitch()
+        autoContrast.state = preferences.autoHighContrastOnScreen ? .on : .off
+        autoContrast.target = self; autoContrast.action = #selector(changeAutoHighContrast(_:))
+        autoContrast.setAccessibilityLabel("进入屏幕草稿时自动开启高对比")
         let canvas = SettingsLayout.section("画布与工具栏", rows: [
+            SettingsLayout.row("进入屏幕草稿时自动开启高对比", control: autoContrast),
             SettingsLayout.row("十字指针轨迹", control: trail),
             SettingsLayout.row("折叠动画", control: animation),
             SettingsLayout.row("预设颜色", control: reset)

@@ -123,6 +123,8 @@ Click the half-black/half-white circle in the toolbar, choose **高对比** in V
 
 Existing and new text, strokes, and shapes retain their original colors with a thin white outer rim and black inner rim. The rims stay 2 pt and 1 pt outside the original content at every canvas zoom. Images remain unchanged. Paper and screen canvases remember their display states independently, so leaving a screen draft restores the paper canvas’s previous state.
 
+Settings → General → Canvas & Toolbar adds one optional switch, **进入屏幕草稿时自动开启高对比** (off by default). When enabled, every entry into screen mode starts with high contrast on. You can turn it off during that session; the next entry turns it on again. Leaving screen mode restores the paper canvas’s independent state. Changing the automatic option applies on the next entry.
+
 PNG and PDF use the active high-contrast setting, including when exported during a transition. Editable `.inkey` files keep the original colors, line widths, font sizes, and objects; the display toggle never alters draft content. It can be switched off at any time.
 
 ## Eraser
