@@ -58,14 +58,14 @@ final class ShortcutRecorder: NSButton {
     override var acceptsFirstResponder: Bool { true }
     override func resignFirstResponder() -> Bool { finishRecording(); return super.resignFirstResponder() }
     @objc func beginRecording() {
-        onBegin?(); recording = true; title = "按下快捷键…"; window?.makeFirstResponder(self)
+        onBegin?(); recording = true; title = localized("按下快捷键…", "Press shortcut…"); window?.makeFirstResponder(self)
     }
     override func mouseDown(with event: NSEvent) { beginRecording() }
     override func rightMouseDown(with event: NSEvent) {
         guard onChange != nil else { return }
         finishRecording()
         let menu = NSMenu()
-        for (title, action) in [("清除快捷键", #selector(clearShortcut)), ("恢复此项默认", #selector(resetShortcut))] {
+        for (title, action) in [(localized("清除快捷键", "Clear Shortcut"), #selector(clearShortcut)), (localized("恢复此项默认", "Restore Default"), #selector(resetShortcut))] {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: ""); item.target = self; menu.addItem(item)
         }
         NSMenu.popUpContextMenu(menu, with: event, for: self)
@@ -77,7 +77,7 @@ final class ShortcutRecorder: NSButton {
         if let onChange { accepted = onChange(binding) }
         else if let binding { accepted = onRecord?(UInt32(binding.keyCode), binding.modifiers, binding.label) == true }
         else { accepted = false }
-        if accepted { savedLabel = binding?.label ?? "未设置"; finishRecording() }
+        if accepted { savedLabel = binding?.label ?? localized("未设置", "Not Set"); finishRecording() }
     }
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 { finishRecording(); return }
@@ -249,7 +249,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         content.addSubview(statusLabel)
         let more = NSButton(image: NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "More")!, target: self, action: #selector(showMore(_:)))
         more.isBordered = false; more.frame = NSRect(x: content.bounds.width - 43, y: content.bounds.height - 31, width: 30, height: 24)
-        more.autoresizingMask = [.minXMargin, .minYMargin]; more.toolTip = "更多"
+        more.autoresizingMask = [.minXMargin, .minYMargin]; more.toolTip = localized("更多", "More")
         content.addSubview(more)
         content.addSubview(palette)
         palette.onLayoutChange = { [weak self] in self?.layoutPalette(initial: false) }
@@ -295,36 +295,36 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
 
     func buildMenu() {
         let menu = NSMenu()
-        let app = NSMenu(); add("关于 Inkey", #selector(about(_:)), "", to: app)
-        add("设置…", #selector(showSettings(_:)), ",", to: app)
-        app.addItem(.separator()); add("退出 Inkey", #selector(quit(_:)), "q", to: app)
-        let file = NSMenu(); add("新建草稿", #selector(newDraft(_:)), "n", to: file)
-        add("打开或导入…", #selector(openDraft(_:)), "o", to: file)
-        add("最近草稿…", #selector(showRecent(_:)), "o", modifiers: [.command, .shift], to: file)
-        add("保存…", #selector(saveDraft(_:)), "s", to: file)
-        add("另存为…", #selector(saveAs(_:)), "s", modifiers: [.command, .shift], to: file)
-        add("导出…", #selector(exportDraft(_:)), "e", to: file)
+        let app = NSMenu(); add(localized("关于 Inkey", "About Inkey"), #selector(about(_:)), "", to: app)
+        add(localized("设置…", "Settings…"), #selector(showSettings(_:)), ",", to: app)
+        app.addItem(.separator()); add(localized("退出 Inkey", "Quit Inkey"), #selector(quit(_:)), "q", to: app)
+        let file = NSMenu(); add(localized("新建草稿", "New Draft"), #selector(newDraft(_:)), "n", to: file)
+        add(localized("打开或导入…", "Open or Import…"), #selector(openDraft(_:)), "o", to: file)
+        add(localized("最近草稿…", "Recent Drafts…"), #selector(showRecent(_:)), "o", modifiers: [.command, .shift], to: file)
+        add(localized("保存…", "Save…"), #selector(saveDraft(_:)), "s", to: file)
+        add(localized("另存为…", "Save As…"), #selector(saveAs(_:)), "s", modifiers: [.command, .shift], to: file)
+        add(localized("导出…", "Export…"), #selector(exportDraft(_:)), "e", to: file)
         let edit = NSMenu()
-        add("撤销", Selector(("undo:")), "z", to: edit, target: nil)
-        add("重做", Selector(("redo:")), "z", modifiers: [.command, .shift], to: edit, target: nil)
+        add(localized("撤销", "Undo"), Selector(("undo:")), "z", to: edit, target: nil)
+        add(localized("重做", "Redo"), Selector(("redo:")), "z", modifiers: [.command, .shift], to: edit, target: nil)
         edit.addItem(.separator())
-        add("剪切", #selector(NSText.cut(_:)), "x", to: edit, target: nil)
-        add("复制", #selector(NSText.copy(_:)), "c", to: edit, target: nil)
-        add("粘贴", #selector(NSText.paste(_:)), "v", to: edit, target: nil)
-        add("全选", #selector(NSText.selectAll(_:)), "a", to: edit, target: nil)
-        let view = NSMenu(); add("适配全部内容", #selector(fit(_:)), "0", to: view)
-        add("进入／退出屏幕草稿", #selector(toggleScreenDraft(_:)), "", to: view)
-        add("高对比", #selector(toggleHighContrast(_:)), "", to: view)
-        add("完整编辑文字", #selector(editTextPrecisely(_:)), "\r", to: view)
-        add("橡皮擦", #selector(toggleEraser(_:)), "e", modifiers: [.command, .option], to: view)
-        add("缩小橡皮擦", #selector(smallerEraser(_:)), "[", modifiers: [.command, .option], to: view)
-        add("放大橡皮擦", #selector(largerEraser(_:)), "]", modifiers: [.command, .option], to: view)
-        add("自定义颜色…", #selector(pickColor(_:)), "c", modifiers: [.command, .shift], to: view)
-        add("折叠／展开工具栏", #selector(toggleToolbarCollapsed(_:)), "t", modifiers: [.command, .option], to: view)
-        add("置顶常驻", #selector(togglePinned(_:)), "p", modifiers: [.command, .shift], to: view)
-        add("进入／退出全屏", #selector(toggleFullScreen(_:)), "f", modifiers: [.command, .control], to: view)
-        let help = NSMenu(); add("快捷键与使用说明", #selector(help(_:)), "", to: help)
-        for (title, submenu) in [("Inkey", app), ("文件", file), ("编辑", edit), ("视图", view), ("帮助", help)] {
+        add(localized("剪切", "Cut"), #selector(NSText.cut(_:)), "x", to: edit, target: nil)
+        add(localized("复制", "Copy"), #selector(NSText.copy(_:)), "c", to: edit, target: nil)
+        add(localized("粘贴", "Paste"), #selector(NSText.paste(_:)), "v", to: edit, target: nil)
+        add(localized("全选", "Select All"), #selector(NSText.selectAll(_:)), "a", to: edit, target: nil)
+        let view = NSMenu(); add(localized("适配全部内容", "Fit All Content"), #selector(fit(_:)), "0", to: view)
+        add(localized("进入／退出屏幕草稿", "Enter / Exit Screen Draft"), #selector(toggleScreenDraft(_:)), "", to: view)
+        add(localized("高对比", "High Contrast"), #selector(toggleHighContrast(_:)), "", to: view)
+        add(localized("完整编辑文字", "Edit Text Precisely"), #selector(editTextPrecisely(_:)), "\r", to: view)
+        add(localized("橡皮擦", "Eraser"), #selector(toggleEraser(_:)), "e", modifiers: [.command, .option], to: view)
+        add(localized("缩小橡皮擦", "Smaller Eraser"), #selector(smallerEraser(_:)), "[", modifiers: [.command, .option], to: view)
+        add(localized("放大橡皮擦", "Larger Eraser"), #selector(largerEraser(_:)), "]", modifiers: [.command, .option], to: view)
+        add(localized("自定义颜色…", "Custom Color…"), #selector(pickColor(_:)), "c", modifiers: [.command, .shift], to: view)
+        add(localized("折叠／展开工具栏", "Collapse / Expand Toolbar"), #selector(toggleToolbarCollapsed(_:)), "t", modifiers: [.command, .option], to: view)
+        add(localized("置顶常驻", "Keep on Top"), #selector(togglePinned(_:)), "p", modifiers: [.command, .shift], to: view)
+        add(localized("进入／退出全屏", "Enter / Exit Full Screen"), #selector(toggleFullScreen(_:)), "f", modifiers: [.command, .control], to: view)
+        let help = NSMenu(); add(localized("快捷键与使用说明", "Shortcuts and Guide"), #selector(help(_:)), "", to: help)
+        for (title, submenu) in [("Inkey", app), (localized("文件", "File"), file), (localized("编辑", "Edit"), edit), (localized("视图", "View"), view), (localized("帮助", "Help"), help)] {
             let item = NSMenuItem(title: title, action: nil, keyEquivalent: ""); item.submenu = submenu; menu.addItem(item)
         }
         NSApp.mainMenu = menu
@@ -346,12 +346,12 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         statusItem.button?.image = NSImage(systemSymbolName: "pencil.tip.crop.circle", accessibilityDescription: "Inkey")
         statusItem.button?.toolTip = "Inkey · \(shortcuts.label(for: .toggleWindow))"
         let menu = NSMenu()
-        add("呼出／收起 Inkey", #selector(toggleAction(_:)), "", to: menu)
-        add("进入／退出屏幕草稿", #selector(toggleScreenDraft(_:)), "", to: menu)
-        add("新建草稿", #selector(newDraft(_:)), "", to: menu)
-        add("最近草稿…", #selector(showRecent(_:)), "", to: menu)
-        menu.addItem(.separator()); add("设置…", #selector(showSettings(_:)), "", to: menu)
-        add("退出 Inkey", #selector(quit(_:)), "", to: menu)
+        add(localized("呼出／收起 Inkey", "Show / Hide Inkey"), #selector(toggleAction(_:)), "", to: menu)
+        add(localized("进入／退出屏幕草稿", "Enter / Exit Screen Draft"), #selector(toggleScreenDraft(_:)), "", to: menu)
+        add(localized("新建草稿", "New Draft"), #selector(newDraft(_:)), "", to: menu)
+        add(localized("最近草稿…", "Recent Drafts…"), #selector(showRecent(_:)), "", to: menu)
+        menu.addItem(.separator()); add(localized("设置…", "Settings…"), #selector(showSettings(_:)), "", to: menu)
+        add(localized("退出 Inkey", "Quit Inkey"), #selector(quit(_:)), "", to: menu)
         statusItem.menu = menu
     }
 
@@ -388,7 +388,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
             hotkeyNeedsAttention = false
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                self.alert("快捷键已被占用", "请在设置中检查全局快捷键，并为不可用的项目选择其他组合。")
+                self.alert(localized("快捷键已被占用", "Shortcut Already in Use"), localized("请在设置中检查全局快捷键，并为不可用的项目选择其他组合。", "Check global shortcuts in Settings and choose another combination for unavailable actions."))
                 self.showSettings(nil)
             }
         }
@@ -428,7 +428,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         pinned = value
         if remember { preferences.pinned = value }
         if !fullScreen && !isScreenDraft { window.level = pinned ? .floating : .normal }
-        statusLabel.stringValue = pinned ? "\(canvas.draft.name) · 常驻" : canvas.draft.name
+        statusLabel.stringValue = pinned ? localized("\(canvas.draft.name) · 常驻", "\(canvas.draft.name) · Pinned") : canvas.draft.name
     }
     @objc func editTextPrecisely(_ sender: Any?) { canvas.promoteTextEditing() }
     @objc func toggleEraser(_ sender: Any?) { palette.toggleEraser() }
@@ -453,11 +453,11 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
             }
             try store.save(canvas.draft)
             preferences.defaults.set(canvas.draft.id.uuidString, forKey: isScreenDraft ? "screenDraft" : "currentDraft")
-            if !isScreenDraft { statusLabel.stringValue = canvas.draft.name + (pinned ? " · 常驻" : "") }
+            if !isScreenDraft { statusLabel.stringValue = canvas.draft.name + (pinned ? localized(" · 常驻", " · Pinned") : "") }
             window.isDocumentEdited = false; errorShown = false
         } catch {
             window.isDocumentEdited = true
-            if !errorShown { errorShown = true; alert("草稿尚未保存", error.localizedDescription) }
+            if !errorShown { errorShown = true; alert(localized("草稿尚未保存", "Draft Not Saved"), error.localizedDescription) }
         }
     }
 
@@ -471,7 +471,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         showWindow(); palette.closePicker(accept: true); canvas.commitText()
         let panel = NSOpenPanel(); panel.allowsMultipleSelection = false
         panel.allowedContentTypes = [UTType(filenameExtension: "inkey") ?? .data, .png, .jpeg, .tiff, .pdf]
-        panel.message = "打开草稿，或导入图片／PDF 作为参考背景。"
+        panel.message = localized("打开草稿，或导入图片／PDF 作为参考背景。", "Open a draft or import an image or PDF as a reference background.")
         suppressAutoHide = true
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self else { return }; self.suppressAutoHide = false
@@ -490,7 +490,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
                 canvas.install(draft); syncPaletteToPaper(); fileURL = url
             } else if url.pathExtension.lowercased() == "pdf" {
                 guard let document = PDFDocument(url: url), document.pageCount > 0 else { throw CocoaError(.fileReadCorruptFile) }
-                guard document.pageCount <= 100 else { throw NSError(domain: "Inkey", code: 1, userInfo: [NSLocalizedDescriptionKey: "请导入不超过 100 页的 PDF。"] ) }
+                guard document.pageCount <= 100 else { throw NSError(domain: "Inkey", code: 1, userInfo: [NSLocalizedDescriptionKey: localized("请导入不超过 100 页的 PDF。", "Import a PDF with no more than 100 pages.")] ) }
                 var items: [InkItem] = []; var y = canvas.draft.anchor.y
                 for index in 0..<document.pageCount {
                     guard let page = document.page(at: index) else { continue }
@@ -512,14 +512,14 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
                 canvas.replaceItems([item] + canvas.draft.items, name: "Import Image"); canvas.fit()
             }
             saveAutomatically(); showWindow()
-        } catch { alert("无法打开文件", error.localizedDescription) }
+        } catch { alert(localized("无法打开文件", "Unable to Open File"), error.localizedDescription) }
     }
 
     @objc func saveDraft(_ sender: Any?) {
         palette.closePicker(accept: true); canvas.flush(); showWindow()
         if let fileURL {
             do { try store.save(canvas.draft, to: fileURL) }
-            catch { alert("无法保存文件", error.localizedDescription) }
+            catch { alert(localized("无法保存文件", "Unable to Save File"), error.localizedDescription) }
             return
         }
         presentSavePanel()
@@ -539,7 +539,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
             guard let self else { return }; self.suppressAutoHide = false
             if response == .OK, let url = panel.url {
                 do { try self.store.save(self.canvas.draft, to: url); self.fileURL = url }
-                catch { self.alert("无法保存文件", error.localizedDescription) }
+                catch { self.alert(localized("无法保存文件", "Unable to Save File"), error.localizedDescription) }
             }
             self.canvas.restoreFocus()
         }
@@ -560,10 +560,10 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
                 do {
                     if accessory.format.indexOfSelectedItem == 2 { try self.store.save(self.canvas.draft, to: url) }
                     else {
-                        guard let data = self.canvas.exportData(pdf: accessory.format.indexOfSelectedItem == 1) else { throw NSError(domain: "Inkey", code: 2, userInfo: [NSLocalizedDescriptionKey: "画布过大，无法导出。请先删除远离内容的笔迹，或保存为 Inkey 文件。"] ) }
+                        guard let data = self.canvas.exportData(pdf: accessory.format.indexOfSelectedItem == 1) else { throw NSError(domain: "Inkey", code: 2, userInfo: [NSLocalizedDescriptionKey: localized("画布过大，无法导出。请先删除远离内容的笔迹，或保存为 Inkey 文件。", "The canvas is too large to export. Remove distant strokes or save as an Inkey file.")] ) }
                         try data.write(to: url, options: .atomic)
                     }
-                } catch { self.alert("无法导出", error.localizedDescription) }
+                } catch { self.alert(localized("无法导出", "Unable to Export"), error.localizedDescription) }
             }
             self.canvas.restoreFocus()
         }
@@ -573,7 +573,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         canvas.flush(); showWindow()
         let menu = NSMenu()
         let recent = store.recent()
-        if recent.isEmpty { menu.addItem(withTitle: "暂无草稿", action: nil, keyEquivalent: "") }
+        if recent.isEmpty { menu.addItem(withTitle: localized("暂无草稿", "No Recent Drafts"), action: nil, keyEquivalent: "") }
         let formatter = DateFormatter(); formatter.dateFormat = "MM-dd HH:mm"
         for (url, draft) in recent.prefix(30) {
             let item = NSMenuItem(title: "\(draft.name)   ·   \(formatter.string(from: draft.modified))", action: #selector(loadRecent(_:)), keyEquivalent: "")
@@ -586,7 +586,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     @objc func loadRecent(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
         do { let draft = try store.load(url); canvas.flush(); canvas.install(draft); syncPaletteToPaper(); fileURL = nil; saveAutomatically(); showWindow() }
-        catch { alert("无法读取草稿", error.localizedDescription) }
+        catch { alert(localized("无法读取草稿", "Unable to Read Draft"), error.localizedDescription) }
     }
 
     @objc func toggleToolbarCollapsed(_ sender: Any?) {
@@ -604,25 +604,25 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     }
     func moreMenu() -> NSMenu {
         let menu = NSMenu()
-        add(isScreenDraft ? "退出屏幕草稿" : "进入屏幕草稿", #selector(toggleScreenDraft(_:)), "", to: menu)
-        let contrast = add("高对比", #selector(toggleHighContrast(_:)), "", to: menu)
+        add(isScreenDraft ? localized("退出屏幕草稿", "Exit Screen Draft") : localized("进入屏幕草稿", "Enter Screen Draft"), #selector(toggleScreenDraft(_:)), "", to: menu)
+        let contrast = add(localized("高对比", "High Contrast"), #selector(toggleHighContrast(_:)), "", to: menu)
         contrast.state = canvas.highContrastEnabled ? .on : .off
-        add("新建草稿", #selector(newDraft(_:)), "n", to: menu)
-        add("最近草稿…", #selector(showRecent(_:)), "", to: menu)
+        add(localized("新建草稿", "New Draft"), #selector(newDraft(_:)), "n", to: menu)
+        add(localized("最近草稿…", "Recent Drafts…"), #selector(showRecent(_:)), "", to: menu)
         menu.addItem(.separator())
-        add(palette.isCollapsed ? "展开工具栏" : "折叠工具栏", #selector(toggleToolbarCollapsed(_:)), "t", modifiers: [.command, .option], to: menu)
-        add(palette.isHidden ? "显示工具栏" : "隐藏工具栏", #selector(toggleToolbarHidden(_:)), "t", modifiers: [.command, .shift], to: menu)
-        let sizeItem = NSMenuItem(title: "工具栏大小", action: nil, keyEquivalent: "")
+        add(palette.isCollapsed ? localized("展开工具栏", "Expand Toolbar") : localized("折叠工具栏", "Collapse Toolbar"), #selector(toggleToolbarCollapsed(_:)), "t", modifiers: [.command, .option], to: menu)
+        add(palette.isHidden ? localized("显示工具栏", "Show Toolbar") : localized("隐藏工具栏", "Hide Toolbar"), #selector(toggleToolbarHidden(_:)), "t", modifiers: [.command, .shift], to: menu)
+        let sizeItem = NSMenuItem(title: localized("工具栏大小", "Toolbar Size"), action: nil, keyEquivalent: "")
         sizeItem.submenu = toolbarSizeMenu(); menu.addItem(sizeItem)
-        let pin = add("置顶常驻", #selector(togglePinned(_:)), "p", modifiers: [.command, .shift], to: menu); pin.state = pinned ? .on : .off
-        add("进入／退出全屏", #selector(toggleFullScreen(_:)), "f", modifiers: [.command, .control], to: menu)
-        add("适配全部内容", #selector(fit(_:)), "0", to: menu)
+        let pin = add(localized("置顶常驻", "Keep on Top"), #selector(togglePinned(_:)), "p", modifiers: [.command, .shift], to: menu); pin.state = pinned ? .on : .off
+        add(localized("进入／退出全屏", "Enter / Exit Full Screen"), #selector(toggleFullScreen(_:)), "f", modifiers: [.command, .control], to: menu)
+        add(localized("适配全部内容", "Fit All Content"), #selector(fit(_:)), "0", to: menu)
         menu.addItem(.separator())
-        add("打开或导入…", #selector(openDraft(_:)), "o", to: menu)
-        add("保存…", #selector(saveDraft(_:)), "s", to: menu)
-        add("另存为…", #selector(saveAs(_:)), "s", modifiers: [.command, .shift], to: menu)
-        add("导出…", #selector(exportDraft(_:)), "e", to: menu)
-        menu.addItem(.separator()); add("设置…", #selector(showSettings(_:)), ",", to: menu)
+        add(localized("打开或导入…", "Open or Import…"), #selector(openDraft(_:)), "o", to: menu)
+        add(localized("保存…", "Save…"), #selector(saveDraft(_:)), "s", to: menu)
+        add(localized("另存为…", "Save As…"), #selector(saveAs(_:)), "s", modifiers: [.command, .shift], to: menu)
+        add(localized("导出…", "Export…"), #selector(exportDraft(_:)), "e", to: menu)
+        menu.addItem(.separator()); add(localized("设置…", "Settings…"), #selector(showSettings(_:)), ",", to: menu)
         return menu
     }
 
@@ -641,7 +641,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     func makeSettingsWindow() -> NSWindow {
         let loginSwitch = NSSwitch()
         loginSwitch.target = self; loginSwitch.action = #selector(changeLoginLaunch(_:))
-        loginSwitch.setAccessibilityLabel("开机自启动（静默）")
+        loginSwitch.setAccessibilityLabel(localized("开机自启动（静默）", "Launch at login (quietly)"))
         loginLaunchSwitch = loginSwitch
         let loginHint = NSTextField(wrappingLabelWithString: "")
         loginLaunchHint = loginHint
@@ -649,17 +649,17 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
 
         let recorder = makeShortcutRecorder(for: .toggleWindow)
         shortcutRecorder = recorder
-        let general = SettingsLayout.section("通用", rows: [
-            SettingsLayout.row("开机自启动", detail: loginHint, control: loginSwitch),
-            SettingsLayout.row("呼出／收起快捷键", detail: NSTextField(wrappingLabelWithString: "点击录制，Esc 取消"), control: recorder)
+        let general = SettingsLayout.section(localized("通用", "General"), rows: [
+            SettingsLayout.row(localized("开机自启动", "Launch at login"), detail: loginHint, control: loginSwitch),
+            SettingsLayout.row(localized("呼出／收起快捷键", "Show / hide shortcut"), detail: NSTextField(wrappingLabelWithString: localized("点击录制，Esc 取消", "Click to record; Esc cancels")), control: recorder)
         ])
 
         let placement = NSPopUpButton()
         placement.widthAnchor.constraint(equalToConstant: 156).isActive = true
-        placement.addItems(withTitles: ["单击定位", "跟随指针"])
+        placement.addItems(withTitles: [localized("单击定位", "Click to place"), localized("跟随指针", "Follow pointer")])
         placement.selectItem(at: UserDefaults.standard.bool(forKey: "pointerPlacement") ? 1 : 0)
         placement.target = self; placement.action = #selector(changePlacement(_:))
-        placement.setAccessibilityLabel("文字落点")
+        placement.setAccessibilityLabel(localized("文字落点", "Text placement"))
         let formatter = NumberFormatter(); formatter.minimum = 6; formatter.maximum = 200
         formatter.maximumFractionDigits = 1; formatter.numberStyle = .decimal
         let size = NSTextField()
@@ -679,11 +679,11 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         let follow = NSSwitch()
         follow.state = preferences.resizeUpdatesDefaultFont ? .on : .off
         follow.target = self; follow.action = #selector(changeResizeDefault(_:))
-        follow.setAccessibilityLabel("沿用缩放后的字号")
-        let typing = SettingsLayout.section("文字输入", rows: [
-            SettingsLayout.row("文字落点", control: placement),
-            SettingsLayout.row("默认字号", control: sizeControls),
-            SettingsLayout.row("沿用缩放后的字号", detail: NSTextField(wrappingLabelWithString: "拖动文字改字号后，用于下次输入"), control: follow)
+        follow.setAccessibilityLabel(localized("沿用缩放后的字号", "Use resized font size"))
+        let typing = SettingsLayout.section(localized("文字输入", "Text Input"), rows: [
+            SettingsLayout.row(localized("文字落点", "Text placement"), control: placement),
+            SettingsLayout.row(localized("默认字号", "Default font size"), control: sizeControls),
+            SettingsLayout.row(localized("沿用缩放后的字号", "Use resized font size"), detail: NSTextField(wrappingLabelWithString: localized("拖动文字改字号后，用于下次输入", "Use the resized font size for new text")), control: follow)
         ])
 
         let trail = NSSwitch()
@@ -697,41 +697,50 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         }
         animation.selectItem(at: ToolbarAnimationStyle.allCases.firstIndex(of: preferences.toolbarAnimationStyle) ?? 0)
         animation.target = self; animation.action = #selector(changeToolbarAnimation(_:))
-        animation.setAccessibilityLabel("工具栏折叠动画")
-        let reset = NSButton(title: "恢复默认", target: self, action: #selector(resetColors(_:)))
+        animation.setAccessibilityLabel(localized("工具栏折叠动画", "Toolbar folding animation"))
+        let reset = NSButton(title: localized("恢复默认", "Restore Defaults"), target: self, action: #selector(resetColors(_:)))
         reset.bezelStyle = .rounded
-        reset.setAccessibilityLabel("恢复默认色板")
+        reset.setAccessibilityLabel(localized("恢复默认色板", "Restore default palette"))
         let autoContrast = NSSwitch()
         autoContrast.state = preferences.autoHighContrastOnScreen ? .on : .off
         autoContrast.target = self; autoContrast.action = #selector(changeAutoHighContrast(_:))
-        autoContrast.setAccessibilityLabel("进入屏幕草稿时自动开启高对比")
+        autoContrast.setAccessibilityLabel(localized("进入屏幕草稿时自动开启高对比", "Enable high contrast in screen drafts"))
         let spacing = NSSlider(value: preferences.highContrastTextSpacing, minValue: 0, maxValue: 12, target: self, action: #selector(changeHighContrastSpacing(_:)))
         spacing.isContinuous = true; spacing.widthAnchor.constraint(equalToConstant: 116).isActive = true
-        spacing.setAccessibilityLabel("高对比字间距")
+        spacing.setAccessibilityLabel(localized("高对比字间距", "High-contrast letter spacing"))
         let spacingValue = NSTextField(labelWithString: String(format: "%.1f pt", preferences.highContrastTextSpacing))
         spacingValue.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
         spacingValue.alignment = .right; spacingValue.widthAnchor.constraint(equalToConstant: 44).isActive = true
         contrastSpacingLabel = spacingValue
         let spacingControls = NSStackView(views: [spacing, spacingValue])
         spacingControls.orientation = .horizontal; spacingControls.alignment = .centerY; spacingControls.spacing = 8
-        let canvas = SettingsLayout.section("画布与工具栏", rows: [
-            SettingsLayout.row("进入屏幕草稿时自动开启高对比", control: autoContrast, height: 36),
-            SettingsLayout.row("高对比字间距", control: spacingControls, height: 36),
-            SettingsLayout.row("十字指针轨迹", control: trail, height: 36),
-            SettingsLayout.row("折叠动画", control: animation, height: 36),
-            SettingsLayout.row("预设颜色", control: reset, height: 36)
+        let canvas = SettingsLayout.section(localized("画布与工具栏", "Canvas & Toolbar"), rows: [
+            SettingsLayout.row(localized("进入屏幕草稿时自动开启高对比", "Enable high contrast in screen drafts"), control: autoContrast, height: 36),
+            SettingsLayout.row(localized("高对比字间距", "High-contrast letter spacing"), control: spacingControls, height: 36),
+            SettingsLayout.row(localized("十字指针轨迹", "Crosshair trail"), control: trail, height: 36),
+            SettingsLayout.row(localized("折叠动画", "Folding animation"), control: animation, height: 36),
+            SettingsLayout.row(localized("预设颜色", "Preset colors"), control: reset, height: 36)
         ])
         let panel = SettingsLayout.window(sections: [general, typing, canvas])
         installShortcutSettings(in: panel)
         return panel
     }
+    @objc func changeInterfaceLanguage(_ sender: NSPopUpButton) {
+        let language: InterfaceLanguage = sender.indexOfSelectedItem == 1 ? .english : .chinese
+        preferences.defaults.set(language.rawValue, forKey: "interfaceLanguage")
+        if language != Localization.current {
+            alert(localized("重启后更改语言", "Restart to Change Language"),
+                  localized("请退出并重新打开 Inkey 以应用语言设置。", "Quit and reopen Inkey to apply the language setting."))
+        }
+    }
+
     func applicationDidBecomeActive(_ notification: Notification) { refreshLoginLaunchControls() }
 
     func refreshLoginLaunchControls() {
         loginLaunchSwitch?.state = loginLaunch.isEnabled || loginLaunch.needsApproval ? .on : .off
         loginLaunchHint?.stringValue = loginLaunch.needsApproval
-            ? "请在系统“登录项”中允许，或关闭此开关取消"
-            : "登录后静默运行，不弹出草稿窗口"
+            ? localized("请在系统“登录项”中允许，或关闭此开关取消", "Allow in Login Items in System Settings, or turn this switch off")
+            : localized("登录后静默运行，不弹出草稿窗口", "Start quietly after login without opening a draft")
     }
 
     @objc func changeLoginLaunch(_ sender: NSSwitch) {
@@ -745,7 +754,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
                 if loginLaunch.needsApproval { SMAppService.openSystemSettingsLoginItems() }
             }
         } catch {
-            alert("无法更改开机自启动", error.localizedDescription)
+            alert(localized("无法更改开机自启动", "Unable to Change Launch at Login"), error.localizedDescription)
         }
         refreshLoginLaunchControls()
     }
@@ -773,7 +782,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
 
     func toolbarSizeMenu() -> NSMenu {
         let menu = NSMenu()
-        for (title, percent) in [("小 · 85%", 85), ("标准 · 100%", 100), ("大 · 125%", 125), ("特大 · 150%", 150)] {
+        for (title, percent) in [(localized("小 · 85%", "Small · 85%"), 85), (localized("标准 · 100%", "Standard · 100%"), 100), (localized("大 · 125%", "Large · 125%"), 125), (localized("特大 · 150%", "Extra Large · 150%"), 150)] {
             let item = add(title, #selector(changeToolbarSize(_:)), "", to: menu)
             item.tag = percent
             item.state = abs(palette.toolbarScale - CGFloat(percent) / 100) < 0.005 ? .on : .off
@@ -801,11 +810,20 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         let previous = suppressAutoHide; suppressAutoHide = true
         let alert = NSAlert(); alert.messageText = title; alert.informativeText = message
         if isScreenDraft { alert.window.level = NSWindow.Level(rawValue: window.level.rawValue + 1) }
-        alert.addButton(withTitle: "好"); alert.runModal()
+        alert.addButton(withTitle: localized("好", "OK")); alert.runModal()
         suppressAutoHide = previous
     }
 
     func runSmokeTest() {
+        if ProcessInfo.processInfo.arguments.contains("--expect-english") {
+            precondition(Localization.current == .english)
+        }
+        let expectedMenu = localized("文件", "File")
+        precondition(NSApp.mainMenu?.items.contains { $0.title == expectedMenu } == true)
+        let settingsPreview = makeSettingsWindow()
+        settingsPreview.contentView?.layoutSubtreeIfNeeded()
+        precondition(settingsPreview.title == localized("Inkey 设置", "Inkey Settings"))
+        settingsPreview.close()
         // The smoke test operates on a temporary draft and never overwrites the restored one.
         let restored = canvas.draft
         canvas.install(Draft())

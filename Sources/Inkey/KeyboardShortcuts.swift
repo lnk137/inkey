@@ -64,18 +64,18 @@ enum ShortcutAction: String, CaseIterable, Codable {
     static let shapes: [Self] = [.shape1, .shape2, .shape3, .shape4]
     static let colors: [Self] = [.color1, .color2, .color3, .color4, .color5, .color6]
     static let groups: [(String, [Self])] = [
-        ("全局", [.toggleWindow, .screenDraft]), ("文件", [.newDraft, .open, .recent, .save, .saveAs, .export]),
-        ("编辑", [.undo, .redo, .cut, .copy, .paste, .selectAll]),
-        ("画布与工具", [.fit, .preciseEdit, .eraser, .smallerEraser, .largerEraser, .colorPicker, .highContrast]),
-        ("工具栏与窗口", [.collapseToolbar, .hideToolbar, .pin, .fullScreen]),
-        ("形状位置 · 从左到右", shapes), ("预设颜色位置 · 从左到右", colors), ("应用", [.settings, .quit])
+        (localized("全局", "Global"), [.toggleWindow, .screenDraft]), (localized("文件", "File"), [.newDraft, .open, .recent, .save, .saveAs, .export]),
+        (localized("编辑", "Edit"), [.undo, .redo, .cut, .copy, .paste, .selectAll]),
+        (localized("画布与工具", "Canvas & Tools"), [.fit, .preciseEdit, .eraser, .smallerEraser, .largerEraser, .colorPicker, .highContrast]),
+        (localized("工具栏与窗口", "Toolbar & Window"), [.collapseToolbar, .hideToolbar, .pin, .fullScreen]),
+        (localized("形状位置 · 从左到右", "Shape positions · left to right"), shapes), (localized("预设颜色位置 · 从左到右", "Preset color positions · left to right"), colors), (localized("应用", "Application"), [.settings, .quit])
     ]
     var title: String {
-        if self == .highContrast { return "高对比" }
-        if self == .screenDraft { return "进入／退出屏幕草稿" }
-        if let index = Self.shapes.firstIndex(of: self) { return "形状位置 \(index + 1)" }
-        if let index = Self.colors.firstIndex(of: self) { return "预设颜色 \(index + 1)" }
-        return [Self.toggleWindow:"呼出／收起 Inkey", .newDraft:"新建草稿", .open:"打开或导入", .recent:"最近草稿", .save:"保存", .saveAs:"另存为", .export:"导出", .undo:"撤销", .redo:"重做", .cut:"剪切", .copy:"复制", .paste:"粘贴", .selectAll:"全选", .fit:"适配全部内容", .preciseEdit:"完整编辑文字", .eraser:"切换橡皮擦", .smallerEraser:"缩小橡皮擦", .largerEraser:"放大橡皮擦", .colorPicker:"自定义颜色", .collapseToolbar:"折叠／展开工具栏", .hideToolbar:"显示／隐藏工具栏", .pin:"置顶常驻", .fullScreen:"进入／退出全屏", .settings:"打开设置", .quit:"退出 Inkey"][self]!
+        if self == .highContrast { return localized("高对比", "High Contrast") }
+        if self == .screenDraft { return localized("进入／退出屏幕草稿", "Enter / Exit Screen Draft") }
+        if let index = Self.shapes.firstIndex(of: self) { return localized("形状位置 \(index + 1)", "Shape position \(index + 1)") }
+        if let index = Self.colors.firstIndex(of: self) { return localized("预设颜色 \(index + 1)", "Preset color \(index + 1)") }
+        return [Self.toggleWindow:localized("呼出／收起 Inkey", "Show / Hide Inkey"), .newDraft:localized("新建草稿", "New Draft"), .open:localized("打开或导入", "Open or Import"), .recent:localized("最近草稿", "Recent Drafts"), .save:localized("保存", "Save"), .saveAs:localized("另存为", "Save As"), .export:localized("导出", "Export"), .undo:localized("撤销", "Undo"), .redo:localized("重做", "Redo"), .cut:localized("剪切", "Cut"), .copy:localized("复制", "Copy"), .paste:localized("粘贴", "Paste"), .selectAll:localized("全选", "Select All"), .fit:localized("适配全部内容", "Fit All Content"), .preciseEdit:localized("完整编辑文字", "Edit Text Precisely"), .eraser:localized("切换橡皮擦", "Toggle Eraser"), .smallerEraser:localized("缩小橡皮擦", "Smaller Eraser"), .largerEraser:localized("放大橡皮擦", "Larger Eraser"), .colorPicker:localized("自定义颜色", "Custom Color"), .collapseToolbar:localized("折叠／展开工具栏", "Collapse / Expand Toolbar"), .hideToolbar:localized("显示／隐藏工具栏", "Show / Hide Toolbar"), .pin:localized("置顶常驻", "Keep on Top"), .fullScreen:localized("进入／退出全屏", "Enter / Exit Full Screen"), .settings:localized("打开设置", "Open Settings"), .quit:localized("退出 Inkey", "Quit Inkey")][self]!
     }
     var selectorName: String? {
         [Self.highContrast:"toggleHighContrast:", Self.screenDraft:"toggleScreenDraft:", Self.toggleWindow:"toggleAction:", .newDraft:"newDraft:", .open:"openDraft:", .recent:"showRecent:", .save:"saveDraft:", .saveAs:"saveAs:", .export:"exportDraft:", .undo:"undo:", .redo:"redo:", .cut:"cut:", .copy:"copy:", .paste:"paste:", .selectAll:"selectAll:", .fit:"fit:", .preciseEdit:"editTextPrecisely:", .eraser:"toggleEraser:", .smallerEraser:"smallerEraser:", .largerEraser:"largerEraser:", .colorPicker:"pickColor:", .collapseToolbar:"toggleToolbarCollapsed:", .hideToolbar:"toggleToolbarHidden:", .pin:"togglePinned:", .fullScreen:"toggleFullScreen:", .settings:"showSettings:", .quit:"quit:"][self]
@@ -118,7 +118,7 @@ struct ShortcutSettings {
         }
         return action.defaultBinding
     }
-    func label(for action: ShortcutAction) -> String { binding(for: action)?.label ?? "未设置" }
+    func label(for action: ShortcutAction) -> String { binding(for: action)?.label ?? localized("未设置", "Not Set") }
     func preserveExistingBindingsForScreenDraft() {
         guard overrides[ShortcutAction.screenDraft.rawValue] == nil,
               conflict(for: ShortcutAction.screenDraft.defaultBinding, excluding: .screenDraft) != nil else { return }
@@ -133,13 +133,13 @@ struct ShortcutSettings {
         ShortcutAction.allCases.first { $0 != action && self.binding(for: $0)?.sameCombination(as: binding) == true }
     }
     func validationMessage(_ binding: KeyBinding, for action: ShortcutAction) -> String? {
-        guard !binding.key.isEmpty, binding.keyCode != 53 else { return "请选择其他按键" }
+        guard !binding.key.isEmpty, binding.keyCode != 53 else { return localized("请选择其他按键", "Choose another key") }
         let shapeNumber = ShortcutAction.shapes.contains(action) && binding.flags == .shift && [UInt16(18),19,20,21,23,22,26,28,25,29].contains(binding.keyCode)
-        guard binding.isFunctionKey || shapeNumber || !binding.flags.intersection([.command,.control,.option]).isEmpty else { return "请包含 ⌘、⌥ 或 ⌃，或使用功能键；形状可用 ⇧ 数字" }
+        guard binding.isFunctionKey || shapeNumber || !binding.flags.intersection([.command,.control,.option]).isEmpty else { return localized("请包含 ⌘、⌥ 或 ⌃，或使用功能键；形状可用 ⇧ 数字", "Include ⌘, ⌥ or ⌃, or use a function key; shapes also accept ⇧ and a number") }
         if (binding.keyCode == 48 && binding.flags.contains(.command)) || (binding.keyCode == 49 && binding.flags == .command) || (binding.keyCode == 53 && binding.flags == [.command,.option]) {
-            return "该组合由 macOS 保留，请选择其他快捷键"
+            return localized("该组合由 macOS 保留，请选择其他快捷键", "This shortcut is reserved by macOS; choose another")
         }
-        if let other = conflict(for: binding, excluding: action) { return "已用于“\(other.title)”，请先清除或更改该项" }
+        if let other = conflict(for: binding, excluding: action) { return localized("已用于“\(other.title)”，请先清除或更改该项", "Already used by “\(other.title)”; clear or change it first") }
         return nil
     }
     func set(_ binding: KeyBinding?, for action: ShortcutAction) {

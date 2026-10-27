@@ -104,6 +104,8 @@ These are the default shortcuts. Existing custom bindings are preserved.
 
 **Settings → Shortcuts** offers 37 configurable actions for files, editing, canvas tools, the toolbar, windows, and shape/color positions. Click to record; Delete clears a binding while recording, and Esc cancels. Right-click to restore one default, or restore all defaults at once. Shapes and colors follow toolbar positions from left to right, including after reordering. Show/hide Inkey and Screen draft are global.
 
+Choose Simplified Chinese or English using the language menu at the top of Settings. Quit and reopen Inkey to apply the change; existing installations default to Simplified Chinese.
+
 **Settings → General** controls launch at login, text placement, default font size, reusing resized text sizes, crosshair trail, and folding animation. Colors, toolbar size and position, and window preferences are remembered automatically.
 
 See the [user guide](docs/guide.md) for full controls, input behavior, and file details.

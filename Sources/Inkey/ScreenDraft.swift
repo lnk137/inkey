@@ -29,7 +29,7 @@ extension InkeyApp {
             }
             screenCanvas = overlayCanvas
             let overlay = InkeyWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
-            overlay.title = "Inkey · 屏幕草稿"
+            overlay.title = localized("Inkey · 屏幕草稿", "Inkey · Screen Draft")
             overlay.isOpaque = false; overlay.backgroundColor = .clear; overlay.hasShadow = false
             overlay.isReleasedWhenClosed = false; overlay.isMovable = false
             overlay.acceptsMouseMovedEvents = true; overlay.ignoresMouseEvents = false
@@ -63,14 +63,14 @@ extension InkeyApp {
         content.subviews.compactMap { $0 as? NSButton }.forEach { $0.removeFromSuperview() }
         let top = screen.visibleFrame.maxY - screen.frame.minY - 36
         for (symbol, label, action, x) in [
-            ("ellipsis", "更多", #selector(showMore(_:)), content.bounds.width - 80),
-            ("xmark", "退出屏幕草稿", #selector(toggleScreenDraft(_:)), content.bounds.width - 44)
+            ("ellipsis", localized("更多", "More"), #selector(showMore(_:)), content.bounds.width - 80),
+            ("xmark", localized("退出屏幕草稿", "Exit Screen Draft"), #selector(toggleScreenDraft(_:)), content.bounds.width - 44)
         ] {
             let button = NSButton(image: NSImage(systemSymbolName: symbol, accessibilityDescription: label)!, target: self, action: action)
             button.frame = NSRect(x: x, y: top, width: 28, height: 28)
             button.bezelStyle = .regularSquare; button.isBordered = true
             button.autoresizingMask = [.minXMargin, .minYMargin]
-            button.toolTip = label == "更多" ? label : "退出屏幕草稿 · Esc · \(shortcuts.label(for: .screenDraft))"
+            button.toolTip = label == localized("更多", "More") ? label : localized("退出屏幕草稿 · Esc · \(shortcuts.label(for: .screenDraft))", "Exit Screen Draft · Esc · \(shortcuts.label(for: .screenDraft))")
             content.addSubview(button)
         }
     }
@@ -86,7 +86,7 @@ extension InkeyApp {
         palette.removeFromSuperview(); window.contentView?.addSubview(palette)
         syncPaletteToPaper(); syncCanvasTools(); layoutPalette(initial: false)
         refreshHighContrastUI()
-        statusLabel.stringValue = canvas.draft.name + (pinned ? " · 常驻" : "")
+        statusLabel.stringValue = canvas.draft.name + (pinned ? localized(" · 常驻", " · Pinned") : "")
         if restoreWindow ?? presentation.wasVisible { showWindow() }
         else if activatePrevious { previousApp?.activate() }
     }

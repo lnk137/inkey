@@ -9,9 +9,9 @@ final class ToolbarResizeHandle: NSView {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        toolTip = "左右拖动调整工具栏大小 · 双击恢复默认"
+        toolTip = localized("左右拖动调整工具栏大小 · 双击恢复默认", "Drag horizontally to resize toolbar · Double-click to reset")
         setAccessibilityElement(true); setAccessibilityRole(.handle)
-        setAccessibilityLabel("调整工具栏大小")
+        setAccessibilityLabel(localized("调整工具栏大小", "Resize toolbar"))
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override var acceptsFirstResponder: Bool { false }
