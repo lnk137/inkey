@@ -1,74 +1,74 @@
 <div align="center">
 
-<img src="docs/assets/inkey-logo.png" width="128" height="128" alt="Inkey Logo：米白底色与墨绿色手写 i">
+<img src="docs/assets/inkey-logo.png" width="128" height="128" alt="Inkey logo: a handwritten dark green i on warm ivory">
 
 # Inkey
 
-**打字就是文字，拖动就是笔迹。工具随动作切换，思路始终连贯。**
+**Type to write. Drag to draw. Let your actions choose the tool.**
 
-一张不用先选文本工具的 macOS 原生草稿纸，让变量、笔迹和关系图随手交替出现。
+A native macOS scratchpad where variables, sketches, and diagrams flow together. Start typing without selecting a text tool.
 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-303735?style=flat-square)
 ![Swift 6+](https://img.shields.io/badge/Swift-6%2B-C36A44?style=flat-square)
 ![AppKit](https://img.shields.io/badge/UI-AppKit-3E795E?style=flat-square)
 
-[English](README.md) · **简体中文**
+[Overview](README.md) · [Legacy README address](README.zh-CN.md)
 
-[使用说明](#usage) · [安装指南](#installation) · [详细文档](docs/guide.md) · [反馈问题](https://github.com/lnk137/inkey/issues)
+[Usage](#usage) · [Installation](#installation) · [User guide](docs/guide.md) · [Report an issue](https://github.com/lnk137/inkey/issues)
 
 </div>
 
-## 目录
+## Contents
 
-- [使用说明](#usage)
-- [特色功能](#features)
-- [安装指南](#installation)
-- [快捷键与设置](#shortcuts)
-- [常见问题](#faq)
-- [开发与贡献](#contributing)
+- [Usage](#usage)
+- [Features](#features)
+- [Installation](#installation)
+- [Shortcuts and settings](#shortcuts)
+- [FAQ](#faq)
+- [Development and contributing](#contributing)
 
 <a id="usage"></a>
 
-## 使用说明
+## Usage
 
-Inkey 把文字输入、手绘和临时工具放进同一套操作逻辑里。**输入文字不用先选择文本工具，写完字也不用切回画笔。** 写、画、擦的切换融进动作，减少找工具、切模式对思路的打断。
+Inkey brings typing, freehand drawing, and temporary tools into the same interaction. **Start typing without selecting a text tool, then draw without switching back to a pen.** Tool changes follow your actions, keeping writing, drawing, and correcting connected.
 
-| 直接输入 | 随手绘画 | 临时工具 |
+| Type directly | Drag to draw | Hold for temporary tools |
 | :--- | :--- | :--- |
-| 在画布上直接打字，输入变量或注释；移动指针后，接着在新位置输入。 | 拖动立即绘画，也可以直接在刚输入的文字上画线。 | Shift＋拖动绘制当前形状；Option＋拖动临时擦除，松开 Option 恢复原工具。 |
+| Type a variable or note on the canvas. Move the pointer to start text at another position. | Drag to sketch, even over newly typed text. | Shift-drag to draw the selected shape. Option-drag to erase; release Option to return to your previous tool. |
 
-写下 `left`，拖出关系线，移动指针输入 `right`，再按住 Option 擦掉多余笔迹。输入、绘画和修正连在一起完成。
+Type `left`, drag a connecting line, move the pointer and type `right`, then hold Option to erase an extra stroke. Keep working through the idea as your hands move between typing and drawing.
 
-在浏览器做题时，按 **⌃⌥Space** 呼出草稿，推演完再按一次回到题目。需要精修文字时，单击当前文字调整光标，右键进入可选字的完整编辑，拖动四角调整字号。
+Solving a problem in your browser? Press **⌃⌥Space** to bring up the scratchpad, then press it again to return. For precise text changes, click existing text to place the caret, right-click for full editing and selection, or drag its corners to change its size.
 
-![Inkey 原生画布：用文字、手绘圆圈和箭头推演双指针算法，底部为精简调色盘。](docs/assets/inkey-canvas.png)
+![Inkey's native canvas showing a two-pointer algorithm with typed variables, hand-drawn circles, arrows, and a compact color palette.](docs/assets/inkey-canvas.png)
 
-<sub>示例草稿，由 Inkey 的原生 AppKit 界面渲染。</sub>
+<sub>Example draft rendered with Inkey's native AppKit components.</sub>
 
 <a id="features"></a>
 
-## 特色功能
+## Features
 
-- **写画自然衔接**：直接打字、拖动绘画，支持原生中文输入法；新文字框以准星为中心，输入和组合上屏时保持落点。
-- **触控板操作**：双指滚动平移、捏合缩放；Shift 绘制箭头、直线、矩形或椭圆，Option 临时擦除。
-- **轻量工具栏**：形状与颜色可拖动排序，点击颜色行末尾的 **＋** 即可新增预设，超过六个自动换行，前六个保留快捷键；增删颜色时按钮与工具栏平滑展开、收紧，工具栏可拖动、缩放、隐藏和折叠，两种折叠动画遵循系统“减少动态效果”。
-- **文字精修**：文字上停稳约 0.45 秒即可无框编辑，直接拖动仍然绘画；右键显示选框后可移动文字、拖动四角等比改字号。
-- **高对比显示**：点击半黑半白圆形按钮，为原色文字、笔迹和形状增加固定屏幕粗细的黑白细轮廓；高对比字间距可在设置中实时调整；图片保持原样，导出沿用当前视觉效果；可设置每次进入屏幕草稿时自动开启。
-- **屏幕草稿**：按 **⌃⌥S** 在当前屏幕的透明画布上写画，沿用全部工具；Esc、关闭按钮或再次按快捷键即可退出，屏幕与普通草稿分别保存。
-- **随时呼出**：菜单栏常驻，支持浮窗、置顶常驻、全屏，以及开机静默启动。
-- **完整快捷键设置**：37 项操作可录制、清除和恢复默认，支持搜索和冲突检查，菜单与工具提示同步更新。
-- **草稿与参考资料**：自动保存并恢复最近草稿，支持可编辑的 `.inkey` 文件、PNG/PDF 导出，以及图片/PDF 参考背景。
-- **随手粘贴**：文字或图片以指针为中心粘贴，文字沿用设置字号，图片自动适配画布；右键选中图片后可拖动位置、拖动四角等比缩放。
-- **调整已绘图形**：右键选中矩形或椭圆后，拖动选中框内部移动，拖动四角改变大小，越过固定对角点可自然翻折；箭头和直线通过首尾端点调整长度与方向，拖动箭身或线身整体移动。每次操作均可一步撤销。
-- **原生与本地**：Swift + AppKit，无网页套壳、账户、遥测或第三方依赖。
+- **Connected writing and drawing**: type directly, drag to sketch, and use native input methods. New text stays centered on the crosshair through typing and composition.
+- **Trackpad controls**: scroll with two fingers to pan and pinch to zoom. Shift-drag arrows, lines, rectangles, or ellipses; Option-drag to erase temporarily.
+- **Compact toolbar**: reorder shapes and colors, click **+** to add presets, and move, resize, hide, or collapse the toolbar. Extra colors wrap into rows; the first six keep their shortcuts. Adding and deleting colors smoothly reflows the row and toolbar. Two folding animations respect Reduce Motion.
+- **Precise text editing**: pause over text for about 0.45 seconds to edit without a box; drag immediately to draw. Right-click for a box with movement and proportional font resizing.
+- **High contrast**: a separate half-black/half-white toolbar switch adds thin black-and-white outlines to colored text, strokes, and shapes, with a fixed screen thickness. High-contrast letter spacing is adjustable live in Settings. Images stay unchanged; exports use the current display setting. An optional setting enables high contrast each time you enter a screen draft.
+- **Screen drafts**: press **⌃⌥S** to draw and type on a transparent overlay over the current screen, using the same tools. Press Esc, click Close, or use the shortcut again to exit; screen and paper drafts save separately.
+- **Ready when you need it**: menu bar access, floating, pinned, and full-screen windows, plus silent launch at login.
+- **Configurable shortcuts**: record, clear, or restore 37 actions, with search, conflict checks, and matching menu shortcuts and toolbar hints.
+- **Drafts and references**: local autosave and recent-draft restoration, editable `.inkey` files, PNG/PDF export, and image/PDF reference backgrounds.
+- **Paste at the pointer**: paste text at the configured font size or images sized to fit the canvas. Right-click an image to select it, then drag to move it or resize it proportionally with its corner handles.
+- **Adjust drawn shapes**: right-click to select. Drag a rectangle or ellipse inside its box to move it, or use its corners to resize and flip across the fixed opposite corner. Arrows and lines use two endpoint handles to change length and direction; drag the shaft to move the whole object. Each gesture is one undo step.
+- **Native and local**: Swift + AppKit, with no web view, account, telemetry, or third-party dependencies.
 
 <a id="installation"></a>
 
-## 安装指南
+## Installation
 
-目前通过源码构建使用，尚未提供经过公证的安装包。
+Build from source to use Inkey. A notarized installer is not available yet.
 
-**环境要求**：macOS 14+、Swift 6+、Xcode 命令行工具。
+**Requirements**: macOS 14+, Swift 6+, and the Xcode command line tools.
 
 ```sh
 git clone https://github.com/lnk137/inkey.git
@@ -77,71 +77,71 @@ cd inkey
 open build/Inkey.app
 ```
 
-构建结果位于 `build/Inkey.app`，采用本地开发签名。启动后，Inkey 会常驻菜单栏，可通过菜单或全局快捷键呼出／收起草稿。
+The locally signed app is created at `build/Inkey.app`. Inkey lives in your menu bar; use its menu or the global shortcut to show and hide the scratchpad.
 
 <a id="shortcuts"></a>
 
-## 快捷键与设置
+## Shortcuts and settings
 
-以下为默认快捷键；已有的自定义快捷键会保留。
+These are the default shortcuts. Existing custom bindings are preserved.
 
-| 动作 | 操作 |
+| Action | Control |
 | :--- | :--- |
-| 呼出／收起草稿 | **⌃⌥Space** |
-| 进入／退出屏幕草稿 | **⌃⌥S**；**Esc** 或关闭按钮退出 |
-| 在新位置输入文字 | **移动指针 → 打字** |
-| 手绘／绘制当前形状 | **拖动／⇧拖动** |
-| 完整编辑文字 | **右键文字／⌘Return** |
-| 选择形状位置 1–4 | **⇧1–4** |
-| 切换预设颜色位置 1–6 | **⌥1–6** |
-| 临时擦除 | **⌥拖动** |
-| 开关橡皮／调节尺寸 | **单击／右键橡皮** |
-| 折叠／展开工具栏 | **⌥⌘T** |
-| 隐藏／显示工具栏 | **⇧⌘T** |
-| 开关高对比 | **⌥⌘H** |
-| 导出草稿 | **⌘E** |
-| 打开设置 | **⌘,** |
+| Show / hide the scratchpad | **⌃⌥Space** |
+| Enter / exit screen draft | **⌃⌥S**; **Esc** or Close to exit |
+| Start text at another position | **Move the pointer → type** |
+| Freehand / selected shape | **Drag / ⇧ drag** |
+| Edit text precisely | **Right-click text / ⌘Return** |
+| Choose shape position 1–4 | **⇧1–4** |
+| Choose color position 1–6 | **⌥1–6** |
+| Erase temporarily | **⌥ drag** |
+| Toggle / resize the eraser | **Click / right-click eraser** |
+| Collapse / expand the toolbar | **⌥⌘T** |
+| Hide / show the toolbar | **⇧⌘T** |
+| Toggle high contrast | **⌥⌘H** |
+| Export a draft | **⌘E** |
+| Open Settings | **⌘,** |
 
-**设置 → 快捷键** 提供 37 项可配置操作，覆盖文件、编辑、画布工具、工具栏、窗口和形状／颜色位置。点击录制，录制时按 Delete 清除、Esc 取消；右键恢复单项默认，也可恢复全部默认。形状和颜色按工具栏从左到右的位置对应，拖动排序后仍按位置触发。“呼出／收起”和“屏幕草稿”为全局快捷键。
+**Settings → Shortcuts** offers 37 configurable actions for files, editing, canvas tools, the toolbar, windows, and shape/color positions. Click to record; Delete clears a binding while recording, and Esc cancels. Right-click to restore one default, or restore all defaults at once. Shapes and colors follow toolbar positions from left to right, including after reordering. Show/hide Inkey and Screen draft are global.
 
-**设置 → 常规** 可调整开机自启动、文字落点、默认字号、缩放字号沿用、指针轨迹和折叠动画。颜色、工具栏大小与位置、窗口偏好都会自动记住。
+**Settings → General** controls launch at login, text placement, default font size, reusing resized text sizes, crosshair trail, and folding animation. Colors, toolbar size and position, and window preferences are remembered automatically.
 
-完整操作、输入行为和文件说明见[使用指南](docs/guide.md)。
+See the [user guide](docs/guide.md) for full controls, input behavior, and file details.
 
-在**设置 → 快捷键 → 修饰键 → 临时橡皮**中，可将默认的 Option 改为 Command。按住所选键擦除，松开即恢复原工具；选择／移动会自动使用另一个键（Command 擦除时，Option 选择／移动）。拖动中松键也会立即停止擦除，不会顺带画出一笔。
+Choose Option (the default) or Command in **Settings → Shortcuts → Modifiers → Temporary eraser**. Hold the selected key to erase and release it to restore the previous tool. Selection/moving uses the other key: with Command erasing, Option selects/moves. Releasing the key mid-drag stops erasing immediately without starting a stroke.
 
-常驻和临时橡皮均显示黑白双线轮廓，直径与屏幕上的实际擦除范围一致；缩放画布后大小不变，移出画布或失焦时隐藏，且不会出现在导出中。
+Both persistent and temporary erasers show a black-and-white outline matching the on-screen erasing diameter. Its size stays constant while zooming; it hides outside the canvas or on focus loss and never appears in exports.
 
 <a id="faq"></a>
 
-## 常见问题
+## FAQ
 
-### 开机自启动会弹出窗口吗？
+### Does launch at login open a window?
 
-不会。开启后，登录 macOS 时仅静默驻留菜单栏，不弹出草稿、设置或全屏窗口，也不抢焦点。用快捷键或菜单栏即可呼出草稿。若系统要求允许登录项，请在“系统设置 → 通用 → 登录项”中允许 Inkey。
+No. With this option enabled, Inkey starts quietly in the menu bar after sign-in, without opening a canvas, Settings, or full-screen window or taking focus. Use the shortcut or menu bar to show the canvas. If macOS requires approval, allow Inkey in System Settings → General → Login Items.
 
-### 草稿需要联网或注册账户吗？
+### Do drafts require an internet connection or an account?
 
-不需要。草稿保存在本机，应用会自动保存；也可以导出可编辑的 `.inkey` 文件，或导出 PNG/PDF 用于分享。
+No. Drafts are saved locally and automatically. Export an editable `.inkey` file, or share a PNG/PDF export.
 
-### 工具栏排序后，快捷键会跟着工具变化吗？
+### Do shortcuts move with reordered tools?
 
-快捷键固定对应位置。例如默认的 ⇧1 始终选择第一个形状位置，⌥1 始终选择第一个预设颜色位置。工具和颜色的顺序可以独立调整。
+Shortcuts stay with positions. By default, ⇧1 always selects the first shape position and ⌥1 selects the first preset color position. Reorder tools and colors independently.
 
 <a id="contributing"></a>
 
-## 开发与贡献
+## Development and contributing
 
-欢迎[反馈问题](https://github.com/lnk137/inkey/issues)或[参与贡献](CONTRIBUTING.md)。反馈操作问题时，请附上 macOS 版本、复现步骤，以及不含私人草稿的截图或录屏。
+[Bug reports](https://github.com/lnk137/inkey/issues) and [contributions](CONTRIBUTING.md) are welcome. Include your macOS version, reproduction steps, and screenshots or recordings without private drafts when reporting an interaction issue.
 
 ```sh
 swift test
 ```
 
-测试覆盖写画切换、输入法、指针对齐、矢量擦除、草稿保存、导出、窗口切换与快捷键。详细开发约定见[贡献指南](CONTRIBUTING.md)。
+Tests cover text/drawing transitions, input methods, pointer alignment, vector erasing, persistence, exports, window toggling, and keyboard shortcuts. See the [contributing guide](CONTRIBUTING.md) for development conventions.
 
 ```sh
 ./scripts/render-readme.sh
 ```
 
-此脚本从应用图标源生成 README Logo，并用原生 AppKit 组件和合成内容更新示例配图；图片保存在 `docs/assets/`。
+This script generates the README logo from the app icon source and updates the native AppKit preview with synthetic content. Images are saved in `docs/assets/`.
