@@ -429,7 +429,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     func interactionCursor(at windowPoint: NSPoint, modifiers: NSEvent.ModifierFlags = []) -> NSCursor {
         if eraserEnabled || modifiers.contains(preferences.temporaryEraserModifier.flag) { return .crosshair }
         if let resize = imageResize { return resize.corner.resizeCursor }
-        if let resize = shapeResize { return resize.endpoint == nil ? resize.corner.resizeCursor : .crosshair }
+        if let resize = shapeResize { return resize.endpoint == nil ? resize.activeCorner(at: world(convert(windowPoint, from: nil))).resizeCursor : .crosshair }
         if let resize = textResize { return resize.corner.resizeCursor }
         if moveStart != nil { return .closedHand }
         if active != nil || pendingPointer != nil || ignoreDragUntilMouseUp { return .crosshair }

@@ -59,7 +59,7 @@ Solving a problem in your browser? Press **⌃⌥Space** to bring up the scratch
 - **Configurable shortcuts**: record, clear, or restore 37 actions, with search, conflict checks, and matching menu shortcuts and toolbar hints.
 - **Drafts and references**: local autosave and recent-draft restoration, editable `.inkey` files, PNG/PDF export, and image/PDF reference backgrounds.
 - **Paste at the pointer**: paste text at the configured font size or images sized to fit the canvas. Right-click an image to select it, then drag to move it or resize it proportionally with its corner handles.
-- **Adjust drawn shapes**: right-click to select. Drag a rectangle or ellipse inside its box to move it, or use its corners to resize. Arrows and lines use two endpoint handles to change length and direction; drag the shaft to move the whole object. Each gesture is one undo step.
+- **Adjust drawn shapes**: right-click to select. Drag a rectangle or ellipse inside its box to move it, or use its corners to resize and flip across the fixed opposite corner. Arrows and lines use two endpoint handles to change length and direction; drag the shaft to move the whole object. Each gesture is one undo step.
 - **Native and local**: Swift + AppKit, with no web view, account, telemetry, or third-party dependencies.
 
 <a id="installation"></a>
