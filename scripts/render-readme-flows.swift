@@ -10,10 +10,15 @@ enum DocumentationFlows {
         override var isFlipped: Bool { true }
         override func draw(_ dirtyRect: NSRect) {
             let cursor = NSBezierPath()
-            cursor.move(to: NSPoint(x: point.x - 7, y: point.y))
-            cursor.line(to: NSPoint(x: point.x + 7, y: point.y))
-            cursor.move(to: NSPoint(x: point.x, y: point.y - 7))
-            cursor.line(to: NSPoint(x: point.x, y: point.y + 7))
+            if cue == "Typing" {
+                cursor.move(to: NSPoint(x: point.x, y: point.y - 10))
+                cursor.line(to: NSPoint(x: point.x, y: point.y + 10))
+            } else {
+                cursor.move(to: NSPoint(x: point.x - 7, y: point.y))
+                cursor.line(to: NSPoint(x: point.x + 7, y: point.y))
+                cursor.move(to: NSPoint(x: point.x, y: point.y - 7))
+                cursor.line(to: NSPoint(x: point.x, y: point.y + 7))
+            }
             NSColor.white.setStroke(); cursor.lineWidth = 3.5; cursor.stroke()
             NSColor(calibratedWhite: 0.16, alpha: 0.9).setStroke(); cursor.lineWidth = 1.25; cursor.stroke()
             guard !cue.isEmpty else { return }
@@ -53,7 +58,7 @@ enum DocumentationFlows {
         func stroke(_ points: [NSPoint], _ color: InkColor) -> InkItem {
             InkItem(kind: .stroke, points: points.map(InkPoint.init), color: color, lineWidth: 2.5)
         }
-        func output(_ name: String, frames: [(Draft, UUID?, NSPoint, String)], contrast: Bool = false) {
+        func output(_ name: String, frames: [(Draft, UUID?, NSPoint, String)], contrast: Bool = false, delay: Double = 0.11) {
             let path = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("docs/assets/" + name)
             guard let dest = CGImageDestinationCreateWithURL(path as CFURL, UTType.gif.identifier as CFString, frames.count, nil) else { fatalError("Cannot create animation") }
             CGImageDestinationSetProperties(dest, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
@@ -69,7 +74,7 @@ enum DocumentationFlows {
                 guard let cg = rep.cgImage, let context = CGContext(data: nil, width: 920, height: 640, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { fatalError("Cannot allocate frame") }
                 context.interpolationQuality = .high; context.draw(cg, in: CGRect(x: 0, y: 0, width: 920, height: 640))
                 guard let frame = context.makeImage() else { fatalError("Cannot create frame") }
-                CGImageDestinationAddImage(dest, frame, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: 0.11]] as CFDictionary)
+                CGImageDestinationAddImage(dest, frame, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: delay]] as CFDictionary)
             }
             guard CGImageDestinationFinalize(dest) else { fatalError("Cannot finish animation") }
             print("Rendered \(name): \(frames.count) frames")
@@ -105,23 +110,35 @@ enum DocumentationFlows {
         func append(_ d: Draft, _ selection: UUID? = nil, _ point: NSPoint, _ cue: String, repeat count: Int = 1) {
             for _ in 0..<count { frames.append((d, selection, point, cue)) }
         }
-        work.items = [heading, subtitle, forward]
-        for count in 0...12 {
-            var frame = work; var partial = equation; partial.text = String(equation.text.prefix(count))
-            frame.items.append(partial); append(frame, nil, NSPoint(x: 80 + Double(count) * 10, y: 232), "Typing")
+        // Reveal each text item one character at a time, with the caret at the text's current width.
+        func type(_ item: InkItem) {
+            for count in 0...item.text.count {
+                var frame = work
+                var partial = item; partial.text = String(item.text.prefix(count))
+                frame.items.append(partial)
+                let width = count == 0 ? 0 : InkTypography.size(partial.text, fontSize: partial.fontSize).width
+                let position = item.points[0].point
+                append(frame, nil, NSPoint(x: position.x + width, y: position.y + item.fontSize * 0.6), "Typing")
+            }
+            work.items.append(item)
         }
-        work.items += [equation]
+        type(heading)
+        type(subtitle)
+        type(forward)
+        type(equation)
         for n in 2...22 { var frame = work; var partial = underline; partial.points = Array(underline.points.prefix(n)); frame.items.append(partial); append(frame, nil, partial.points.last!.point, "Draw") }
         work.items.append(underline)
         for n in 0...12 { var frame = work; var a = arrow; a.points[1] = InkPoint(NSPoint(x: 265 + 190 * Double(n) / 12, y: 238)); frame.items.append(a); append(frame, nil, a.points[1].point, "⇧ Drag · Arrow") }
-        work.items += [arrow, update, updateEquation]
+        work.items.append(arrow)
+        type(update)
+        type(updateEquation)
         for n in 0...10 { var frame = work; var b = rectangle; b.points[1] = InkPoint(NSPoint(x: 57 + 243 * Double(n) / 10, y: 369 + 51 * Double(n) / 10)); frame.items.append(b); append(frame, nil, b.points[1].point, "⇧ Drag · Rectangle") }
         work.items += [rectangle]
         append(work, nil, NSPoint(x: 650, y: 280), "⌘ V", repeat: 4)
         work.items += [image]
         append(work, nil, NSPoint(x: 650, y: 280), "⌘ V", repeat: 12)
         let completed = work
-        output("inkey-note-flow.gif", frames: frames)
+        output("inkey-note-flow.gif", frames: frames, delay: 0.08)
 
         // Continue from the exact completed note and apply the production resize gestures.
         frames = []
