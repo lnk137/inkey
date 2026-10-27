@@ -92,9 +92,9 @@ Inkey 把文字输入、手绘和临时工具放进同一套操作逻辑里。**
 
 ## 安装指南
 
-目前通过源码构建使用，尚未提供经过公证的安装包。
+从 [Releases](https://github.com/lnk137/inkey/releases) 下载 `Inkey-v0.8.10-universal.zip`，解压后将 Inkey 移入“应用程序”。应用支持 macOS 14+，兼容 Apple Silicon 和 Intel。安装包使用临时签名，尚未经过苹果公证；首次打开时 macOS 可能要求在“隐私与安全性”中允许。
 
-**环境要求**：macOS 14+、Swift 6+、Xcode 命令行工具。
+如需从源码构建，请安装 Swift 6+ 和 Xcode 命令行工具：
 
 ```sh
 git clone https://github.com/lnk137/inkey.git

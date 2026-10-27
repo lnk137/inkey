@@ -92,9 +92,9 @@ Open a screen draft over a lesson and write directly on top. High contrast helps
 
 ## Installation
 
-Build from source to use Inkey. A notarized installer is not available yet.
+Download `Inkey-v0.8.10-universal.zip` from [Releases](https://github.com/lnk137/inkey/releases), unzip it, and move Inkey to Applications. The app supports macOS 14+ on Apple Silicon and Intel. It is ad hoc signed and not notarized, so macOS may require approval in Privacy & Security before opening it.
 
-**Requirements**: macOS 14+, Swift 6+, and the Xcode command line tools.
+To build from source, install Swift 6+ and the Xcode command line tools:
 
 ```sh
 git clone https://github.com/lnk137/inkey.git

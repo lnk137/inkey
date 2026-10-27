@@ -12,7 +12,9 @@ Built with Swift and AppKit. No web view, account, network service, or external 
 
 ## Run
 
-Requires macOS 14 or later and Xcode command line tools with Swift 6 or later.
+Download the universal app from [Releases](https://github.com/lnk137/inkey/releases) for macOS 14 or later on Apple Silicon or Intel. The release is ad hoc signed and not notarized; macOS may require approval in Privacy & Security.
+
+For a source build, install Xcode command line tools with Swift 6 or later:
 
 ```sh
 ./scripts/build-app.sh
