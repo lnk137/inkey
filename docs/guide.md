@@ -149,11 +149,11 @@ there is no Apply button. Invalid stored values fall back to safe defaults.
 
 ## Color
 
-Up to six editable presets sit in a small, draggable bottom palette. Hover to
-see their names and shortcuts. Click the final color button for a saturation /
-brightness surface, hue slider, six-digit HEX input, screen eyedropper, and six
-recent custom colors. Use **Replace current preset** to customize the last selected
-preset slot. Right-click any preset to edit or delete it; accepting the picker saves an edit, and Escape cancels it. Use **Add** in the picker to add a preset (up to six). Deleting a preset shifts the remaining colors and adjacent controls together and shrinks the toolbar to fit, with a compact minimum width for the shape controls. All presets may be deleted without losing the current ink color. Restore the default palette in settings.
+Editable presets sit in a compact, draggable bottom palette. Click **+** after the colors, choose a color or enter its HEX value, then click **Add / 添加** (or press Return) to save and select it. Esc, Cancel, or clicking outside cancels the addition and restores the previous ink. There is no six-preset limit: colors wrap into rows of six, and the toolbar grows or shrinks as needed. Option + 1–6 still selects the first six positions. Drag presets between rows to reorder them; additional positions are selected by clicking. Adding an existing color selects its preset without creating a duplicate.
+
+Right-click a preset to edit or delete it. Editing offers Cancel and Done; accepting the picker saves the edit, and Escape cancels it. Deleting a preset shifts remaining colors and adjacent controls together, removes empty rows, and shrinks the toolbar to fit, with a compact minimum width for the shape controls. All presets may be deleted without losing the current ink color. Restore the default palette in Settings.
+
+For a custom color without adding a preset, right-click **+** and choose **自定义颜色…**, or use **Shift + Command + C**. The picker includes a saturation/brightness surface, hue slider, six-digit HEX input, screen eyedropper, and six recent custom colors. Its **Replace current preset** and **Add** actions remain available. Hover over presets to see their names and available shortcuts.
 
 Color changes affect new content, or selected objects. While editing text, the
 whole variable changes color and keeps its content. Custom colors preview live;

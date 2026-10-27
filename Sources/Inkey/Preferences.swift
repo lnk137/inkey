@@ -125,12 +125,16 @@ final class UserPreferences {
     func ink(dark: Bool) -> SavedInk? {
         guard let data = defaults.data(forKey: dark ? "lastDarkInk" : "lastLightInk"),
               let saved = try? JSONDecoder().decode(SavedInk.self, from: data),
-              (0..<6).contains(saved.slot),
+              validInkSlot(saved.slot, dark: dark),
               [saved.color.red, saved.color.green, saved.color.blue].allSatisfy({ $0.isFinite && (0...1).contains($0) }) else { return nil }
         return saved
     }
     func saveInk(_ saved: SavedInk, dark: Bool) {
-        guard (0..<6).contains(saved.slot), let data = try? JSONEncoder().encode(saved) else { return }
+        guard validInkSlot(saved.slot, dark: dark), let data = try? JSONEncoder().encode(saved) else { return }
         defaults.set(data, forKey: dark ? "lastDarkInk" : "lastLightInk")
+    }
+    private func validInkSlot(_ slot: Int, dark: Bool) -> Bool {
+        let count = defaults.stringArray(forKey: dark ? "darkPresets" : "lightPresets")?.compactMap(InkColor.parse).count ?? 6
+        return slot >= 0 && slot < max(6, count)
     }
 }
