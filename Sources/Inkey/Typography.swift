@@ -43,15 +43,15 @@ final class InkTextLayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
 enum InkTypography {
     static func font(_ size: CGFloat) -> NSFont { .monospacedSystemFont(ofSize: size, weight: .regular) }
     static func lineHeight(_ size: CGFloat) -> CGFloat { ceil(size * 1.45) }
-    static func attributes(size: CGFloat, color: InkColor) -> [NSAttributedString.Key: Any] {
+    static func attributes(size: CGFloat, color: InkColor, tracking: CGFloat = 0) -> [NSAttributedString.Key: Any] {
         let paragraph = NSMutableParagraphStyle()
         paragraph.minimumLineHeight = lineHeight(size); paragraph.maximumLineHeight = lineHeight(size)
         // Explicit spacing keeps mixed-script glyph positions identical in an
         // editable text view and a freshly created layout used for saved ink.
-        return [.font: font(size), .foregroundColor: color.nsColor, .paragraphStyle: paragraph, .kern: 0]
+        return [.font: font(size), .foregroundColor: color.nsColor, .paragraphStyle: paragraph, .kern: tracking]
     }
-    static func layout(_ text: String, size: CGFloat, color: InkColor) -> (NSTextStorage, InkTextLayoutManager, NSTextContainer) {
-        let storage = NSTextStorage(string: text, attributes: attributes(size: size, color: color))
+    static func layout(_ text: String, size: CGFloat, color: InkColor, tracking: CGFloat = 0) -> (NSTextStorage, InkTextLayoutManager, NSTextContainer) {
+        let storage = NSTextStorage(string: text, attributes: attributes(size: size, color: color, tracking: tracking))
         let manager = InkTextLayoutManager(); manager.pointSize = size
         let container = NSTextContainer(containerSize: NSSize(width: 100000, height: 100000))
         container.lineFragmentPadding = 0
@@ -64,15 +64,22 @@ enum InkTypography {
         let used = manager.usedRect(for: container)
         return NSSize(width: max(16, ceil(used.maxX) + 4), height: max(lineHeight(pointSize), ceil(used.maxY) + 3))
     }
-    static func size(_ text: String, fontSize: CGFloat) -> NSSize {
-        let (storage, manager, container) = layout(text, size: fontSize, color: InkColor.light[0])
+    static func size(_ text: String, fontSize: CGFloat, tracking: CGFloat = 0) -> NSSize {
+        let (storage, manager, container) = layout(text, size: fontSize, color: InkColor.light[0], tracking: tracking)
         defer { _ = storage }
         return editorSize(manager, container, pointSize: fontSize)
     }
-    static func draw(_ text: String, at point: NSPoint, size: CGFloat, color: InkColor, contrast: CGFloat = 0, scale: CGFloat = 1) {
-        let (storage, manager, container) = layout(text, size: size, color: color)
+    static func displayBounds(for item: InkItem, tracking: CGFloat = 0) -> NSRect {
+        let raw = item.bounds
+        guard item.kind == .text, tracking > 0 else { return raw }
+        let expanded = size(item.text, fontSize: item.fontSize, tracking: tracking)
+        return NSRect(x: raw.midX - expanded.width / 2, y: raw.minY, width: expanded.width, height: expanded.height)
+    }
+    static func draw(_ text: String, at point: NSPoint, size: CGFloat, color: InkColor, contrast: CGFloat = 0, scale: CGFloat = 1, tracking: CGFloat = 0) {
+        let (storage, manager, container) = layout(text, size: size, color: color, tracking: tracking)
         defer { _ = storage }
         manager.contrastStrength = { contrast }; manager.renderingScale = { scale }
-        manager.drawGlyphs(forGlyphRange: manager.glyphRange(for: container), at: point)
+        let extra = tracking > 0 ? editorSize(manager, container, pointSize: size).width - Self.size(text, fontSize: size).width : 0
+        manager.drawGlyphs(forGlyphRange: manager.glyphRange(for: container), at: NSPoint(x: point.x - extra / 2, y: point.y))
     }
 }

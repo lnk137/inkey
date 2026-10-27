@@ -42,6 +42,14 @@ final class UserPreferences {
         get { defaults.bool(forKey: "highContrast") }
         set { defaults.set(newValue, forKey: "highContrast") }
     }
+    var highContrastTextSpacing: Double {
+        get {
+            guard defaults.object(forKey: "highContrastTextSpacing") != nil else { return 4 }
+            let value = defaults.double(forKey: "highContrastTextSpacing")
+            return value.isFinite ? min(12, max(0, value)) : 4
+        }
+        set { defaults.set(newValue.isFinite ? min(12, max(0, newValue)) : 4, forKey: "highContrastTextSpacing") }
+    }
     var screenHighContrast: Bool {
         get { defaults.bool(forKey: "screenHighContrast") }
         set { defaults.set(newValue, forKey: "screenHighContrast") }

@@ -112,6 +112,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     func setHighContrast(_ enabled: Bool, animated: Bool = true) {
         highContrastEnabled = enabled
+        refreshHighContrastSpacing()
         contrastTimer?.invalidate(); contrastTimer = nil
         let target: CGFloat = enabled ? 1 : 0
         guard animated, window?.isVisible == true, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
@@ -129,6 +130,15 @@ final class CanvasView: NSView, NSTextViewDelegate {
         if let contrastTimer { RunLoop.main.add(contrastTimer, forMode: .common) }
     }
     var onInteraction: (() -> Void)?
+    var displayTextTracking: CGFloat { highContrastEnabled ? preferences.highContrastTextSpacing / draft.zoom : 0 }
+    func displayBounds(for item: InkItem, scale: CGFloat? = nil) -> NSRect {
+        let tracking = highContrastEnabled ? preferences.highContrastTextSpacing / (scale ?? draft.zoom) : 0
+        return InkTypography.displayBounds(for: item, tracking: tracking)
+    }
+    func refreshHighContrastSpacing() {
+        refreshTextLayout(); needsDisplay = true
+        window?.invalidateCursorRects(for: self)
+    }
     var pointPlacement: Bool { UserDefaults.standard.bool(forKey: "pointerPlacement") }
     private var active: InkItem?
     private var editor: InlineTextView?
@@ -538,11 +548,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
     func containsCanvasPoint(_ point: NSPoint) -> Bool { bounds.insetBy(dx: 12, dy: 12).contains(point) }
     func item(at point: NSPoint) -> InkItem? {
-        draft.items.reversed().first { $0.hit(point, tolerance: 7 / draft.zoom) }
+        draft.items.reversed().first {
+            $0.kind == .text ? displayBounds(for: $0).insetBy(dx: -7 / draft.zoom, dy: -7 / draft.zoom).contains(point) : $0.hit(point, tolerance: 7 / draft.zoom)
+        }
     }
     private func textOrImage(at point: NSPoint) -> InkItem? {
         draft.items.reversed().first {
-            $0.id != editingID && ($0.kind == .text || $0.kind == .image) && $0.bounds.contains(point)
+            $0.id != editingID && ($0.kind == .text || $0.kind == .image) && displayBounds(for: $0).contains(point)
         }
     }
 
@@ -564,7 +576,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         for item in draft.items where item.id != editingID { render(item) }
         if let active { render(active) }
         if let selection, let item = draft.items.first(where: { $0.id == selection }) {
-            let rect = item.kind == .text ? item.bounds.insetBy(dx: -5 / draft.zoom, dy: -4 / draft.zoom) : item.bounds.insetBy(dx: -6 / draft.zoom, dy: -6 / draft.zoom)
+            let rect = item.kind == .text ? displayBounds(for: item).insetBy(dx: -5 / draft.zoom, dy: -4 / draft.zoom) : item.bounds.insetBy(dx: -6 / draft.zoom, dy: -6 / draft.zoom)
             NSColor.controlAccentColor.withAlphaComponent(0.65).setStroke()
             let border = NSBezierPath(roundedRect: rect, xRadius: 4 / draft.zoom, yRadius: 4 / draft.zoom)
             border.lineWidth = 1 / draft.zoom; border.setLineDash([4 / draft.zoom, 3 / draft.zoom], count: 2, phase: 0); border.stroke()
@@ -581,7 +593,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             context.restoreGState()
         }
         if editor == nil, let selection, let item = draft.items.first(where: { $0.id == selection }), item.kind == .text {
-            drawTextResizeHandles(in: viewRect(item.bounds).insetBy(dx: -5, dy: -4))
+            drawTextResizeHandles(in: viewRect(displayBounds(for: item)).insetBy(dx: -5, dy: -4))
         }
         if let imageBoxFrame { drawTextResizeHandles(in: imageBoxFrame) }
         if cursorTrailEnabled, !typingCaretVisible, !isDrawing, !isHoverEditing, !effectiveEraserEnabled {
@@ -610,7 +622,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     func render(_ item: InkItem) {
         guard let first = item.points.first?.point else { return }
         if item.kind == .text {
-            InkTypography.draw(item.text, at: first, size: item.fontSize, color: item.color, contrast: contrastStrength, scale: draft.zoom)
+            InkTypography.draw(item.text, at: first, size: item.fontSize, color: item.color, contrast: contrastStrength, scale: draft.zoom, tracking: displayTextTracking)
             return
         }
         if item.kind == .image {
@@ -757,7 +769,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         if isHoverEditing { return nil }
         if let editor, editor.allowsMouseSelection, !editor.string.isEmpty { return editor.frame.insetBy(dx: -5, dy: -4) }
         if let selection, let item = draft.items.first(where: { $0.id == selection }), item.kind == .text {
-            return viewRect(item.bounds).insetBy(dx: -5, dy: -4)
+            return viewRect(displayBounds(for: item)).insetBy(dx: -5, dy: -4)
         }
         return nil
     }
@@ -808,7 +820,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         guard let id = currentID ?? (wasEditing ? draft.items.last?.id : nil),
               let item = draft.items.first(where: { $0.id == id }), item.kind == .text else { return }
         selection = id
-        textResize = TextResizeGesture(items: draft.items, item: item, corner: corner, start: world(convert(windowPoint, from: nil)))
+        textResize = TextResizeGesture(items: draft.items, item: item, corner: corner, start: world(convert(windowPoint, from: nil)), textTracking: displayTextTracking)
     }
 
     private func positionTextCaret(at windowPoint: NSPoint) {
@@ -1026,6 +1038,22 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     func refreshTextLayout() {
         guard let editor, let manager = editor.layoutManager, let container = editor.textContainer else { return }
+        let tracking = displayTextTracking
+        editor.typingAttributes[.kern] = tracking
+        editor.markedTextAttributes?[.kern] = tracking
+        if let storage = editor.textStorage, storage.length > 0 {
+            var needsTracking = false
+            storage.enumerateAttribute(.kern, in: NSRange(location: 0, length: storage.length)) { value, _, _ in
+                if (value as? NSNumber)?.doubleValue != tracking { needsTracking = true }
+            }
+            if needsTracking {
+                let undo = editor.undoManager
+                let enabled = undo?.isUndoRegistrationEnabled == true
+                if enabled { undo?.disableUndoRegistration() }
+                storage.addAttribute(.kern, value: tracking, range: NSRange(location: 0, length: storage.length))
+                if enabled { undo?.enableUndoRegistration() }
+            }
+        }
         // Lay out in canvas units, then scale the view just like committed text.
         // Laying out a larger font instead changes rounded baselines and glyph metrics.
         let layoutSize = InkTypography.editorSize(manager, container, pointSize: editingFontSize)
@@ -1034,7 +1062,11 @@ final class CanvasView: NSView, NSTextViewDelegate {
         if let textCenterAnchor {
             let center = screen(textCenterAnchor)
             origin = NSPoint(x: center.x - size.width / 2, y: center.y - size.height / 2)
-        } else { origin = screen(draft.anchor.point) }
+        } else {
+            let raw = InkTypography.size(editor.string, fontSize: editingFontSize)
+            let anchor = screen(draft.anchor.point)
+            origin = NSPoint(x: anchor.x - (layoutSize.width - raw.width) * draft.zoom / 2, y: anchor.y)
+        }
         editor.setFrameSize(size)
         editor.setBoundsSize(layoutSize)
         editor.setFrameOrigin(origin)
@@ -1113,7 +1145,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     func fit() {
         commitText()
         guard let first = draft.items.first else { draft.zoom = 1; draft.offset = InkPoint(.zero); changed(); return }
-        let rect = draft.items.dropFirst().reduce(first.bounds) { $0.union($1.bounds) }
+        let rect = draft.items.dropFirst().reduce(displayBounds(for: first)) { $0.union(displayBounds(for: $1)) }
         draft.zoom = min(2, max(0.2, min((bounds.width - 100) / max(1, rect.width), (bounds.height - 140) / max(1, rect.height))))
         draft.offset = InkPoint(NSPoint(x: (bounds.width - rect.width * draft.zoom) / 2 - rect.minX * draft.zoom, y: (bounds.height - rect.height * draft.zoom) / 2 - rect.minY * draft.zoom - 20))
         changed()
@@ -1129,14 +1161,14 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     func exportBounds() -> NSRect {
         guard let first = draft.items.first else { return NSRect(x: 0, y: 0, width: 820, height: 560) }
-        return draft.items.dropFirst().reduce(first.bounds) { $0.union($1.bounds) }.insetBy(dx: -40, dy: -40)
+        return draft.items.dropFirst().reduce(displayBounds(for: first, scale: 1)) { $0.union(displayBounds(for: $1, scale: 1)) }.insetBy(dx: -40, dy: -40)
     }
 
     func exportData(pdf: Bool) -> Data? {
         commitText()
         let rect = exportBounds()
         guard rect.width < 20000, rect.height < 20000, rect.width * rect.height < 80_000_000 else { return nil }
-        let export = CanvasView(frame: NSRect(origin: .zero, size: rect.size))
+        let export = CanvasView(frame: NSRect(origin: .zero, size: rect.size), preferences: preferences)
         export.setHighContrast(highContrastEnabled, animated: false)
         export.hintVisible = false; export.draft = draft; export.draft.zoom = 1
         export.draft.offset = InkPoint(NSPoint(x: -rect.minX, y: -rect.minY))

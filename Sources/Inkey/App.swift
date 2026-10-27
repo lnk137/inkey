@@ -113,6 +113,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     var previousApp: NSRunningApplication?
     var fontSizeField: NSTextField?
     var fontSizeStepper: NSStepper?
+    var contrastSpacingLabel: NSTextField?
     var shortcutRecorder: ShortcutRecorder?
     var shortcutRecorders: [ShortcutAction: [ShortcutRecorder]] = [:]
     var shortcutPage: ShortcutSettingsView?
@@ -704,11 +705,21 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         autoContrast.state = preferences.autoHighContrastOnScreen ? .on : .off
         autoContrast.target = self; autoContrast.action = #selector(changeAutoHighContrast(_:))
         autoContrast.setAccessibilityLabel("进入屏幕草稿时自动开启高对比")
+        let spacing = NSSlider(value: preferences.highContrastTextSpacing, minValue: 0, maxValue: 12, target: self, action: #selector(changeHighContrastSpacing(_:)))
+        spacing.isContinuous = true; spacing.widthAnchor.constraint(equalToConstant: 116).isActive = true
+        spacing.setAccessibilityLabel("高对比字间距")
+        let spacingValue = NSTextField(labelWithString: String(format: "%.1f pt", preferences.highContrastTextSpacing))
+        spacingValue.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        spacingValue.alignment = .right; spacingValue.widthAnchor.constraint(equalToConstant: 44).isActive = true
+        contrastSpacingLabel = spacingValue
+        let spacingControls = NSStackView(views: [spacing, spacingValue])
+        spacingControls.orientation = .horizontal; spacingControls.alignment = .centerY; spacingControls.spacing = 8
         let canvas = SettingsLayout.section("画布与工具栏", rows: [
-            SettingsLayout.row("进入屏幕草稿时自动开启高对比", control: autoContrast),
-            SettingsLayout.row("十字指针轨迹", control: trail),
-            SettingsLayout.row("折叠动画", control: animation),
-            SettingsLayout.row("预设颜色", control: reset)
+            SettingsLayout.row("进入屏幕草稿时自动开启高对比", control: autoContrast, height: 36),
+            SettingsLayout.row("高对比字间距", control: spacingControls, height: 36),
+            SettingsLayout.row("十字指针轨迹", control: trail, height: 36),
+            SettingsLayout.row("折叠动画", control: animation, height: 36),
+            SettingsLayout.row("预设颜色", control: reset, height: 36)
         ])
         let panel = SettingsLayout.window(sections: [general, typing, canvas])
         installShortcutSettings(in: panel)

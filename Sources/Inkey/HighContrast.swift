@@ -1,6 +1,14 @@
 import AppKit
 
 extension InkeyApp {
+    @objc func changeHighContrastSpacing(_ sender: NSSlider) {
+        preferences.highContrastTextSpacing = (sender.doubleValue * 2).rounded() / 2
+        sender.doubleValue = preferences.highContrastTextSpacing
+        contrastSpacingLabel?.stringValue = String(format: "%.1f pt", preferences.highContrastTextSpacing)
+        canvas.refreshHighContrastSpacing()
+        if let screenCanvas, screenCanvas !== canvas { screenCanvas.refreshHighContrastSpacing() }
+        canvasPresentation?.canvas.refreshHighContrastSpacing()
+    }
     @objc func changeAutoHighContrast(_ sender: NSSwitch) {
         preferences.autoHighContrastOnScreen = sender.state == .on
     }

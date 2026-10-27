@@ -2,7 +2,7 @@ import AppKit
 
 /// Shared spacing and native surfaces for the compact, single-page settings window.
 enum SettingsLayout {
-    static func row(_ title: String, detail: NSTextField? = nil, control: NSView) -> NSView {
+    static func row(_ title: String, detail: NSTextField? = nil, control: NSView, height: CGFloat = 44) -> NSView {
         let row = NSView()
         let label = NSTextField(labelWithString: title)
         label.font = .systemFont(ofSize: 13)
@@ -21,11 +21,11 @@ enum SettingsLayout {
         }
         control.setContentHuggingPriority(.required, for: .horizontal)
         control.setContentCompressionResistancePriority(.required, for: .horizontal)
-        let preferredHeight = row.heightAnchor.constraint(equalToConstant: detail == nil ? 44 : 62)
+        let preferredHeight = row.heightAnchor.constraint(equalToConstant: detail == nil ? height : 62)
         preferredHeight.priority = .defaultHigh
         preferredHeight.isActive = true
         NSLayoutConstraint.activate([
-            row.heightAnchor.constraint(greaterThanOrEqualToConstant: detail == nil ? 44 : 62),
+            row.heightAnchor.constraint(greaterThanOrEqualToConstant: detail == nil ? height : 62),
             labels.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 14),
             labels.trailingAnchor.constraint(equalTo: control.leadingAnchor, constant: -20),
             labels.centerYAnchor.constraint(equalTo: row.centerYAnchor),
