@@ -21,6 +21,8 @@ A native macOS scratchpad where variables, sketches, and diagrams flow together.
 ## Contents
 
 - [Usage](#usage)
+- [Work in context](#work-in-context)
+- [Keep a sketch flexible](#keep-a-sketch-flexible)
 - [Features](#features)
 - [Installation](#installation)
 - [Shortcuts and settings](#shortcuts)
@@ -44,6 +46,22 @@ Solving a problem in your browser? Press **⌃⌥Space** to bring up the scratch
 ![Inkey's native canvas showing a two-pointer algorithm with typed variables, hand-drawn circles, arrows, and a compact color palette.](docs/assets/inkey-canvas.png)
 
 <sub>Example draft rendered with Inkey's native AppKit components.</sub>
+
+## Work in context
+
+Bring up a transparent screen draft over the app you are using. High contrast keeps your notes legible over light and dark content.
+
+![An Inkey screen-draft illustration over a synthetic coding workspace, with high-contrast notes and the native toolbar.](docs/assets/inkey-screen-draft.png)
+
+<sub>Illustrative composition using Inkey's native canvas and a synthetic background; it does not show a personal screen.</sub>
+
+## Keep a sketch flexible
+
+Select a shape and drag a corner to resize it. Inkey keeps the opposite corner fixed; each gesture is one undo step.
+
+![Animation of a selected rectangle resizing on the Inkey canvas.](docs/assets/inkey-resize.gif)
+
+<sub>Rendered from Inkey's native canvas and resize geometry. [View a still image](docs/assets/inkey-shape-selection.png).</sub>
 
 <a id="features"></a>
 
@@ -146,4 +164,4 @@ Tests cover text/drawing transitions, input methods, pointer alignment, vector e
 ./scripts/render-readme.sh
 ```
 
-This script generates the README logo from the app icon source and updates the native AppKit preview with synthetic content. Images are saved in `docs/assets/`.
+This script generates the README logo, native AppKit previews, and resize animation using synthetic content. Images are saved in `docs/assets/`.
