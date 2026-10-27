@@ -231,8 +231,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
               NSEvent.pressedMouseButtons == 0, window?.isKeyWindow == true,
               containsCanvasPoint(point), isCanvasLocation?(windowPoint) ?? true,
               editor?.hasMarkedText() != true else { cancelTextHover(); return }
-        let liveHit = editor.map { $0.frame.contains(point) && $0.containsText(at: windowPoint) } ?? false
-        let saved = draft.items.reversed().first { $0.kind == .text && viewRect($0.bounds).contains(point) }
+        let liveHit = editor.map { !$0.string.isEmpty && $0.frame.contains(point) && $0.containsText(at: windowPoint) } ?? false
+        let topContent = textOrImage(at: world(point))
+        let saved = topContent?.kind == .text ? topContent : nil
         guard liveHit || saved != nil else { cancelTextHover(); return }
         if let start = hoverStart, hypot(windowPoint.x - start.point.x, windowPoint.y - start.point.y) <= 4 {
             guard time - start.time >= 0.45 else { return }
@@ -477,6 +478,11 @@ final class CanvasView: NSView, NSTextViewDelegate {
     func containsCanvasPoint(_ point: NSPoint) -> Bool { bounds.insetBy(dx: 12, dy: 12).contains(point) }
     func item(at point: NSPoint) -> InkItem? {
         draft.items.reversed().first { $0.hit(point, tolerance: 7 / draft.zoom) }
+    }
+    private func textOrImage(at point: NSPoint) -> InkItem? {
+        draft.items.reversed().first {
+            $0.id != editingID && ($0.kind == .text || $0.kind == .image) && $0.bounds.contains(point)
+        }
     }
 
     override func draw(_ dirtyRect: NSRect) {

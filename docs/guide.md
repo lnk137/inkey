@@ -73,6 +73,8 @@ Pause over text for about **0.45 seconds** to enter quiet editing. Small pointer
 
 Leaving the text view clears quiet editing even during native selection drags. Returning always starts a fresh dwell; dragging immediately after returning draws.
 
+Images do not activate text editing on hover. An image covering saved text blocks hover editing of that text; text drawn above an image remains editable.
+
 The canvas uses a crosshair pointer outside quiet hover editing, including during explicit editing and erasing. Only the active native text editor displays an insertion caret. Moving the mouse hides that caret immediately, even for a small movement or during precise editing; typing or correcting text shows it again. There are no extra anchor markers or pointer carets. An optional translucent trail follows the crosshair hotspot and fades within 0.18 seconds. It stops during typing, drawing, and erasing and never appears in exports. Toggle **Crosshair trail / 十字指针轨迹** in Settings; its preference is remembered.
 
 Pointer placement is the default. Moving at least 12 screen points from the last typing position makes the next printable key commit the current variable and start another centered on the pointer hotspot, including after pan and zoom. The last canvas mouse event determines this position, so activating the window or starting IME composition cannot replace it with a stale sampled location. Smaller movements keep typing in the same variable. Backspace and arrow keys keep correcting the current variable; precise editing and active input-method composition keep their original location. Hover alone never commits text.

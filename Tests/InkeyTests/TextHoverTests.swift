@@ -113,6 +113,23 @@ struct TextHoverTests {
         #expect(canvas.isHoverEditing)
     }
 
+    @Test func imageBlocksHoverEditingOfCoveredTextButTextAboveImageStillEdits() {
+        let (window, canvas, point) = setup()
+        let text = canvas.draft.items[0]
+        let image = InkItem(kind: .image, points: [InkPoint(NSPoint(x: 90, y: 90))], color: InkColor.light[0], imageWidth: 300, imageHeight: 200)
+        canvas.draft.items = [text, image]
+        canvas.updatePointerLocation(point)
+        canvas.updateTextHover(at: point, time: 10)
+        canvas.updateTextHover(at: point, time: 11)
+        #expect(!canvas.isHoverEditing && !canvas.isEditing)
+        #expect(canvas.textBoxFrame == nil)
+        canvas.draft.items = [image, text]
+        canvas.updateTextHover(at: point, time: 12)
+        canvas.updateTextHover(at: point, time: 12.46)
+        #expect(canvas.isHoverEditing)
+        #expect(window.firstResponder is InlineTextView)
+    }
+
     @Test func crossingJustOutsideTheEditorResetsEditingAndImmediateDragDraws() throws {
         let (window, canvas, point) = setup()
         canvas.updatePointerLocation(point)
