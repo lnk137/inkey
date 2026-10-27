@@ -806,7 +806,13 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         showWindow()
         return true
     }
-    func application(_ sender: NSApplication, openFile filename: String) -> Bool { importURL(URL(fileURLWithPath: filename)); return true }
+    func application(_ sender: NSApplication, openFile filename: String) -> Bool {
+        if ProcessInfo.processInfo.arguments.contains("--smoke-test") {
+            fputs("Smoke test ignored an open-file event.\n", stderr)
+            return false
+        }
+        importURL(URL(fileURLWithPath: filename)); return true
+    }
     func alert(_ title: String, _ message: String) {
         let previous = suppressAutoHide; suppressAutoHide = true
         let alert = NSAlert(); alert.messageText = title; alert.informativeText = message
