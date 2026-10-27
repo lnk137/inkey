@@ -21,8 +21,9 @@ A native macOS scratchpad where variables, sketches, and diagrams flow together.
 ## Contents
 
 - [Usage](#usage)
-- [Work in context](#work-in-context)
-- [Keep a sketch flexible](#keep-a-sketch-flexible)
+- [From thought to notes](#note-flow)
+- [Refine the same note](#adjust-flow)
+- [Take notes over a lesson](#screen-flow)
 - [Features](#features)
 - [Installation](#installation)
 - [Shortcuts and settings](#shortcuts)
@@ -47,21 +48,28 @@ Solving a problem in your browser? Press **⌃⌥Space** to bring up the scratch
 
 <sub>Example draft rendered with Inkey's native AppKit components.</sub>
 
-## Work in context
+<a id="note-flow"></a>
+## From thought to notes
 
-Bring up a transparent screen draft over the app you are using. High contrast keeps your notes legible over light and dark content.
+Type a deep-learning note, draw with the pen, add shapes, and paste a reference image without leaving the canvas.
 
-![An Inkey screen-draft illustration over a synthetic coding workspace, with high-contrast notes and the native toolbar.](docs/assets/inkey-screen-draft.png)
+![Animation of typing an English deep-learning note, drawing, creating shapes, and pasting a training-loss image.](docs/assets/inkey-note-flow.gif)
 
-<sub>Illustrative composition using Inkey's native canvas and a synthetic background; it does not show a personal screen.</sub>
+<a id="adjust-flow"></a>
+## Refine the same note
 
-## Keep a sketch flexible
+Right-click text, a shape, or an image to select it, then use a corner to resize it. Each gesture is one undo step.
 
-Select a shape and drag a corner to resize it. Inkey keeps the opposite corner fixed; each gesture is one undo step.
+![Animation of selecting and resizing text, a rectangle, and an image in the same note.](docs/assets/inkey-adjust-flow.gif)
 
-![Animation of a selected rectangle resizing on the Inkey canvas.](docs/assets/inkey-resize.gif)
+<a id="screen-flow"></a>
+## Take notes over a lesson
 
-<sub>Rendered from Inkey's native canvas and resize geometry. [View a still image](docs/assets/inkey-shape-selection.png).</sub>
+Open a screen draft over a lesson and write directly on top. High contrast helps notes remain visible across light and dark content.
+
+![Animation of high-contrast notes over a synthetic English deep-learning course page.](docs/assets/inkey-screen-flow.gif)
+
+<sub>These demonstrations use Inkey's native canvas and transformation geometry with synthetic content. The course page is an illustration, not a recording of a real website or personal screen.</sub>
 
 <a id="features"></a>
 
@@ -164,4 +172,4 @@ Tests cover text/drawing transitions, input methods, pointer alignment, vector e
 ./scripts/render-readme.sh
 ```
 
-This script generates the README logo, native AppKit previews, and resize animation using synthetic content. Images are saved in `docs/assets/`.
+This script generates the README logo, native AppKit previews and three demonstration animations using synthetic content. Images are saved in `docs/assets/`.

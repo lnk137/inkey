@@ -21,6 +21,9 @@
 ## 目录
 
 - [使用说明](#usage)
+- [从想法到笔记](#note-flow)
+- [调整同一份笔记](#adjust-flow)
+- [在课程页面上做笔记](#screen-flow)
 - [特色功能](#features)
 - [安装指南](#installation)
 - [快捷键与设置](#shortcuts)
@@ -44,6 +47,29 @@ Inkey 把文字输入、手绘和临时工具放进同一套操作逻辑里。**
 ![Inkey 原生画布：用文字、手绘圆圈和箭头推演双指针算法，底部为精简调色盘。](docs/assets/inkey-canvas.png)
 
 <sub>示例草稿，由 Inkey 的原生 AppKit 界面渲染。</sub>
+
+<a id="note-flow"></a>
+## 从想法到笔记
+
+直接输入深度学习英文笔记，随手画线、绘制图形，再粘贴参考图片，整个过程无需离开画布。
+
+![动画：输入英文深度学习笔记、手绘、绘制图形并粘贴训练损失图片。](docs/assets/inkey-note-flow.gif)
+
+<a id="adjust-flow"></a>
+## 接着调整同一份笔记
+
+右键选中文字、图形或图片，拖动角点调整大小；每次操作都可以一步撤销。
+
+![动画：选中并调整同一份笔记中的文字、矩形和图片。](docs/assets/inkey-adjust-flow.gif)
+
+<a id="screen-flow"></a>
+## 在课程页面上做笔记
+
+在学习页面上呼出屏幕草稿，直接覆盖书写；高对比显示让标注在明暗背景上都清晰可见。
+
+![动画：在合成英文深度学习课程页面上使用高对比屏幕草稿。](docs/assets/inkey-screen-flow.gif)
+
+<sub>演示使用 Inkey 原生画布和变换逻辑，并以合成内容制作；课程页面是示意图，不是真实网站或个人屏幕录制。</sub>
 
 <a id="features"></a>
 
@@ -146,4 +172,4 @@ swift test
 ./scripts/render-readme.sh
 ```
 
-此脚本从应用图标源生成 README Logo，并用原生 AppKit 组件和合成内容更新示例配图；图片保存在 `docs/assets/`。
+此脚本从应用图标源生成 README Logo，并用原生 AppKit 组件和合成内容更新示例配图与三段演示动画；图片保存在 `docs/assets/`。

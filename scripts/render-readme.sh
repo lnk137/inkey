@@ -7,6 +7,6 @@ trap 'rm -rf "$logo_dir"' EXIT
 swift scripts/make-icon.swift "$logo_dir"
 cp "$logo_dir/Inkey.iconset/icon_256x256@2x.png" docs/assets/inkey-logo.png
 swiftc -swift-version 5 -parse-as-library -D README_ASSETS \
-  Sources/Inkey/*.swift scripts/render-readme.swift \
+  Sources/Inkey/*.swift scripts/render-readme.swift scripts/render-readme-flows.swift \
   -o build/readme-tools/render-readme
 build/readme-tools/render-readme

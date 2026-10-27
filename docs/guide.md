@@ -2,7 +2,7 @@
 
 [Back to the overview](../README.md)
 
-The [README](../README.md) illustrates shape resizing and screen drafts with native canvas renders and synthetic content.
+The [README](../README.md) illustrates note taking, object resizing, and screen drafts with native canvas renders and synthetic content.
 
 Inkey supports Simplified Chinese and English. Choose a language at the top of Settings, then quit and reopen Inkey to apply it. The default is Simplified Chinese. This guide uses the English interface labels. Some macOS system dialogs follow the system language.
 
