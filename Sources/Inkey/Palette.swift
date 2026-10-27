@@ -511,8 +511,9 @@ final class PaletteView: NSView, NSPopoverDelegate {
         guard let initialColor else { return }
         previewController?.onPreview = nil
         let accepted = acceptPreview && (pickerPurpose != .add || pendingPresetAddition != nil)
+        let before = accepted && pendingPresetAddition != nil && !isCollapsed ? layoutAnimation.capture(in: self) : nil
         if accepted {
-            if let color = pendingPresetAddition { addPreset(color) }
+            if let color = pendingPresetAddition { addPreset(color, animated: false) }
             if let index = editingPreset, colors.indices.contains(index) { colors[index] = current; persistPresets() }
             var recent = recentColors.filter { $0 != current }; recent.insert(current, at: 0)
             recentColors = Array(recent.prefix(6))
@@ -523,6 +524,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         pendingPresetAddition = nil
         self.initialColor = nil; popover = nil; previewController = nil
         updateButtons(); onRestoreFocus?()
+        if let before { layoutAnimation.animate(from: before, in: self) }
     }
     @objc func toggleCollapsed() {
         let animated = window?.isVisible == true && !isHidden && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -628,10 +630,12 @@ final class PaletteView: NSView, NSPopoverDelegate {
         guard colors.indices.contains(slot) else { return }
         colors[slot] = color; persistPresets()
     }
-    func addPreset(_ color: InkColor) {
+    func addPreset(_ color: InkColor, animated: Bool = true) {
+        let before = animated && !isCollapsed && !colors.contains(color) ? layoutAnimation.capture(in: self) : nil
         if let index = colors.firstIndex(of: color) { slot = index }
         else { colors.append(color); slot = colors.count - 1 }
         current = color; persistPresets()
+        if let before { layoutAnimation.animate(from: before, in: self) }
     }
     func deletePreset(_ index: Int) {
         guard colors.indices.contains(index) else { return }

@@ -5,7 +5,7 @@ import QuartzCore
 @MainActor
 final class ToolbarLayoutAnimation {
     static let duration: CFTimeInterval = 0.22
-    private static let keys = ["position", "bounds", "transform"]
+    private static let keys = ["position", "bounds", "transform", "opacity"]
     struct Geometry {
         let position: CGPoint
         let bounds: CGRect
@@ -33,8 +33,15 @@ final class ToolbarLayoutAnimation {
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
         view.layoutSubtreeIfNeeded(); view.layer?.layoutIfNeeded()
         for item in [view] + view.subviews where !item.isHidden {
-            guard let old = state[ObjectIdentifier(item)], let layer = item.layer else { continue }
+            guard let layer = item.layer else { continue }
+            let old = state[ObjectIdentifier(item)] ?? Geometry(position: layer.position, bounds: layer.bounds,
+                                                               transform: CATransform3DScale(layer.transform, 0.85, 0.85, 1))
             var animated = false
+            if state[ObjectIdentifier(item)] == nil {
+                let fade = CABasicAnimation(keyPath: "opacity")
+                fade.fromValue = 0; fade.toValue = layer.opacity; fade.duration = Self.duration
+                layer.add(fade, forKey: "toolbarReflow.opacity"); animated = true
+            }
             for (key, before, after, changed) in [
                 ("position", NSValue(point: old.position), NSValue(point: layer.position), old.position != layer.position),
                 ("bounds", NSValue(rect: old.bounds), NSValue(rect: layer.bounds), old.bounds != layer.bounds),

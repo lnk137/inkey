@@ -51,7 +51,7 @@ Solving a problem in your browser? Press **⌃⌥Space** to bring up the scratch
 
 - **Connected writing and drawing**: type directly, drag to sketch, and use native input methods. New text stays centered on the crosshair through typing and composition.
 - **Trackpad controls**: scroll with two fingers to pan and pinch to zoom. Shift-drag arrows, lines, rectangles, or ellipses; Option-drag to erase temporarily.
-- **Compact toolbar**: reorder shapes and colors, click **+** to add presets, and move, resize, hide, or collapse the toolbar. Extra colors wrap into rows; the first six keep their shortcuts. Deleting colors smoothly compacts the row and toolbar. Two folding animations respect Reduce Motion.
+- **Compact toolbar**: reorder shapes and colors, click **+** to add presets, and move, resize, hide, or collapse the toolbar. Extra colors wrap into rows; the first six keep their shortcuts. Adding and deleting colors smoothly reflows the row and toolbar. Two folding animations respect Reduce Motion.
 - **Precise text editing**: pause over text for about 0.45 seconds to edit without a box; drag immediately to draw. Right-click for a box with movement and proportional font resizing.
 - **Screen drafts**: press **⌃⌥S** to draw and type on a transparent overlay over the current screen, using the same tools. Press Esc, click Close, or use the shortcut again to exit; screen and paper drafts save separately.
 - **Ready when you need it**: menu bar access, floating, pinned, and full-screen windows, plus silent launch at login.

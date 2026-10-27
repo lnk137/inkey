@@ -6,6 +6,22 @@ import Testing
 @Suite("Toolbar compaction animation", .serialized)
 @MainActor
 struct ToolbarLayoutAnimationTests {
+    @Test func addingAColorAnimatesTheNewSwatchAndExpandsTheShell() throws {
+        try fixture { palette, window in
+            _ = palette.makeColorPopover(purpose: .add)
+            let picker = try #require(palette.popover?.contentViewController as? ColorPanelController)
+            _ = picker.view
+            picker.update(InkColor("123456"), syncSquare: true)
+            picker.addPreset()
+            window.displayIfNeeded()
+            let new = try #require(swatches(palette).last)
+            #expect(new.inkColor == InkColor("123456") && palette.bounds.height == 118)
+            if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+                #expect(new.layer?.animation(forKey: "toolbarReflow.opacity") != nil)
+                #expect(palette.layer?.animation(forKey: "toolbarReflow.bounds") != nil)
+            }
+        }
+    }
     func fixture(_ body: (PaletteView, NSWindow) throws -> Void) throws {
         try PaletteReorderingTests().withPalette { palette, _ in
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 400), styleMask: .borderless, backing: .buffered, defer: false)
