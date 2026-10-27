@@ -19,8 +19,8 @@ struct KeyboardShortcutTests {
     @Test func defaultsAreCompleteUniqueAndKeepLegacyGlobalShortcut() throws {
         try withPreferences { preferences in
             let shortcuts = preferences.shortcuts
-            #expect(ShortcutAction.allCases.count == 35)
-            #expect(ShortcutAction.groups.flatMap(\.1).count == 35)
+            #expect(ShortcutAction.allCases.count == 36)
+            #expect(ShortcutAction.groups.flatMap(\.1).count == 36)
             for action in ShortcutAction.allCases {
                 #expect(shortcuts.binding(for: action) == action.defaultBinding)
                 #expect(shortcuts.conflict(for: action.defaultBinding, excluding: action) == nil)
@@ -49,6 +49,19 @@ struct KeyboardShortcutTests {
             for action in ShortcutAction.allCases { #expect(restored.binding(for: action) == action.defaultBinding) }
             preferences.defaults.set(Data("broken".utf8), forKey: "keyboardShortcuts")
             #expect(restored.binding(for: .save) == ShortcutAction.save.defaultBinding)
+        }
+    }
+    @Test func addingScreenShortcutPreservesExistingCustomCombinations() throws {
+        try withPreferences { preferences in
+            let shortcuts = preferences.shortcuts
+            shortcuts.set(ShortcutAction.screenDraft.defaultBinding, for: .eraser)
+            shortcuts.preserveExistingBindingsForScreenDraft()
+            #expect(shortcuts.binding(for: .eraser) == ShortcutAction.screenDraft.defaultBinding)
+            #expect(shortcuts.binding(for: .screenDraft) == nil)
+            shortcuts.set(nil, for: .eraser)
+            shortcuts.set(KeyBinding(40, [.control, .option], "k"), for: .screenDraft)
+            shortcuts.preserveExistingBindingsForScreenDraft()
+            #expect(shortcuts.label(for: .screenDraft) == "⌃⌥K")
         }
     }
     @Test func conflictChecksPhysicalKeysAndProtectsOrdinaryTyping() throws {
@@ -155,7 +168,7 @@ struct KeyboardShortcutTests {
             defer { window.close() }
             app.settingsTab!.selectedSegment = 1; app.changeSettingsTab(app.settingsTab!)
             let page = try #require(app.shortcutPage)
-            #expect(page.allSubviews.compactMap { $0 as? ShortcutRecorder }.count == 35)
+            #expect(page.allSubviews.compactMap { $0 as? ShortcutRecorder }.count == 36)
             page.searchField.stringValue = "橡皮"
             page.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification))
             page.layoutSubtreeIfNeeded()
@@ -166,7 +179,7 @@ struct KeyboardShortcutTests {
             page.searchField.stringValue = ""
             page.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification))
             page.layoutSubtreeIfNeeded()
-            #expect(page.allSubviews.compactMap { $0 as? ShortcutRecorder }.count == 35)
+            #expect(page.allSubviews.compactMap { $0 as? ShortcutRecorder }.count == 36)
             let first = app.shortcutRecorders[.save]!.first!, second = app.shortcutRecorders[.open]!.first!
             first.beginRecording(); second.beginRecording()
             #expect(!first.recording && second.recording)

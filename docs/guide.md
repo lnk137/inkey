@@ -25,6 +25,7 @@ it is not a notarized distribution build.
 | Action | Result |
 | --- | --- |
 | Control + Option + Space | Show or hide Inkey; return focus to the previous app |
+| Control + Option + S | Enter or exit a transparent screen draft on the pointer’s screen |
 | Move pointer, then type | Create a variable at the pointer, without clicking |
 | Click blank canvas | Place the next text insertion marker |
 | Drag | Draw, including a drag that starts on newly typed text |
@@ -106,7 +107,18 @@ The **General / 常规** page of Settings contains three groups: **General / 通
 
 Login startup initializes the menu bar, draft, and global shortcut without showing any window, restoring full screen, or activating Inkey. A conflicting shortcut is reported only after you explicitly show the canvas. A second login launch leaves an existing instance hidden. Manual opening, the menu bar, and the global shortcut still show the canvas normally. Developers can use `--background` to exercise the same silent path; `--smoke-test` and `--ui-test` retain their visible test behavior.
 
+## Screen drafts
+
+Press **Control + Option + S** from any app, or choose **进入／退出屏幕草稿** in the menu bar or View menu. Inkey hides its paper window and opens a transparent overlay across the screen containing the pointer, including above full-screen apps. The content underneath stays live; Inkey does not take a screenshot or request screen recording permission. While active, the overlay receives pointer and keyboard input for annotations.
+
+Typing, drawing, shapes, erasing, text and image editing, clipboard paste, undo/redo, panning, zooming, and the existing toolbar work just as on paper. The top-right ellipsis provides the usual file and tool actions. Screen annotations have their own draft and undo history, separate from the paper draft. Both survive switching modes; screen annotations also autosave and return the next time you enter screen mode, including after relaunch. New, open, save, recent drafts, and export act on the active draft.
+
+Press the screen shortcut again, click the top-right Close button, or press **Esc** to save pending text and leave the overlay. Esc first cancels an open color picker or toolbar gesture; otherwise it exits even during text editing or object selection. Exit restores the paper window if it was previously visible, or returns to the previous app if it was hidden. **Control + Option + Space** switches directly back to the paper window. Switching to another app dismisses the overlay without stealing focus. The full-screen command returns to paper and uses its existing native full-screen behavior; pinning retains its paper-window preference while the overlay stays above the screen.
+
+Screen drafts save and export annotation objects using the same `.inkey`, PNG, and PDF formats as paper drafts. PNG/PDF use the draft’s saved paper color and do not capture the apps underneath. The close button remains available when the toolbar is hidden.
+
 ## Eraser
+
 
 In **Settings → Shortcuts → 修饰键 → 临时橡皮**, choose Option (the default) or Command for hold-to-erase. Releasing the modifier restores the previous tool without changing the persistent tool preference. With Command selected, Option-click/drag selects and moves; with Option selected, Command-click/drag selects and moves. Release during an erasing drag stops it immediately; the remaining mouse movement is ignored until mouse-up, so it cannot erase further or create an unintended stroke. Focus loss also ends temporary erasing. Each erase gesture remains one undo step.
 
@@ -227,11 +239,11 @@ Right-click text to enter precise editing and reveal its resize box. Drag the ou
 
 Drag any corner to scale the font uniformly while keeping the opposite corner fixed. One drag creates one undo step. Sizes range from **6–200 pt**. By default, the resized size becomes the default for the next text label; turn off **Use resized size for subsequent typing / 拖拽缩放后，设为下次输入字号** in Settings to keep these independent. Set the default directly with the **Default typing font size / 默认输入字号** field or stepper. Existing labels keep their own size; changes to the default apply to newly created labels.
 
-Settings → **Shortcuts / 快捷键** offers 35 configurable actions, searchable by action or group:
+Settings → **Shortcuts / 快捷键** offers 36 configurable actions, searchable by action or group:
 
 | Group | Actions |
 | --- | --- |
-| Global | Show/hide Inkey |
+| Global | Show/hide Inkey, enter/exit screen draft |
 | File | New, open/import, recent drafts, save, save as, export |
 | Editing | Undo, redo, cut, copy, paste, select all |
 | Canvas & tools | Fit content, precise text editing, eraser, smaller/larger eraser, color picker |
@@ -240,9 +252,9 @@ Settings → **Shortcuts / 快捷键** offers 35 configurable actions, searchabl
 | Color positions | Presets 1–6, from left to right |
 | App | Settings, quit |
 
-Click a shortcut to record it. Use Control, Option, or Command, or a function key; shape positions also accept Shift-number combinations. Ordinary typing keys are protected. Esc cancels recording; unmodified Delete clears the binding. Right-click a recorder to clear or restore that action's default. **Restore all defaults / 恢复全部默认** restores all 35 bindings, including the global shortcut. A per-action default that conflicts with another customized action is rejected until that conflict is cleared. Disabling a shortcut leaves its menu or toolbar action available.
+Click a shortcut to record it. Use Control, Option, or Command, or a function key; shape positions also accept Shift-number combinations. Ordinary typing keys are protected. Esc cancels recording; unmodified Delete clears the binding. Right-click a recorder to clear or restore that action's default. **Restore all defaults / 恢复全部默认** restores all 36 bindings, including both global shortcuts. A per-action default that conflicts with another customized action is rejected until that conflict is cleared. Disabling a shortcut leaves its menu or toolbar action available.
 
-Only Show/hide Inkey is global. Other shortcuts work within Inkey; text editing actions follow the focused native text editor and its undo history. The recorder consumes commands such as Command-Q and Command-S while recording, so they cannot quit or save accidentally. Existing app-level conflicts and reserved macOS combinations are rejected without changing the old binding. Global registration failure restores the previous registration when available. Shortcuts intercepted by macOS may require choosing another combination.
+Show/hide Inkey and Screen draft are global. Other shortcuts work within Inkey; text editing actions follow the focused native text editor and its undo history. The recorder consumes commands such as Command-Q and Command-S while recording, so they cannot quit or save accidentally. Existing app-level conflicts and reserved macOS combinations are rejected without changing the old binding. Global registration failure restores the previous registration when available. Shortcuts intercepted by macOS may require choosing another combination.
 
 Changes apply immediately to event handling, menus, and toolbar hints and persist across launches. Existing customized global shortcuts are preserved automatically. Shapes and colors stay bound to toolbar **positions**, including after drag reordering. Shape/color shortcuts do not interrupt marked input-method text. Enter/Shift-Enter, Esc, deletion/navigation, Shift-drag shapes, scrolling, and pinching remain fixed to preserve native text input and gestures. The shortcut combinations elsewhere in this guide are defaults. Help → Keyboard shortcuts opens the same searchable settings page.
 

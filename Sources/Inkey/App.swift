@@ -14,14 +14,20 @@ final class InkeyWindow: NSWindow {
 }
 
 final class HotKey {
+    let identifier: UInt32
     var reference: EventHotKeyRef?
     var handler: EventHandlerRef?
     var onTrigger: (() -> Void)?
-    init() {
+    init(identifier: UInt32 = 1) {
+        self.identifier = identifier
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), { _, _, context -> OSStatus in
-            guard let context else { return OSStatus(eventNotHandledErr) }
+        InstallEventHandler(GetApplicationEventTarget(), { _, event, context -> OSStatus in
+            guard let context, let event else { return OSStatus(eventNotHandledErr) }
             let hotkey = Unmanaged<HotKey>.fromOpaque(context).takeUnretainedValue()
+            var eventID = EventHotKeyID()
+            guard GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
+                                    MemoryLayout<EventHotKeyID>.size, nil, &eventID) == noErr,
+                  eventID.signature == 0x494E4B59, eventID.id == hotkey.identifier else { return OSStatus(eventNotHandledErr) }
             DispatchQueue.main.async { hotkey.onTrigger?() }
             return noErr
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), &handler)
@@ -31,7 +37,7 @@ final class HotKey {
     }
     func register(keyCode: UInt32, modifiers: UInt32) -> Bool {
         if let reference { UnregisterEventHotKey(reference); self.reference = nil }
-        let id = EventHotKeyID(signature: 0x494E4B59, id: 1)
+        let id = EventHotKeyID(signature: 0x494E4B59, id: identifier)
         return RegisterEventHotKey(keyCode, modifiers, id, GetApplicationEventTarget(), 0, &reference) == noErr
     }
     deinit {
@@ -86,11 +92,23 @@ final class ShortcutRecorder: NSButton {
 @main
 final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextFieldDelegate {
     var window: InkeyWindow!
-    let canvas: CanvasView
+    var canvas: CanvasView
     let palette: PaletteView
     let preferences: UserPreferences
-    let store = DraftStore()
+    let store: DraftStore
     let hotkey = HotKey()
+    let screenHotkey = HotKey(identifier: 2)
+    var screenCanvas: CanvasView?
+    var screenWindow: InkeyWindow?
+    var screenFileURL: URL?
+    struct CanvasPresentation {
+        let window: InkeyWindow
+        let canvas: CanvasView
+        let fileURL: URL?
+        let wasVisible: Bool
+    }
+    var canvasPresentation: CanvasPresentation?
+    var isScreenDraft: Bool { canvasPresentation != nil }
     var statusItem: NSStatusItem!
     var previousApp: NSRunningApplication?
     var fontSizeField: NSTextField?
@@ -117,8 +135,9 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     var hotkeyNeedsAttention = false
 
     override convenience init() { self.init(preferences: UserPreferences()) }
-    init(preferences: UserPreferences) {
+    init(preferences: UserPreferences, store: DraftStore = DraftStore()) {
         self.preferences = preferences
+        self.store = store
         canvas = CanvasView(frame: .zero, preferences: preferences)
         palette = PaletteView(frame: NSRect(x: 0, y: 0, width: PaletteView.preferredWidth, height: 80), preferences: preferences)
         super.init()
@@ -152,16 +171,13 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         }
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(reopenFromAnotherInstance(_:)), name: .init("com.lnk137.inkey.show"), object: nil)
         preferences.migrateInteractionDefaults()
+        shortcuts.preserveExistingBindingsForScreenDraft()
         buildMenu()
         buildWindow()
         buildStatusItem()
-        hotkey.onTrigger = { [weak self] in
-            guard let self else { return }
-            if self.settings?.isKeyWindow == true, let recorder = self.activeShortcutRecorder {
-                recorder.accept(self.shortcuts.binding(for: .toggleWindow))
-            } else { self.toggleWindow() }
-        }
-        if !ProcessInfo.processInfo.arguments.contains("--smoke-test") && !registerSavedHotkey() {
+        hotkey.onTrigger = { [weak self] in self?.handleGlobalShortcut(.toggleWindow) }
+        screenHotkey.onTrigger = { [weak self] in self?.handleGlobalShortcut(.screenDraft) }
+        if !ProcessInfo.processInfo.arguments.contains("--smoke-test") && !registerSavedHotkeys() {
             hotkeyNeedsAttention = true
         }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -169,6 +185,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
             if self.settings?.isKeyWindow == true, let recorder = self.activeShortcutRecorder {
                 recorder.keyDown(with: event); return nil
             }
+            if self.window.isKeyWindow, self.handleScreenDraftEscape(event) { return nil }
             guard !self.canvas.isDrawing else { return event }
             if (self.window.isKeyWindow || self.palette.hasPopover), self.handleToolbarVisibilityShortcut(event) { return nil }
             if self.palette.hasPopover && event.keyCode == 53 { self.palette.closePicker(accept: false); return nil }
@@ -177,7 +194,8 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
             if self.handleConfiguredShortcut(event) { return nil }
             return event
         }
-        let restored = UserDefaults.standard.string(forKey: "currentDraft").flatMap { id in store.recent().first { $0.1.id.uuidString == id }?.1 } ?? store.recent().first?.1
+        let recent = store.recent().filter { $0.1.id.uuidString != preferences.defaults.string(forKey: "screenDraft") }
+        let restored = preferences.defaults.string(forKey: "currentDraft").flatMap { id in recent.first { $0.1.id.uuidString == id }?.1 } ?? recent.first?.1
         if let restored { canvas.install(restored) }
         else { canvas.draft.background = isDark ? InkColor("202322") : InkColor("FAF9F6") }
         syncPaletteToPaper()
@@ -232,16 +250,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         palette.onLayoutChange = { [weak self] in self?.layoutPalette(initial: false) }
         layoutPalette(initial: true)
         window.onResize = { [weak self] in self?.layoutPalette(initial: false) }
-        canvas.onDefaultFontSizeChange = { [weak self] _ in self?.syncFontSizeControls() }
-        canvas.onChange = { [weak self] in self?.saveAutomatically() }
-        canvas.onEscape = { [weak self] in self?.hideWindow() }
-        canvas.onInteraction = { [weak self] in self?.palette.closePicker(accept: true) }
-        canvas.isCanvasLocation = { [weak self] point in
-            guard let self else { return false }
-            let canvasPoint = self.canvas.convert(point, from: nil)
-            let palettePoint = self.palette.convert(point, from: nil)
-            return canvasPoint.y > 40 && (self.palette.isHidden || !self.palette.bounds.contains(palettePoint))
-        }
+        configureCanvas(canvas)
         canvas.shiftShape = preferences.shiftShape
         palette.onShape = { [weak self] shape in self?.canvas.shiftShape = shape }
         palette.onColor = { [weak self] color in self?.canvas.applyColor(color) }
@@ -251,11 +260,24 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         palette.onRestoreFocus = { [weak self] in self?.canvas.restoreFocus() }
         palette.onEraser = { [weak self] enabled in self?.canvas.setEraserEnabled(enabled) }
         palette.onEraserSize = { [weak self] size in self?.setEraserSize(size) }
+        canvas.ink = palette.current
+    }
+
+    func configureCanvas(_ canvas: CanvasView) {
+        canvas.onDefaultFontSizeChange = { [weak self] _ in self?.syncFontSizeControls() }
+        canvas.onChange = { [weak self] in self?.saveAutomatically() }
+        canvas.onEscape = { [weak self] in self?.hideWindow() }
+        canvas.onInteraction = { [weak self] in self?.palette.closePicker(accept: true) }
+        canvas.isCanvasLocation = { [weak self] point in
+            guard let self else { return false }
+            let canvasPoint = self.canvas.convert(point, from: nil)
+            let palettePoint = self.palette.convert(point, from: nil)
+            return (self.isScreenDraft || canvasPoint.y > 40) && (self.palette.isHidden || !self.palette.bounds.contains(palettePoint))
+        }
         canvas.onToolChange = { [weak self] enabled in
             self?.palette.eraserEnabled = enabled
             self?.preferences.tool = enabled ? .eraser : .pen
         }
-        canvas.ink = palette.current
     }
 
     func layoutPalette(initial: Bool) {
@@ -282,6 +304,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         add("粘贴", #selector(NSText.paste(_:)), "v", to: edit, target: nil)
         add("全选", #selector(NSText.selectAll(_:)), "a", to: edit, target: nil)
         let view = NSMenu(); add("适配全部内容", #selector(fit(_:)), "0", to: view)
+        add("进入／退出屏幕草稿", #selector(toggleScreenDraft(_:)), "", to: view)
         add("完整编辑文字", #selector(editTextPrecisely(_:)), "\r", to: view)
         add("橡皮擦", #selector(toggleEraser(_:)), "e", modifiers: [.command, .option], to: view)
         add("缩小橡皮擦", #selector(smallerEraser(_:)), "[", modifiers: [.command, .option], to: view)
@@ -302,7 +325,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.keyEquivalentModifierMask = modifiers
         item.target = target ?? ((["undo:", "redo:", "cut:", "copy:", "paste:", "selectAll:"].contains(NSStringFromSelector(action))) ? nil : self)
-        if let action = ShortcutAction.allCases.first(where: { $0.selectorName == NSStringFromSelector(action) }), action != .toggleWindow {
+        if let action = ShortcutAction.allCases.first(where: { $0.selectorName == NSStringFromSelector(action) }), !action.isGlobal {
             applyShortcut(action, to: item)
         }
         menu.addItem(item); return item
@@ -314,6 +337,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         statusItem.button?.toolTip = "Inkey · \(shortcuts.label(for: .toggleWindow))"
         let menu = NSMenu()
         add("呼出／收起 Inkey", #selector(toggleAction(_:)), "", to: menu)
+        add("进入／退出屏幕草稿", #selector(toggleScreenDraft(_:)), "", to: menu)
         add("新建草稿", #selector(newDraft(_:)), "", to: menu)
         add("最近草稿…", #selector(showRecent(_:)), "", to: menu)
         menu.addItem(.separator()); add("设置…", #selector(showSettings(_:)), "", to: menu)
@@ -321,16 +345,29 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         statusItem.menu = menu
     }
 
-    func registerSavedHotkey() -> Bool {
-        guard let binding = shortcuts.binding(for: .toggleWindow) else { hotkey.unregister(); return true }
+    func registerSavedHotkey(for action: ShortcutAction = .toggleWindow) -> Bool {
+        let hotkey = globalHotkey(for: action)
+        guard let binding = shortcuts.binding(for: action) else { hotkey.unregister(); return true }
         return hotkey.register(keyCode: UInt32(binding.keyCode), modifiers: binding.modifiers)
+    }
+    func globalHotkey(for action: ShortcutAction) -> HotKey { action == .screenDraft ? screenHotkey : hotkey }
+    func registerSavedHotkeys() -> Bool {
+        let normal = registerSavedHotkey()
+        let screen = registerSavedHotkey(for: .screenDraft)
+        return normal && screen
+    }
+    func handleGlobalShortcut(_ action: ShortcutAction) {
+        if settings?.isKeyWindow == true, let recorder = activeShortcutRecorder {
+            recorder.accept(shortcuts.binding(for: action))
+        } else if action == .screenDraft { toggleScreenDraft(nil) }
+        else { toggleWindow() }
     }
 
     func showWindow() {
         if let front = NSWorkspace.shared.frontmostApplication,
            front.processIdentifier != ProcessInfo.processInfo.processIdentifier,
            front.bundleIdentifier == nil || front.bundleIdentifier != Bundle.main.bundleIdentifier { previousApp = front }
-        if !window.isVisible, let screen = NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }), !screen.frame.intersects(window.frame) {
+        if !isScreenDraft, !window.isVisible, let screen = NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }), !screen.frame.intersects(window.frame) {
             let area = screen.visibleFrame
             window.setFrameOrigin(NSPoint(x: area.midX - window.frame.width / 2, y: area.midY - window.frame.height / 2))
         }
@@ -341,25 +378,32 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
             hotkeyNeedsAttention = false
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                self.alert("快捷键已被占用", "请在设置中重新录制呼出快捷键。")
+                self.alert("快捷键已被占用", "请在设置中检查全局快捷键，并为不可用的项目选择其他组合。")
                 self.showSettings(nil)
             }
         }
     }
     func hideWindow() {
+        if isScreenDraft { exitScreenDraft(); return }
         palette.cancelInteractions(); palette.closePicker(accept: true); canvas.flush(); window.orderOut(nil)
         settings?.orderOut(nil)
         previousApp?.activate()
     }
-    func toggleWindow() { if window.isVisible && !window.isMiniaturized { hideWindow() } else { showWindow() } }
+    func toggleWindow() {
+        if isScreenDraft { exitScreenDraft(restoreWindow: true); return }
+        if window.isVisible && !window.isMiniaturized { hideWindow() } else { showWindow() }
+    }
     @objc func reopenFromAnotherInstance(_ notification: Notification) { showWindow() }
     @objc func toggleAction(_ sender: Any?) { toggleWindow() }
     func windowShouldClose(_ sender: NSWindow) -> Bool { hideWindow(); return false }
     func windowDidResignKey(_ notification: Notification) {
+        let resignedWindow = notification.object as? NSWindow
         DispatchQueue.main.async { [weak self] in
-            guard let self, !self.pinned, !self.suppressAutoHide, !self.palette.hasPopover,
+            guard let self, resignedWindow === self.window, !self.suppressAutoHide, !self.palette.hasPopover,
                   self.window.attachedSheet == nil, !self.window.isKeyWindow,
-                  self.settings?.isVisible != true, !self.fullScreen else { return }
+                  self.settings?.isVisible != true else { return }
+            if self.isScreenDraft { self.exitScreenDraft(restoreWindow: false, activatePrevious: false); return }
+            guard !self.pinned, !self.fullScreen else { return }
             self.canvas.flush(); self.window.orderOut(nil)
         }
     }
@@ -373,7 +417,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     func setPinned(_ value: Bool, remember: Bool = true) {
         pinned = value
         if remember { preferences.pinned = value }
-        if !fullScreen { window.level = pinned ? .floating : .normal }
+        if !fullScreen && !isScreenDraft { window.level = pinned ? .floating : .normal }
         statusLabel.stringValue = pinned ? "\(canvas.draft.name) · 常驻" : canvas.draft.name
     }
     @objc func editTextPrecisely(_ sender: Any?) { canvas.promoteTextEditing() }
@@ -385,7 +429,10 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
         canvas.eraserDiameter = preferences.eraserDiameter
         palette.eraserDiameter = preferences.eraserDiameter
     }
-    @objc func toggleFullScreen(_ sender: Any?) { palette.closePicker(accept: true); canvas.commitText(); window.toggleFullScreen(nil) }
+    @objc func toggleFullScreen(_ sender: Any?) {
+        if isScreenDraft { exitScreenDraft(restoreWindow: true) }
+        palette.closePicker(accept: true); canvas.commitText(); window.toggleFullScreen(nil)
+    }
     @objc func fit(_ sender: Any?) { palette.closePicker(accept: true); canvas.fit() }
     @objc func pickColor(_ sender: Any?) { palette.togglePicker() }
 
@@ -395,8 +442,8 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
                 canvas.draft.name = String(text.prefix(36)).replacingOccurrences(of: "\n", with: " ")
             }
             try store.save(canvas.draft)
-            UserDefaults.standard.set(canvas.draft.id.uuidString, forKey: "currentDraft")
-            statusLabel.stringValue = canvas.draft.name + (pinned ? " · 常驻" : "")
+            preferences.defaults.set(canvas.draft.id.uuidString, forKey: isScreenDraft ? "screenDraft" : "currentDraft")
+            if !isScreenDraft { statusLabel.stringValue = canvas.draft.name + (pinned ? " · 常驻" : "") }
             window.isDocumentEdited = false; errorShown = false
         } catch {
             window.isDocumentEdited = true
@@ -547,6 +594,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     }
     func moreMenu() -> NSMenu {
         let menu = NSMenu()
+        add(isScreenDraft ? "退出屏幕草稿" : "进入屏幕草稿", #selector(toggleScreenDraft(_:)), "", to: menu)
         add("新建草稿", #selector(newDraft(_:)), "n", to: menu)
         add("最近草稿…", #selector(showRecent(_:)), "", to: menu)
         menu.addItem(.separator())
@@ -569,8 +617,12 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     @objc func showSettings(_ sender: Any?) {
         palette.closePicker(accept: true); canvas.commitText()
         refreshLoginLaunchControls()
-        if let settings { NSApp.activate(ignoringOtherApps: true); settings.makeKeyAndOrderFront(nil); return }
+        if let settings {
+            settings.level = isScreenDraft ? NSWindow.Level(rawValue: window.level.rawValue + 1) : .normal
+            NSApp.activate(ignoringOtherApps: true); settings.makeKeyAndOrderFront(nil); return
+        }
         let panel = makeSettingsWindow()
+        if isScreenDraft { panel.level = NSWindow.Level(rawValue: window.level.rawValue + 1) }
         settings = panel; NSApp.activate(ignoringOtherApps: true); panel.makeKeyAndOrderFront(nil)
     }
 
@@ -721,6 +773,7 @@ final class InkeyApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextF
     func alert(_ title: String, _ message: String) {
         let previous = suppressAutoHide; suppressAutoHide = true
         let alert = NSAlert(); alert.messageText = title; alert.informativeText = message
+        if isScreenDraft { alert.window.level = NSWindow.Level(rawValue: window.level.rawValue + 1) }
         alert.addButton(withTitle: "好"); alert.runModal()
         suppressAutoHide = previous
     }

@@ -105,6 +105,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     var selection: UUID? { didSet { needsDisplay = true; window?.invalidateCursorRects(for: self) } }
     var onChange: (() -> Void)?
     var onEscape: (() -> Void)?
+    var transparentBackground = false { didSet { needsDisplay = true } }
     var onInteraction: (() -> Void)?
     var pointPlacement: Bool { UserDefaults.standard.bool(forKey: "pointerPlacement") }
     private var active: InkItem?
@@ -524,7 +525,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        draft.background.nsColor.setFill(); bounds.fill()
+        if transparentBackground { NSGraphicsContext.current?.cgContext.clear(bounds) }
+        else { draft.background.nsColor.setFill(); bounds.fill() }
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         context.saveGState()
         context.translateBy(x: draft.offset.x, y: draft.offset.y)
@@ -557,7 +559,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             border.lineWidth = 1; border.stroke()
             drawTextResizeHandles(in: editor.frame.insetBy(dx: -5, dy: -4))
         }
-        if hintVisible && draft.items.isEmpty && editor == nil {
+        if hintVisible && !transparentBackground && draft.items.isEmpty && editor == nil {
             let text = "直接打字，拖动绘画。" as NSString
             let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor.secondaryLabelColor]
             let size = text.size(withAttributes: attributes)

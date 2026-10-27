@@ -181,10 +181,11 @@ extension InkeyApp {
     @discardableResult
     func updateShortcut(_ action: ShortcutAction, binding: KeyBinding?) -> Bool {
         if let binding, let error = shortcuts.validationMessage(binding, for: action) { shortcutError(error); return false }
-        if action == .toggleWindow {
+        if action.isGlobal {
+            let hotkey = globalHotkey(for: action)
             if let binding {
                 guard hotkey.register(keyCode: UInt32(binding.keyCode), modifiers: binding.modifiers) else {
-                    hotkeyNeedsAttention = !registerSavedHotkey()
+                    hotkeyNeedsAttention = !registerSavedHotkey(for: action)
                     shortcutError(hotkeyNeedsAttention ? "该组合不可用，原快捷键也无法注册，请另选组合。" : "该全局快捷键已被占用，已保留原设置。")
                     return false
                 }
@@ -201,11 +202,14 @@ extension InkeyApp {
         else { alert("快捷键不可用", message) }
     }
     func resetAllShortcuts() {
-        let binding = ShortcutAction.toggleWindow.defaultBinding
-        guard hotkey.register(keyCode: UInt32(binding.keyCode), modifiers: binding.modifiers) else {
-            hotkeyNeedsAttention = !registerSavedHotkey()
-            shortcutError("默认全局快捷键已被占用，未恢复设置。")
-            return
+        for action in ShortcutAction.allCases.filter(\.isGlobal) { globalHotkey(for: action).unregister() }
+        for action in ShortcutAction.allCases.filter(\.isGlobal) {
+            let binding = action.defaultBinding
+            guard globalHotkey(for: action).register(keyCode: UInt32(binding.keyCode), modifiers: binding.modifiers) else {
+                hotkeyNeedsAttention = !registerSavedHotkeys()
+                shortcutError("默认全局快捷键已被占用，未恢复设置。")
+                return
+            }
         }
         shortcuts.resetAll(); hotkeyNeedsAttention = false
         refreshShortcutUI(); shortcutPage?.showMessage("已恢复全部默认快捷键。")
@@ -217,7 +221,7 @@ extension InkeyApp {
         statusItem?.button?.toolTip = "Inkey · \(shortcuts.label(for: .toggleWindow))"
         func update(_ menu: NSMenu) {
             for item in menu.items {
-                if let selector = item.action, let action = ShortcutAction.allCases.first(where: { $0.selectorName == NSStringFromSelector(selector) }), action != .toggleWindow { applyShortcut(action, to: item) }
+                if let selector = item.action, let action = ShortcutAction.allCases.first(where: { $0.selectorName == NSStringFromSelector(selector) }), !action.isGlobal { applyShortcut(action, to: item) }
                 if let submenu = item.submenu { update(submenu) }
             }
         }
@@ -232,7 +236,7 @@ extension InkeyApp {
     }
     @discardableResult
     func handleConfiguredShortcut(_ event: NSEvent) -> Bool {
-        guard !canvas.isDrawing, let action = ShortcutAction.allCases.first(where: { $0 != .toggleWindow && shortcuts.binding(for: $0)?.matches(event) == true }) else { return false }
+        guard !canvas.isDrawing, let action = ShortcutAction.allCases.first(where: { !$0.isGlobal && shortcuts.binding(for: $0)?.matches(event) == true }) else { return false }
         if let index = ShortcutAction.shapes.firstIndex(of: action) {
             guard !palette.hasPopover, (window.firstResponder as? NSTextView)?.hasMarkedText() != true else { return false }
             palette.chooseShape(preferences.shapeOrder[index]); return true

@@ -53,8 +53,9 @@ Solving a problem in your browser? Press **⌃⌥Space** to bring up the scratch
 - **Trackpad controls**: scroll with two fingers to pan and pinch to zoom. Shift-drag arrows, lines, rectangles, or ellipses; Option-drag to erase temporarily.
 - **Compact toolbar**: reorder shapes and colors, edit up to six color presets, and move, resize, hide, or collapse the toolbar. Two folding animations respect Reduce Motion.
 - **Precise text editing**: pause over text for about 0.45 seconds to edit without a box; drag immediately to draw. Right-click for a box with movement and proportional font resizing.
+- **Screen drafts**: press **⌃⌥S** to draw and type on a transparent overlay over the current screen, using the same tools. Press Esc, click Close, or use the shortcut again to exit; screen and paper drafts save separately.
 - **Ready when you need it**: menu bar access, floating, pinned, and full-screen windows, plus silent launch at login.
-- **Configurable shortcuts**: record, clear, or restore 35 actions, with search, conflict checks, and matching menu shortcuts and toolbar hints.
+- **Configurable shortcuts**: record, clear, or restore 36 actions, with search, conflict checks, and matching menu shortcuts and toolbar hints.
 - **Drafts and references**: local autosave and recent-draft restoration, editable `.inkey` files, PNG/PDF export, and image/PDF reference backgrounds.
 - **Paste at the pointer**: paste text at the configured font size or images sized to fit the canvas. Right-click an image to select it, then drag to move it or resize it proportionally with its corner handles.
 - **Native and local**: Swift + AppKit, with no web view, account, telemetry, or third-party dependencies.
@@ -85,6 +86,7 @@ These are the default shortcuts. Existing custom bindings are preserved.
 | Action | Control |
 | :--- | :--- |
 | Show / hide the scratchpad | **⌃⌥Space** |
+| Enter / exit screen draft | **⌃⌥S**; **Esc** or Close to exit |
 | Start text at another position | **Move the pointer → type** |
 | Freehand / selected shape | **Drag / ⇧ drag** |
 | Edit text precisely | **Right-click text / ⌘Return** |
@@ -97,7 +99,7 @@ These are the default shortcuts. Existing custom bindings are preserved.
 | Export a draft | **⌘E** |
 | Open Settings | **⌘,** |
 
-**Settings → Shortcuts** offers 35 configurable actions for files, editing, canvas tools, the toolbar, windows, and shape/color positions. Click to record; Delete clears a binding while recording, and Esc cancels. Right-click to restore one default, or restore all defaults at once. Shapes and colors follow toolbar positions from left to right, including after reordering. Only Show/hide Inkey is global.
+**Settings → Shortcuts** offers 36 configurable actions for files, editing, canvas tools, the toolbar, windows, and shape/color positions. Click to record; Delete clears a binding while recording, and Esc cancels. Right-click to restore one default, or restore all defaults at once. Shapes and colors follow toolbar positions from left to right, including after reordering. Show/hide Inkey and Screen draft are global.
 
 **Settings → General** controls launch at login, text placement, default font size, reusing resized text sizes, crosshair trail, and folding animation. Colors, toolbar size and position, and window preferences are remembered automatically.
 
