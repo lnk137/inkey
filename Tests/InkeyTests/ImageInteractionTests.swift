@@ -13,7 +13,7 @@ struct ImageInteractionTests {
         NSEvent.mouseEvent(with: .leftMouseDown, location: point, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 2, clickCount: 2, pressure: 1)!
     }
 
-    @Test func doubleClickSelectsAndDraggingMovesAtEveryZoomWithUndo() throws {
+    @Test func rightClickSelectsAndDraggingMovesAtEveryZoomWithUndo() throws {
         for zoom in [0.5, 1.0, 2.0] {
             let (window, canvas) = helper.makeCanvas()
             canvas.draft.zoom = zoom
@@ -21,8 +21,7 @@ struct ImageInteractionTests {
             let original = image()
             canvas.draft.items = [original]
             let start = canvas.convert(canvas.screen(NSPoint(x: 150, y: 140)), to: nil)
-            canvas.mouseDown(with: doubleClick(start, window: window))
-            canvas.mouseUp(with: helper.mouse(.leftMouseUp, start, window: window))
+            canvas.rightMouseDown(with: helper.mouse(.rightMouseDown, start, window: window))
             #expect(canvas.selection == original.id)
             #expect(canvas.imageBoxFrame != nil)
             #expect(canvas.undoManager?.canUndo == false)
@@ -89,5 +88,23 @@ struct ImageInteractionTests {
         canvas.mouseDown(with: helper.mouse(.leftMouseDown, blank, window: window))
         canvas.mouseUp(with: helper.mouse(.leftMouseUp, blank, window: window))
         #expect(canvas.selection == nil && canvas.imageBoxFrame == nil)
+    }
+
+    @Test func doubleClickDoesNotSelectImagesAndControlClickSelectsTheTopImage() {
+        let (window, canvas) = helper.makeCanvas()
+        let original = image()
+        let covered = InkItem(kind: .text, points: [InkPoint(NSPoint(x: 110, y: 110))], color: InkColor.light[0], text: "covered text")
+        canvas.draft.items = [covered, original]
+        let point = canvas.convert(NSPoint(x: 140, y: 125), to: nil)
+        canvas.mouseDown(with: doubleClick(point, window: window))
+        canvas.mouseUp(with: helper.mouse(.leftMouseUp, point, window: window))
+        #expect(canvas.selection == nil)
+        #expect(!canvas.isEditing)
+        canvas.mouseDown(with: helper.mouse(.leftMouseDown, point, window: window, modifiers: .control))
+        #expect(canvas.selection == original.id)
+        #expect(canvas.imageBoxFrame != nil)
+        #expect(!canvas.isEditing && !canvas.isDrawing)
+        #expect(canvas.draft.items == [covered, original])
+        #expect(canvas.undoManager?.canUndo == false)
     }
 }

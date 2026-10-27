@@ -56,7 +56,7 @@ Solving a problem in your browser? Press **⌃⌥Space** to bring up the scratch
 - **Ready when you need it**: menu bar access, floating, pinned, and full-screen windows, plus silent launch at login.
 - **Configurable shortcuts**: record, clear, or restore 35 actions, with search, conflict checks, and matching menu shortcuts and toolbar hints.
 - **Drafts and references**: local autosave and recent-draft restoration, editable `.inkey` files, PNG/PDF export, and image/PDF reference backgrounds.
-- **Paste at the pointer**: paste text at the configured font size or images sized to fit the canvas. Double-click an image to move it or resize it proportionally with its corner handles.
+- **Paste at the pointer**: paste text at the configured font size or images sized to fit the canvas. Right-click an image to select it, then drag to move it or resize it proportionally with its corner handles.
 - **Native and local**: Swift + AppKit, with no web view, account, telemetry, or third-party dependencies.
 
 <a id="installation"></a>

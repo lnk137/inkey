@@ -609,12 +609,6 @@ final class CanvasView: NSView, NSTextViewDelegate {
         }
         if !event.modifierFlags.contains(.shift) {
             let hit = item(at: p)
-            if event.clickCount == 2, hit?.kind == .image {
-                commitText(); restoreFocus()
-                selection = hit?.id
-                moveStart = p; moveOriginal = draft.items
-                return
-            }
             if let selection, hit?.id == selection, hit?.kind == .image {
                 moveStart = p; moveOriginal = draft.items
                 return
@@ -636,14 +630,20 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func rightMouseDown(with event: NSEvent) {
+        cancelTextHover()
         onInteraction?()
-        if let editor, editor.containsText(at: event.locationInWindow) {
+        if let editor, !editor.string.isEmpty, editor.containsText(at: event.locationInWindow) {
             editor.unmarkText()
             promoteTextEditing(); positionTextCaret(at: event.locationInWindow); editor.selectWord(nil)
             return
         }
         let point = world(convert(event.locationInWindow, from: nil))
-        guard let hit = draft.items.reversed().first(where: { $0.kind == .text && $0.hit(point, tolerance: 7 / draft.zoom) }) else { return }
+        guard let hit = textOrImage(at: point) else { return }
+        if hit.kind == .image {
+            commitText(); restoreFocus()
+            selection = hit.id
+            return
+        }
         commitText(); selection = nil
         beginText(at: hit.points[0].point, item: hit)
         promoteTextEditing(); positionTextCaret(at: event.locationInWindow); editor?.selectWord(nil)
