@@ -153,7 +153,7 @@ Up to six editable presets sit in a small, draggable bottom palette. Hover to
 see their names and shortcuts. Click the final color button for a saturation /
 brightness surface, hue slider, six-digit HEX input, screen eyedropper, and six
 recent custom colors. Use **Replace current preset** to customize the last selected
-preset slot. Right-click any preset to edit or delete it; accepting the picker saves an edit, and Escape cancels it. Use **Add** in the picker to add a preset (up to six). All presets may be deleted without losing the current ink color. Restore the default palette in settings.
+preset slot. Right-click any preset to edit or delete it; accepting the picker saves an edit, and Escape cancels it. Use **Add** in the picker to add a preset (up to six). Deleting a preset shifts the remaining colors and adjacent controls together and shrinks the toolbar to fit, with a compact minimum width for the shape controls. All presets may be deleted without losing the current ink color. Restore the default palette in settings.
 
 Color changes affect new content, or selected objects. While editing text, the
 whole variable changes color and keeps its content. Custom colors preview live;

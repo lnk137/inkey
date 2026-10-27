@@ -371,18 +371,21 @@ final class PaletteView: NSView, NSPopoverDelegate {
     }
     override func draw(_ dirtyRect: NSRect) {
         guard !isCollapsed else { return }
-        NSColor.separatorColor.setFill(); NSRect(x: 20, y: 41, width: 280, height: 1).fill()
+        NSColor.separatorColor.setFill(); NSRect(x: 20, y: 41, width: bounds.width - 40, height: 1).fill()
         NSColor.separatorColor.setFill()
         if !colors.isEmpty { NSRect(x: custom.frame.minX - 5, y: 13, width: 1, height: 18).fill() }
-        NSRect(x: 272, y: 13, width: 1, height: 18).fill()
+        NSRect(x: eraserButton.frame.minX - 3, y: 13, width: 1, height: 18).fill()
     }
     func updateButtons() {
         cancelInteractions()
+        let previousSize = frame.size
+        applyToolbarGeometry()
+        let rowOffset = max(0, (expandedSize.width - (116 + CGFloat(colors.count) * 34)) / 2)
         let names = ["石墨", "朱红", "琥珀", "苔绿", "湖蓝", "鸢紫"]
         let defaults = dark ? InkColor.dark : InkColor.light
         for (index, button) in buttons.enumerated() {
             button.tag = index
-            button.frame = NSRect(x: 20 + index * 34, y: 4, width: 34, height: 36)
+            button.frame = NSRect(x: rowOffset + 20 + CGFloat(index) * 34, y: 4, width: 34, height: 36)
             button.isHidden = isCollapsed || !colors.indices.contains(index)
             guard colors.indices.contains(index) else { continue }
             button.inkColor = colors[index]; button.selected = !eraserEnabled && colors[index] == current
@@ -390,8 +393,11 @@ final class PaletteView: NSView, NSPopoverDelegate {
             button.toolTip = "\(name)\(shortcutHint(ShortcutAction.colors[index])) · 拖动排序 · 右键编辑或删除"
             button.setAccessibilityLabel("Preset \(index + 1), \(colors[index].hex)\(button.selected ? ", selected" : "")")
         }
-        custom?.frame.origin.x = 29 + CGFloat(colors.count) * 34
+        custom?.frame.origin.x = rowOffset + 29 + CGFloat(colors.count) * 34
+        eraserButton?.frame.origin.x = rowOffset + 71 + CGFloat(colors.count) * 34
         custom?.inkColor = current
+        needsDisplay = true
+        if previousSize != frame.size { onLayoutChange?() }
     }
     private func updateToolButton() {
         eraserButton?.state = eraserEnabled ? .on : .off
@@ -512,15 +518,17 @@ final class PaletteView: NSView, NSPopoverDelegate {
         updateButtons(); needsDisplay = true
         window?.invalidateCursorRects(for: self)
     }
-    private var logicalSize: NSSize { isCollapsed ? NSSize(width: 36, height: 36) : NSSize(width: Self.preferredWidth, height: 80) }
+    private var expandedSize: NSSize { NSSize(width: max(240, 116 + CGFloat(colors.count) * 34), height: 80) }
+    private var logicalSize: NSSize { isCollapsed ? NSSize(width: 36, height: 36) : expandedSize }
     private func applyToolbarGeometry() {
         let size = logicalSize
         let available = superview?.bounds.size
         // Use the same scale in both states, including when a narrow window limits it.
-        let fit = available.map { min(max(1, $0.width - 16) / Self.preferredWidth, max(1, $0.height - 16) / 80) } ?? toolbarScale
+        let fit = available.map { min(max(1, $0.width - 16) / expandedSize.width, max(1, $0.height - 16) / expandedSize.height) } ?? toolbarScale
         effectiveScale = min(toolbarScale, fit)
         setFrameSize(NSSize(width: size.width * effectiveScale, height: size.height * effectiveScale))
         setBoundsSize(size)
+        resizeHandle.frame.origin.x = expandedSize.width - 26
     }
     func setToolbarScale(_ value: CGFloat) {
         cancelInteractions(); closePicker(accept: true)
@@ -540,7 +548,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         guard resizedToolbar || abs(delta) >= 2 else { return }
         resizedToolbar = true
         let availableWidth = max(1, superview.bounds.maxX - frame.minX - 8)
-        toolbarScale = min(1.5, max(0.85, min(start.width + delta, availableWidth) / Self.preferredWidth))
+        toolbarScale = min(1.5, max(0.85, min(start.width + delta, availableWidth) / expandedSize.width))
         applyToolbarGeometry(); needsDisplay = true
     }
     func endResizing() {
