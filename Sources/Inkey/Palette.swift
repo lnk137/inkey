@@ -227,6 +227,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
     private(set) var isCollapsed = false
     private var collapseButton: CollapseButton!
     private let collapseAnimation = ToolbarCollapseAnimation()
+    private let layoutAnimation = ToolbarLayoutAnimation()
     private let resizeHandle = ToolbarResizeHandle(frame: NSRect(x: 294, y: 57, width: 22, height: 20))
     private(set) var toolbarScale: CGFloat = 1
     private(set) var effectiveScale: CGFloat = 1
@@ -635,10 +636,15 @@ final class PaletteView: NSView, NSPopoverDelegate {
     func deletePreset(_ index: Int) {
         guard colors.indices.contains(index) else { return }
         closePicker(accept: true)
+        let before = isCollapsed ? nil : layoutAnimation.capture(in: self)
+        // Keep surviving swatches attached to their colors so they visibly slide
+        // into the gap rather than changing color in their old slots.
+        buttons.append(buttons.remove(at: index))
         colors.remove(at: index)
         if slot > index { slot -= 1 }
         slot = min(slot, max(0, colors.count - 1))
         persistPresets(); onRestoreFocus?()
+        if let before { layoutAnimation.animate(from: before, in: self) }
     }
     private func persistPresets() {
         preferences.defaults.set(colors.map(\.hex), forKey: dark ? "darkPresets" : "lightPresets")
@@ -762,6 +768,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         return active
     }
     func cancelInteractions(finishTransition: Bool = true) {
+        layoutAnimation.finish()
         if finishTransition { collapseAnimation.finish() }
         cancelReordering()
         for button in (buttons as [ReorderButton]) + shapeButtons where button.isTracking { button.cancelTracking() }
