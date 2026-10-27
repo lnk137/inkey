@@ -60,6 +60,7 @@ final class InlineTextView: NSTextView {
     }
 
     override func rightMouseDown(with event: NSEvent) { canvas?.rightMouseDown(with: event) }
+    override func paste(_ sender: Any?) { canvas?.paste(sender) }
     override func mouseDown(with event: NSEvent) {
         canvas?.cancelTextHover()
         if event.modifierFlags.contains(.control) { canvas?.rightMouseDown(with: event) }
@@ -793,6 +794,32 @@ final class CanvasView: NSView, NSTextViewDelegate {
         // Event coordinates are authoritative. Sampling again after activation or IME dispatch
         // can report a different location from the crosshair that the user just moved.
         if lastPointerLocation == nil, let window { updatePointerLocation(window.mouseLocationOutsideOfEventStream) }
+    }
+
+    @objc func paste(_ sender: Any?) { pasteContents(from: .general) }
+
+    func pasteContents(from pasteboard: NSPasteboard) {
+        initializePointerIfNeeded()
+        let center = world(pointerPreview ?? NSPoint(x: bounds.midX, y: bounds.midY))
+        var pasted: InkItem
+        if let image = (pasteboard.readObjects(forClasses: [NSImage.self], options: nil) as? [NSImage])?.first,
+           image.size.width > 0, image.size.height > 0, let data = image.tiffRepresentation {
+            // Keep small images at their natural screen size; fit larger ones to
+            // 60% of the visible canvas in each direction, preserving aspect ratio.
+            let scale = min(1, bounds.width * 0.6 / image.size.width, bounds.height * 0.6 / image.size.height)
+            let width = image.size.width * scale / draft.zoom
+            let height = image.size.height * scale / draft.zoom
+            pasted = InkItem(kind: .image, points: [InkPoint(NSPoint(x: center.x - width / 2, y: center.y - height / 2))], color: ink, imageData: data, imageWidth: width, imageHeight: height)
+        } else if let text = pasteboard.string(forType: .string), !text.isEmpty {
+            let size = InkTypography.size(text, fontSize: preferences.defaultFontSize)
+            pasted = InkItem(kind: .text, points: [InkPoint(NSPoint(x: center.x - size.width / 2, y: center.y - size.height / 2))], color: ink, text: text, fontSize: preferences.defaultFontSize)
+        } else { return }
+        finishPointerGesture()
+        commitText()
+        selection = nil
+        dismissHint()
+        replaceItems(draft.items + [pasted], name: "Paste")
+        restoreFocus()
     }
 
     private func ensureInputEditor() -> InlineTextView {
