@@ -4,7 +4,7 @@ enum ShiftShape: String, CaseIterable {
     case arrow, line, rectangle, ellipse
     var kind: InkKind { InkKind(rawValue: rawValue)! }
     var symbol: String { ["arrow": "arrow.up.right", "line": "line.diagonal", "rectangle": "rectangle", "ellipse": "oval"][rawValue]! }
-    var label: String { ["arrow": localized("箭头", "Arrow"), "line": localized("直线", "Line"), "rectangle": localized("矩形", "Rectangle"), "ellipse": localized("椭圆", "Ellipse")][rawValue]! }
+    var label: String { ["arrow": localized("ui.arrow"), "line": localized("ui.line"), "rectangle": localized("ui.rectangle"), "ellipse": localized("ui.ellipse")][rawValue]! }
     static func shortcut(_ event: NSEvent, order: [ShiftShape] = allCases) -> ShiftShape? {
         guard event.modifierFlags.intersection([.command, .option, .control, .shift]) == .shift else { return nil }
         guard let index = [UInt16(18), 19, 20, 21].firstIndex(of: event.keyCode), order.indices.contains(index) else { return nil }
@@ -25,7 +25,7 @@ enum TemporaryEraserModifier: String, CaseIterable {
 
 enum ToolbarAnimationStyle: String, CaseIterable {
     case gather, fade
-    var label: String { self == .gather ? localized("聚拢收纳", "Gather") : localized("收缩淡出", "Shrink & Fade") }
+    var label: String { self == .gather ? localized("ui.gather") : localized("ui.shrink_fade") }
     var duration: CFTimeInterval { self == .gather ? 0.4 : 0.32 }
 }
 

@@ -626,7 +626,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             drawTextResizeHandles(in: editor.frame.insetBy(dx: -5, dy: -4))
         }
         if hintVisible && !transparentBackground && draft.items.isEmpty && editor == nil {
-            let text = localized("直接打字，拖动绘画。", "Type to write. Drag to draw.") as NSString
+            let text = localized("ui.type_to_write_drag_to_draw") as NSString
             let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor.secondaryLabelColor]
             let size = text.size(withAttributes: attributes)
             text.draw(at: NSPoint(x: (bounds.width - size.width) / 2, y: bounds.height / 2), withAttributes: attributes)

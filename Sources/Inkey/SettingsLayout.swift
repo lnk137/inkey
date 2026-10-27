@@ -77,7 +77,7 @@ enum SettingsLayout {
     static func window(sections: [NSView]) -> NSWindow {
         let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 620),
                              styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        panel.title = localized("Inkey 设置", "Inkey Settings"); panel.isReleasedWhenClosed = false
+        panel.title = localized("ui.inkey_settings"); panel.isReleasedWhenClosed = false
         let stack = NSStackView(views: sections)
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 18
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -89,7 +89,7 @@ enum SettingsLayout {
             stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -24),
             stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 22)
         ])
-        let footer = NSTextField(labelWithString: localized("所有更改自动保存", "All changes are saved automatically"))
+        let footer = NSTextField(labelWithString: localized("ui.all_changes_are_saved_automatically"))
         footer.font = .systemFont(ofSize: 11); footer.textColor = .tertiaryLabelColor
         footer.translatesAutoresizingMaskIntoConstraints = false; content.addSubview(footer)
         NSLayoutConstraint.activate([

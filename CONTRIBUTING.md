@@ -42,3 +42,18 @@ in `docs/guide.md`. Regenerate the README logo and preview with
 AppKit components with a non-personal example, without reading or changing the
 user's drafts. Keep generated images in `docs/assets/` and scratch
 build tools under the ignored `build/` directory.
+
+## Interface localization
+
+Interface strings live in `Sources/Inkey/Resources/<language>.lproj/Localizable.strings`.
+Use stable `ui.*` keys in Swift and provide each key in every language. Use
+positional `%1$@`, `%2$@`, and so on for dynamic values, allowing translators to
+reorder them; pass their string values through `localized(_:arguments:)`.
+
+To add a language, add its `.lproj` directory with a complete translation, add
+its code and native display name to `InterfaceLanguage`, and declare the code
+in `Resources/Info.plist` under `CFBundleLocalizations`. The settings picker
+uses `InterfaceLanguage.allCases`. The selected language takes effect after the
+app is restarted. AppKit system dialogs may follow macOS language settings.
+Run `swift test --filter LocalizationTests` to check resource coverage and
+format placeholders, and verify the packaged app in the new language.

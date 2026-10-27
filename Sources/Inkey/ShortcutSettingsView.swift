@@ -6,7 +6,7 @@ private final class ShortcutDocumentView: NSView {
 
 final class ShortcutSettingsView: NSView, NSSearchFieldDelegate {
     let searchField = NSSearchField()
-    let message = NSTextField(wrappingLabelWithString: localized("仅“呼出／收起”为全局快捷键，其余在 Inkey 内使用。", "Show/hide and Screen Draft are global shortcuts; the others work within Inkey."))
+    let message = NSTextField(wrappingLabelWithString: localized("ui.show_hide_and_screen_draft_are_global_shortcuts_the_others_work_within"))
     private let scroll = NSScrollView()
     private let document = ShortcutDocumentView()
     private let list = NSStackView()
@@ -26,12 +26,12 @@ final class ShortcutSettingsView: NSView, NSSearchFieldDelegate {
         temporaryEraserPicker.addItems(withTitles: TemporaryEraserModifier.allCases.map(\.label))
         temporaryEraserPicker.selectItem(at: preferences.temporaryEraserModifier == .option ? 0 : 1)
         temporaryEraserPicker.target = self; temporaryEraserPicker.action = #selector(changeTemporaryEraser(_:))
-        temporaryEraserPicker.setAccessibilityLabel(localized("临时橡皮修饰键", "Temporary eraser modifier"))
+        temporaryEraserPicker.setAccessibilityLabel(localized("ui.temporary_eraser_modifier"))
         updateModifierHint()
-        modifierSection = SettingsLayout.section(localized("修饰键", "Modifiers"), rows: [SettingsLayout.row(localized("临时橡皮", "Temporary eraser"), detail: modifierHint, control: temporaryEraserPicker)])
-        searchField.placeholderString = localized("搜索操作或分组", "Search actions or groups"); searchField.delegate = self
-        searchField.setAccessibilityLabel(localized("搜索快捷键", "Search shortcuts"))
-        let instructions = NSTextField(labelWithString: localized("点击录制 · Delete 清除 · Esc 取消 · 右键恢复此项默认", "Click to record · Delete to clear · Esc to cancel · Right-click to restore default"))
+        modifierSection = SettingsLayout.section(localized("ui.modifiers"), rows: [SettingsLayout.row(localized("ui.temporary_eraser"), detail: modifierHint, control: temporaryEraserPicker)])
+        searchField.placeholderString = localized("ui.search_actions_or_groups"); searchField.delegate = self
+        searchField.setAccessibilityLabel(localized("ui.search_shortcuts"))
+        let instructions = NSTextField(labelWithString: localized("ui.click_to_record_delete_to_clear_esc_to_cancel_right_click_to_restore_d"))
         instructions.font = .systemFont(ofSize: 11); instructions.textColor = .secondaryLabelColor
         scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true
         scroll.drawsBackground = false; scroll.borderType = .noBorder
@@ -47,12 +47,12 @@ final class ShortcutSettingsView: NSView, NSSearchFieldDelegate {
         for (name, actions) in ShortcutAction.groups {
             groups.append((name, actions.map { action in
                 let recorder = makeRecorder(action)
-                let detail = action == .toggleWindow ? NSTextField(wrappingLabelWithString: localized("在其他应用中也可呼出", "Available from other apps")) : nil
+                let detail = action == .toggleWindow ? NSTextField(wrappingLabelWithString: localized("ui.available_from_other_apps")) : nil
                 return (action, SettingsLayout.row(title(action), detail: detail, control: recorder))
             }))
         }
         message.font = .systemFont(ofSize: 11); message.textColor = .secondaryLabelColor
-        let reset = NSButton(title: localized("恢复全部默认", "Restore All Defaults"), target: self, action: #selector(resetAll))
+        let reset = NSButton(title: localized("ui.restore_all_defaults"), target: self, action: #selector(resetAll))
         reset.bezelStyle = .rounded
         for view in [searchField, instructions, scroll, message, reset] {
             view.translatesAutoresizingMaskIntoConstraints = false; addSubview(view)
@@ -83,11 +83,11 @@ final class ShortcutSettingsView: NSView, NSSearchFieldDelegate {
         guard TemporaryEraserModifier.allCases.indices.contains(sender.indexOfSelectedItem) else { return }
         preferences.temporaryEraserModifier = TemporaryEraserModifier.allCases[sender.indexOfSelectedItem]
         updateModifierHint(); rebuild(); onModifierChange?()
-        showMessage(localized("临时橡皮已设为 \(preferences.temporaryEraserModifier.label)，松开恢复原工具。", "Temporary eraser set to \(preferences.temporaryEraserModifier.label). Release to restore the previous tool."))
+        showMessage(localized("ui.temporary_eraser_set_to_value_release_to_restore_the_previous_tool", arguments: [String(describing: preferences.temporaryEraserModifier.label)]))
     }
     private func updateModifierHint() {
         let modifier = preferences.temporaryEraserModifier
-        modifierHint.stringValue = localized("按住 \(modifier.symbol) 擦除，松开恢复；\(modifier.moveSymbol) 拖动选择／移动", "Hold \(modifier.symbol) to erase; release to restore. \(modifier.moveSymbol)-drag to select or move.")
+        modifierHint.stringValue = localized("ui.hold_value_to_erase_release_to_restore_value_drag_to_select_or_move", arguments: [String(describing: modifier.symbol), String(describing: modifier.moveSymbol)])
     }
     func controlTextDidChange(_ obj: Notification) {
         query = searchField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -96,7 +96,7 @@ final class ShortcutSettingsView: NSView, NSSearchFieldDelegate {
     private func rebuild() {
         for view in list.arrangedSubviews { list.removeArrangedSubview(view); view.removeFromSuperview() }
         var found = false
-        if query.isEmpty || localized("修饰键 临时橡皮 选择 移动 Option Command", "Modifiers Temporary eraser Select Move Option Command").localizedCaseInsensitiveContains(query) {
+        if query.isEmpty || localized("ui.modifiers_temporary_eraser_select_move_option_command").localizedCaseInsensitiveContains(query) {
             found = true; list.addArrangedSubview(modifierSection)
             modifierSection.widthAnchor.constraint(equalTo: list.widthAnchor).isActive = true
         }
@@ -108,10 +108,10 @@ final class ShortcutSettingsView: NSView, NSSearchFieldDelegate {
             list.addArrangedSubview(group); group.widthAnchor.constraint(equalTo: list.widthAnchor).isActive = true
         }
         if !found {
-            let empty = NSTextField(labelWithString: localized("没有匹配的操作", "No matching actions"))
+            let empty = NSTextField(labelWithString: localized("ui.no_matching_actions"))
             empty.textColor = .secondaryLabelColor; list.addArrangedSubview(empty)
         } else if query.isEmpty {
-            let fixed = NSTextField(wrappingLabelWithString: localized("固定操作：Enter 提交，Shift＋Enter 换行，Esc 取消／收起。Shift 拖动绘制形状；双指平移、捏合缩放。临时擦除修饰键可在本页设置。", "Fixed controls: Enter commits, Shift+Enter inserts a line, and Esc cancels or closes. Shift-drag draws shapes; pan with two fingers and pinch to zoom. Configure the temporary eraser modifier here."))
+            let fixed = NSTextField(wrappingLabelWithString: localized("ui.fixed_controls_enter_commits_shift_enter_inserts_a_line_and_esc_cancel"))
             fixed.font = .systemFont(ofSize: 11); fixed.textColor = .secondaryLabelColor
             list.addArrangedSubview(fixed); fixed.widthAnchor.constraint(equalTo: list.widthAnchor).isActive = true
         }
@@ -135,14 +135,14 @@ extension InkeyApp {
         let general = panel.contentView!
         generalSettingsView = general
         let root = NSView(); panel.contentView = root
-        let tabs = NSSegmentedControl(labels: [localized("常规", "General"), localized("快捷键", "Shortcuts")], trackingMode: .selectOne, target: self, action: #selector(changeSettingsTab(_:)))
-        tabs.selectedSegment = 0; tabs.setAccessibilityLabel(localized("设置分类", "Settings category")); settingsTab = tabs
+        let tabs = NSSegmentedControl(labels: [localized("ui.general"), localized("ui.shortcuts")], trackingMode: .selectOne, target: self, action: #selector(changeSettingsTab(_:)))
+        tabs.selectedSegment = 0; tabs.setAccessibilityLabel(localized("ui.settings_category")); settingsTab = tabs
         let language = NSPopUpButton()
-        language.addItems(withTitles: ["简体中文", "English"])
-        language.selectItem(at: InterfaceLanguage.selected(in: preferences.defaults) == .english ? 1 : 0)
+        language.addItems(withTitles: InterfaceLanguage.allCases.map(\.displayName))
+        language.selectItem(at: InterfaceLanguage.allCases.firstIndex(of: InterfaceLanguage.selected(in: preferences.defaults)) ?? 0)
         language.target = self; language.action = #selector(changeInterfaceLanguage(_:))
-        language.setAccessibilityLabel(localized("语言", "Language"))
-        language.toolTip = localized("重启应用后生效", "Restart Inkey to apply")
+        language.setAccessibilityLabel(localized("ui.language"))
+        language.toolTip = localized("ui.restart_inkey_to_apply")
         let page = ShortcutSettingsView(preferences: preferences, makeRecorder: { self.makeShortcutRecorder(for: $0) }, title: { $0.title })
         page.onModifierChange = { [weak self] in self?.canvas.resetTemporaryEraser() }
         page.onResetAll = { [weak self] in self?.resetAllShortcuts() }
@@ -175,7 +175,7 @@ extension InkeyApp {
         recorder.savedLabel = recorder.title; recorder.bezelStyle = .rounded
         recorder.widthAnchor.constraint(equalToConstant: 156).isActive = true
         recorder.setAccessibilityLabel(action.title)
-        recorder.toolTip = localized("点击录制；Delete 清除；Esc 取消；右键恢复默认", "Click to record; Delete clears; Esc cancels; right-click restores default")
+        recorder.toolTip = localized("ui.click_to_record_delete_clears_esc_cancels_right_click_restores_default")
         recorder.allowsShiftNumbers = ShortcutAction.shapes.contains(action)
         recorder.target = recorder; recorder.action = #selector(ShortcutRecorder.beginRecording)
         recorder.onBegin = { [weak self, weak recorder] in
@@ -194,7 +194,7 @@ extension InkeyApp {
             if let binding {
                 guard hotkey.register(keyCode: UInt32(binding.keyCode), modifiers: binding.modifiers) else {
                     hotkeyNeedsAttention = !registerSavedHotkey(for: action)
-                    shortcutError(hotkeyNeedsAttention ? localized("该组合不可用，原快捷键也无法注册，请另选组合。", "This shortcut and the previous one are unavailable. Choose another.") : localized("该全局快捷键已被占用，已保留原设置。", "This global shortcut is in use; the previous setting was preserved."))
+                    shortcutError(hotkeyNeedsAttention ? localized("ui.this_shortcut_and_the_previous_one_are_unavailable_choose_another") : localized("ui.this_global_shortcut_is_in_use_the_previous_setting_was_preserved"))
                     return false
                 }
             } else { hotkey.unregister() }
@@ -202,12 +202,12 @@ extension InkeyApp {
         }
         shortcuts.set(binding, for: action)
         refreshShortcutUI()
-        shortcutPage?.showMessage(localized("已保存“\(action.title)”", "Saved “\(action.title)”") + (binding == nil ? localized("，可通过菜单操作。", "; available from the menu.") : "。"))
+        shortcutPage?.showMessage(localized(binding == nil ? "ui.saved_action_menu_available" : "ui.saved_action", arguments: [action.title]))
         return true
     }
     private func shortcutError(_ message: String) {
         if shortcutsSettingsView?.isHidden == false { shortcutPage?.showMessage(message, error: true); NSSound.beep() }
-        else { alert(localized("快捷键不可用", "Shortcut Unavailable"), message) }
+        else { alert(localized("ui.shortcut_unavailable"), message) }
     }
     func resetAllShortcuts() {
         for action in ShortcutAction.allCases.filter(\.isGlobal) { globalHotkey(for: action).unregister() }
@@ -215,12 +215,12 @@ extension InkeyApp {
             let binding = action.defaultBinding
             guard globalHotkey(for: action).register(keyCode: UInt32(binding.keyCode), modifiers: binding.modifiers) else {
                 hotkeyNeedsAttention = !registerSavedHotkeys()
-                shortcutError(localized("默认全局快捷键已被占用，未恢复设置。", "A default global shortcut is in use; settings were not restored."))
+                shortcutError(localized("ui.a_default_global_shortcut_is_in_use_settings_were_not_restored"))
                 return
             }
         }
         shortcuts.resetAll(); hotkeyNeedsAttention = false
-        refreshShortcutUI(); shortcutPage?.showMessage(localized("已恢复全部默认快捷键。", "All default shortcuts restored."))
+        refreshShortcutUI(); shortcutPage?.showMessage(localized("ui.all_default_shortcuts_restored"))
     }
     func refreshShortcutUI() {
         for (action, recorders) in shortcutRecorders {

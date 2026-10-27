@@ -140,7 +140,7 @@ Shortcuts stay with positions. By default, ⇧1 always selects the first shape p
 swift test
 ```
 
-Tests cover text/drawing transitions, input methods, pointer alignment, vector erasing, persistence, exports, window toggling, and keyboard shortcuts. See the [contributing guide](CONTRIBUTING.md) for development conventions.
+Tests cover text/drawing transitions, input methods, pointer alignment, vector erasing, persistence, exports, window toggling, and keyboard shortcuts. See the [contributing guide](CONTRIBUTING.md) for development conventions and interface localization.
 
 ```sh
 ./scripts/render-readme.sh

@@ -2,7 +2,7 @@
 
 [Back to the overview](../README.md)
 
-Inkey supports Simplified Chinese and English. Choose a language at the top of Settings, then quit and reopen Inkey to apply it. The default is Simplified Chinese. This guide uses the English interface labels.
+Inkey supports Simplified Chinese and English. Choose a language at the top of Settings, then quit and reopen Inkey to apply it. The default is Simplified Chinese. This guide uses the English interface labels. Some macOS system dialogs follow the system language.
 
 A quiet, native macOS scratchpad for thinking through algorithms.
 Type variable names, drag to sketch relationships, then return to your browser.

@@ -40,10 +40,10 @@ final class SwatchButton: ReorderButton {
         guard onEdit != nil else { return nil }
         let menu = NSMenu()
         if isCustom {
-            let item = NSMenuItem(title: localized("自定义颜色…", "Custom Color…"), action: #selector(editColor), keyEquivalent: "")
+            let item = NSMenuItem(title: localized("ui.custom_color_3b6008a0"), action: #selector(editColor), keyEquivalent: "")
             item.target = self; menu.addItem(item); return menu
         }
-        for (title, action) in [(localized("编辑颜色…", "Edit Color…"), #selector(editColor)), (localized("删除颜色", "Delete Color"), #selector(deleteColor))] {
+        for (title, action) in [(localized("ui.edit_color"), #selector(editColor)), (localized("ui.delete_color"), #selector(deleteColor))] {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: ""); item.target = self; menu.addItem(item)
         }
         return menu
@@ -162,17 +162,17 @@ final class ColorPanelController: NSViewController, NSTextFieldDelegate {
             recentButtons.append(button); view.addSubview(button)
         }
         if purpose == .custom {
-            let replace = NSButton(title: localized("替换当前预设", "Replace Current Preset"), target: self, action: #selector(replacePreset))
+            let replace = NSButton(title: localized("ui.replace_current_preset"), target: self, action: #selector(replacePreset))
             replace.isBordered = false; replace.font = .systemFont(ofSize: 11)
             replace.frame = NSRect(x: 14, y: 5, width: 108, height: 23); replace.isEnabled = canReplace; view.addSubview(replace)
-            let add = NSButton(title: localized("添加", "Add"), target: self, action: #selector(addPreset))
+            let add = NSButton(title: localized("ui.add"), target: self, action: #selector(addPreset))
             add.isBordered = false; add.font = .systemFont(ofSize: 11)
             add.frame = NSRect(x: 126, y: 5, width: 48, height: 23); view.addSubview(add)
         } else {
-            let cancel = NSButton(title: localized("取消", "Cancel"), target: self, action: #selector(cancel))
+            let cancel = NSButton(title: localized("ui.cancel"), target: self, action: #selector(cancel))
             cancel.isBordered = false; cancel.frame = NSRect(x: 14, y: 5, width: 56, height: 23); view.addSubview(cancel)
         }
-        let done = NSButton(title: purpose == .add ? localized("添加", "Add") : localized("完成", "Done"), target: self, action: purpose == .add ? #selector(addPreset) : #selector(done))
+        let done = NSButton(title: purpose == .add ? localized("ui.add") : localized("ui.done"), target: self, action: purpose == .add ? #selector(addPreset) : #selector(done))
         done.keyEquivalent = "\r"
         done.bezelStyle = .rounded; done.frame = NSRect(x: 183, y: 4, width: 66, height: 25)
         view.addSubview(done)
@@ -258,7 +258,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
     var highContrastEnabled = false {
         didSet {
             contrastButton?.state = highContrastEnabled ? .on : .off
-            contrastButton?.setAccessibilityValue(highContrastEnabled ? localized("开启", "On") : localized("关闭", "Off"))
+            contrastButton?.setAccessibilityValue(highContrastEnabled ? localized("ui.on") : localized("ui.off"))
         }
     }
     private var dragOrigin: NSPoint?
@@ -294,20 +294,20 @@ final class PaletteView: NSView, NSPopoverDelegate {
         super.init(frame: frame)
         toolbarScale = preferences.toolbarScale
         wantsLayer = true
-        setAccessibilityRole(.toolbar); setAccessibilityLabel(localized("工具栏，拖动箭头或空白处移动", "Toolbar; drag the chevron or empty space to move"))
+        setAccessibilityRole(.toolbar); setAccessibilityLabel(localized("ui.toolbar_drag_the_chevron_or_empty_space_to_move"))
         for index in 0..<6 {
             appendColorButton(at: index)
         }
         custom = SwatchButton(frame: NSRect(x: 233, y: 4, width: 34, height: 36))
         custom.isCustom = true; custom.target = self; custom.action = #selector(addColor)
         custom.onEdit = { [weak self] in self?.togglePicker() }
-        custom.toolTip = localized("添加预设颜色 · 右键自定义颜色\(shortcutHint(.colorPicker))", "Add preset · Right-click for custom color\(shortcutHint(.colorPicker))"); custom.setAccessibilityLabel(localized("添加预设颜色", "Add preset color"))
+        custom.toolTip = localized("ui.add_preset_right_click_for_custom_colorvalue", arguments: [String(describing: shortcutHint(.colorPicker))]); custom.setAccessibilityLabel(localized("ui.add_preset_color"))
         addSubview(custom)
         eraserButton = ToolButton(image: NSImage(systemSymbolName: "eraser", accessibilityDescription: "Eraser")!, target: self, action: #selector(toggleEraser))
         eraserButton.onRightClick = { [weak self] in self?.openEraserSizing() }
         eraserButton.frame = NSRect(x: 275, y: 4, width: 34, height: 36)
         eraserButton.isBordered = false
-        eraserButton.toolTip = localized("单击切换橡皮，右键调节尺寸\(shortcutHint(.eraser))", "Click to toggle eraser, right-click to resize\(shortcutHint(.eraser))")
+        eraserButton.toolTip = localized("ui.click_to_toggle_eraser_right_click_to_resizevalue", arguments: [String(describing: shortcutHint(.eraser))])
         addSubview(eraserButton)
         for (index, shape) in preferences.shapeOrder.enumerated() {
             let button = ToolButton(image: NSImage(systemSymbolName: shape.symbol, accessibilityDescription: shape.label)!, target: self, action: #selector(shapeClicked(_:)))
@@ -315,16 +315,16 @@ final class PaletteView: NSView, NSPopoverDelegate {
             button.reorderGroup = "shapes"
             configureReordering(button)
             button.frame = NSRect(x: 54 + index * 36, y: 43, width: 34, height: 32)
-            button.toolTip = localized("\(shape.label)\(shortcutHint(ShortcutAction.shapes[index])) · Shift 拖动", "\(shape.label)\(shortcutHint(ShortcutAction.shapes[index])) · Shift-drag")
+            button.toolTip = localized("ui.valuevalue_shift_drag", arguments: [String(describing: shape.label), String(describing: shortcutHint(ShortcutAction.shapes[index]))])
             button.setAccessibilityLabel(button.toolTip)
             shapeButtons.append(button); addSubview(button)
         }
         collapseButton = CollapseButton(frame: .zero)
-        contrastButton = ToolButton(image: NSImage(systemSymbolName: "circle.lefthalf.filled", accessibilityDescription: localized("高对比", "High Contrast"))!, target: self, action: #selector(toggleHighContrast))
+        contrastButton = ToolButton(image: NSImage(systemSymbolName: "circle.lefthalf.filled", accessibilityDescription: localized("ui.high_contrast"))!, target: self, action: #selector(toggleHighContrast))
         contrastButton.isBordered = false
         contrastButton.frame = NSRect(x: 208, y: 43, width: 30, height: 32)
-        contrastButton.toolTip = localized("高对比\(shortcutHint(.highContrast))", "High contrast\(shortcutHint(.highContrast))")
-        contrastButton.setAccessibilityLabel(localized("高对比", "High Contrast"))
+        contrastButton.toolTip = localized("ui.high_contrastvalue", arguments: [String(describing: shortcutHint(.highContrast))])
+        contrastButton.setAccessibilityLabel(localized("ui.high_contrast"))
         addSubview(contrastButton)
         collapseButton.title = ""
         collapseButton.wantsLayer = true
@@ -377,10 +377,10 @@ final class PaletteView: NSView, NSPopoverDelegate {
     }
     func refreshShortcutHints() {
         updateButtons(); updateShapeButtons()
-        custom.toolTip = localized("添加预设颜色 · 右键自定义颜色\(shortcutHint(.colorPicker))", "Add preset · Right-click for custom color\(shortcutHint(.colorPicker))")
-        contrastButton.toolTip = localized("高对比\(shortcutHint(.highContrast))", "High contrast\(shortcutHint(.highContrast))")
-        eraserButton.toolTip = localized("单击切换橡皮，右键调节尺寸\(shortcutHint(.eraser))", "Click to toggle eraser, right-click to resize\(shortcutHint(.eraser))")
-        collapseButton.toolTip = (isCollapsed ? localized("展开工具栏", "Expand Toolbar") : localized("折叠工具栏", "Collapse Toolbar")) + shortcutHint(.collapseToolbar) + localized(" · 拖动移动", " · Drag to move")
+        custom.toolTip = localized("ui.add_preset_right_click_for_custom_colorvalue", arguments: [String(describing: shortcutHint(.colorPicker))])
+        contrastButton.toolTip = localized("ui.high_contrastvalue", arguments: [String(describing: shortcutHint(.highContrast))])
+        eraserButton.toolTip = localized("ui.click_to_toggle_eraser_right_click_to_resizevalue", arguments: [String(describing: shortcutHint(.eraser))])
+        collapseButton.toolTip = (isCollapsed ? localized("ui.expand_toolbar") : localized("ui.collapse_toolbar")) + shortcutHint(.collapseToolbar) + localized("ui.drag_to_move")
         collapseButton.setAccessibilityLabel(collapseButton.toolTip)
     }
     func refreshAppearance() {
@@ -417,7 +417,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         applyToolbarGeometry()
         let lastRowCount = colorsInRow(colorRowCount - 1)
         let rowOffset = colorRowOffset(colorRowCount - 1)
-        let names = [localized("石墨", "Graphite"), localized("朱红", "Vermilion"), localized("琥珀", "Amber"), localized("苔绿", "Moss Green"), localized("湖蓝", "Lake Blue"), localized("鸢紫", "Iris Purple")]
+        let names = [localized("ui.graphite"), localized("ui.vermilion"), localized("ui.amber"), localized("ui.moss_green"), localized("ui.lake_blue"), localized("ui.iris_purple")]
         let defaults = dark ? InkColor.dark : InkColor.light
         for (index, button) in buttons.enumerated() {
             button.tag = index
@@ -427,7 +427,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
             button.inkColor = colors[index]; button.selected = !eraserEnabled && colors[index] == current
             let name = defaults.firstIndex(of: colors[index]).map { names[$0] } ?? colors[index].hex
             let shortcut = ShortcutAction.colors.indices.contains(index) ? shortcutHint(ShortcutAction.colors[index]) : ""
-            button.toolTip = localized("\(name)\(shortcut) · 拖动排序 · 右键编辑或删除", "\(name)\(shortcut) · Drag to reorder · Right-click to edit or delete")
+            button.toolTip = localized("ui.valuevalue_drag_to_reorder_right_click_to_edit_or_delete", arguments: [String(describing: name), String(describing: shortcut)])
             button.setAccessibilityLabel("Preset \(index + 1), \(colors[index].hex)\(button.selected ? ", selected" : "")")
         }
         custom?.frame.origin.x = rowOffset + 29 + CGFloat(lastRowCount) * 34
@@ -561,7 +561,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
         for child in subviews { child.isHidden = isCollapsed && child !== collapseButton }
         collapseButton.frame = NSRect(x: isCollapsed ? 0 : 15, y: isCollapsed ? 0 : 41 + extraColorHeight, width: 36, height: 36)
         collapseButton.collapsed = isCollapsed
-        collapseButton.toolTip = isCollapsed ? localized("展开工具栏\(shortcutHint(.collapseToolbar)) · 拖动移动", "Expand toolbar\(shortcutHint(.collapseToolbar)) · Drag to move") : localized("折叠工具栏\(shortcutHint(.collapseToolbar)) · 拖动移动", "Collapse toolbar\(shortcutHint(.collapseToolbar)) · Drag to move")
+        collapseButton.toolTip = isCollapsed ? localized("ui.expand_toolbarvalue_drag_to_move", arguments: [String(describing: shortcutHint(.collapseToolbar))]) : localized("ui.collapse_toolbarvalue_drag_to_move", arguments: [String(describing: shortcutHint(.collapseToolbar))])
         collapseButton.setAccessibilityLabel(collapseButton.toolTip)
         updateButtons(); needsDisplay = true
         window?.invalidateCursorRects(for: self)
@@ -636,7 +636,7 @@ final class PaletteView: NSView, NSPopoverDelegate {
             button.frame = NSRect(x: 54 + CGFloat(index) * 36, y: 43 + extraColorHeight, width: 34, height: 32)
             let shape = preferences.shapeOrder[index]
             button.image = NSImage(systemSymbolName: shape.symbol, accessibilityDescription: shape.label)
-            button.toolTip = localized("\(shape.label)\(shortcutHint(ShortcutAction.shapes[index])) · Shift 拖动 · 拖动按钮排序", "\(shape.label)\(shortcutHint(ShortcutAction.shapes[index])) · Shift-drag · Drag button to reorder")
+            button.toolTip = localized("ui.valuevalue_shift_drag_drag_button_to_reorder", arguments: [String(describing: shape.label), String(describing: shortcutHint(ShortcutAction.shapes[index]))])
             button.setAccessibilityLabel(button.toolTip)
             button.state = !eraserEnabled && shape == preferences.shiftShape ? .on : .off
             button.contentTintColor = button.state == .on ? .controlAccentColor : .secondaryLabelColor

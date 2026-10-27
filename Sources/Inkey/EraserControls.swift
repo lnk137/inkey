@@ -41,7 +41,7 @@ final class EraserPanelController: NSViewController {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override func loadView() {
         view = NSView(frame: NSRect(x: 0, y: 0, width: 236, height: 230))
-        let title = NSTextField(labelWithString: localized("橡皮擦", "Eraser"))
+        let title = NSTextField(labelWithString: localized("ui.eraser"))
         title.font = .systemFont(ofSize: 12, weight: .medium)
         title.frame = NSRect(x: 16, y: 201, width: 110, height: 18); view.addSubview(title)
         sizeLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
@@ -52,7 +52,7 @@ final class EraserPanelController: NSViewController {
         slider.target = self; slider.action = #selector(changed); slider.isContinuous = true
         slider.setAccessibilityLabel("Eraser diameter in screen points")
         view.addSubview(slider)
-        let hint = NSTextField(labelWithString: localized("⌥ 拖动临时擦除", "⌥ drag to erase temporarily"))
+        let hint = NSTextField(labelWithString: localized("ui.drag_to_erase_temporarily"))
         hint.font = .systemFont(ofSize: 11); hint.textColor = .secondaryLabelColor
         hint.alignment = .center; hint.frame = NSRect(x: 16, y: 10, width: 204, height: 18); view.addSubview(hint)
         update(diameter)
