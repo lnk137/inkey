@@ -82,6 +82,7 @@ struct ToolbarLayoutAnimationTests {
     @Test func removingAnEmptyRowAnimatesTheShapeControlsAndCancelsOnInteraction() throws {
         try fixture { palette, window in
             palette.addPreset(InkColor("123456"))
+            RunLoop.current.run(until: Date().addingTimeInterval(ToolbarLayoutAnimation.duration + 0.03))
             window.displayIfNeeded()
             let shape = try #require(palette.subviews.compactMap { $0 as? ToolButton }.first { $0.reorderGroup == "shapes" })
             palette.deletePreset(6)
