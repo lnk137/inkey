@@ -12,7 +12,7 @@ A native macOS scratchpad where variables, sketches, and diagrams flow together.
 ![Swift 6+](https://img.shields.io/badge/Swift-6%2B-C36A44?style=flat-square)
 ![AppKit](https://img.shields.io/badge/UI-AppKit-3E795E?style=flat-square)
 
-[Overview](README.md) · [Legacy README address](README.zh-CN.md)
+**English** · [简体中文](README.zh-CN.md)
 
 [Usage](#usage) · [Installation](#installation) · [User guide](docs/guide.md) · [Report an issue](https://github.com/lnk137/inkey/issues)
 
