@@ -152,6 +152,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private var previewTextColor: InkColor?
     private var textResize: TextResizeGesture?
     private var imageResize: ImageResizeGesture?
+    private var shapeResize: ShapeResizeGesture?
     private var hoverTimer: Timer?
     private var hoverStart: (point: NSPoint, time: TimeInterval)?
     private(set) var isHoverEditing = false
@@ -198,7 +199,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     override var undoManager: UndoManager? { history }
     var isEditing: Bool { editor != nil }
     var isPrecisionEditing: Bool { editor?.allowsMouseSelection == true }
-    var isDrawing: Bool { imageResize != nil || textResize != nil || active != nil || moveStart != nil || pendingPointer != nil || eraseOriginal != nil }
+    var isDrawing: Bool { shapeResize != nil || imageResize != nil || textResize != nil || active != nil || moveStart != nil || pendingPointer != nil || eraseOriginal != nil }
 
     private var wantsNewTextAtPointer: Bool {
         guard pointPlacement, !isPrecisionEditing, let point = pointerPreview, let reference = typingPointerReference else { return false }
@@ -260,6 +261,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         let point = convert(windowPoint, from: nil)
         if isHoverEditing, let editor, !editor.frame.contains(point) { textEditorPointerExited() }
         guard !isHoverEditing, !isPrecisionEditing, !isDrawing, !effectiveEraserEnabled,
+              !canMoveShape(at: windowPoint), shapeEndpointHandle(at: windowPoint) == nil, shapeResizeHandle(at: windowPoint) == nil,
               heldModifiers.intersection([.shift, .command, .option, .control]).isEmpty,
               NSEvent.pressedMouseButtons == 0, window?.isKeyWindow == true,
               containsCanvasPoint(point), isCanvasLocation?(windowPoint) ?? true,
@@ -427,14 +429,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
     func interactionCursor(at windowPoint: NSPoint, modifiers: NSEvent.ModifierFlags = []) -> NSCursor {
         if eraserEnabled || modifiers.contains(preferences.temporaryEraserModifier.flag) { return .crosshair }
         if let resize = imageResize { return resize.corner.resizeCursor }
+        if let resize = shapeResize { return resize.endpoint == nil ? resize.corner.resizeCursor : .crosshair }
         if let resize = textResize { return resize.corner.resizeCursor }
         if moveStart != nil { return .closedHand }
         if active != nil || pendingPointer != nil || ignoreDragUntilMouseUp { return .crosshair }
-        if let corner = imageResizeHandle(at: windowPoint) ?? textResizeHandle(at: windowPoint) { return corner.resizeCursor }
+        if shapeEndpointHandle(at: windowPoint) != nil { return .crosshair }
+        if let corner = shapeResizeHandle(at: windowPoint) ?? imageResizeHandle(at: windowPoint) ?? textResizeHandle(at: windowPoint) { return corner.resizeCursor }
         if !modifiers.contains(.shift), !modifiers.contains(.control) {
             let hit = item(at: world(convert(windowPoint, from: nil)))
             if modifiers.contains(preferences.temporaryEraserModifier.moveFlag), hit != nil { return .openHand }
             if canMoveText(at: windowPoint) { return .openHand }
+            if canMoveShape(at: windowPoint) { return .openHand }
             if let selection, hit?.id == selection, hit?.kind == .image { return .openHand }
         }
         if isHoverEditing, let editor, editor.frame.contains(convert(windowPoint, from: nil)) { return .iBeam }
@@ -575,8 +580,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
         context.scaleBy(x: draft.zoom, y: draft.zoom)
         for item in draft.items where item.id != editingID { render(item) }
         if let active { render(active) }
-        if let selection, let item = draft.items.first(where: { $0.id == selection }) {
-            let rect = item.kind == .text ? displayBounds(for: item).insetBy(dx: -5 / draft.zoom, dy: -4 / draft.zoom) : item.bounds.insetBy(dx: -6 / draft.zoom, dy: -6 / draft.zoom)
+        if let selection, let item = draft.items.first(where: { $0.id == selection }), !item.usesEndpointHandles {
+            let rect: NSRect
+            if let frame = shapeBoxFrame, item.isTransformableShape {
+                rect = NSRect(origin: world(frame.origin), size: NSSize(width: frame.width / draft.zoom, height: frame.height / draft.zoom))
+            } else {
+                rect = item.kind == .text ? displayBounds(for: item).insetBy(dx: -5 / draft.zoom, dy: -4 / draft.zoom) : item.bounds.insetBy(dx: -6 / draft.zoom, dy: -6 / draft.zoom)
+            }
             NSColor.controlAccentColor.withAlphaComponent(0.65).setStroke()
             let border = NSBezierPath(roundedRect: rect, xRadius: 4 / draft.zoom, yRadius: 4 / draft.zoom)
             border.lineWidth = 1 / draft.zoom; border.setLineDash([4 / draft.zoom, 3 / draft.zoom], count: 2, phase: 0); border.stroke()
@@ -596,6 +606,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
             drawTextResizeHandles(in: viewRect(displayBounds(for: item)).insetBy(dx: -5, dy: -4))
         }
         if let imageBoxFrame { drawTextResizeHandles(in: imageBoxFrame) }
+        if let shapeBoxFrame { drawTextResizeHandles(in: shapeBoxFrame) }
+        if let selection, let shape = draft.items.first(where: { $0.id == selection && $0.usesEndpointHandles }) {
+            for point in [shape.points.first, shape.points.last].compactMap({ $0 }) { drawResizeHandle(at: screen(point.point)) }
+        }
         if cursorTrailEnabled, !typingCaretVisible, !isDrawing, !isHoverEditing, !effectiveEraserEnabled {
             let now = ProcessInfo.processInfo.systemUptime
             for (a, b) in zip(pointerTrail, pointerTrail.dropFirst()) {
@@ -681,6 +695,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
         clearPointerTrail()
         hideTypingCaret()
         onInteraction?()
+        if !effectiveEraserEnabled, let endpoint = shapeEndpointHandle(at: event.locationInWindow),
+           let selection, let shape = draft.items.first(where: { $0.id == selection }) {
+            shapeResize = ShapeResizeGesture(items: draft.items, item: shape, corner: .bottomRight,
+                                             start: world(convert(event.locationInWindow, from: nil)), endpoint: endpoint)
+            return
+        }
+        if !effectiveEraserEnabled, let corner = shapeResizeHandle(at: event.locationInWindow),
+           let selection, let shape = draft.items.first(where: { $0.id == selection && $0.isTransformableShape }) {
+            shapeResize = ShapeResizeGesture(items: draft.items, item: shape, corner: corner, start: world(convert(event.locationInWindow, from: nil)))
+            return
+        }
         if !effectiveEraserEnabled, let corner = imageResizeHandle(at: event.locationInWindow),
            let selection, let image = draft.items.first(where: { $0.id == selection && $0.kind == .image }) {
             imageResize = ImageResizeGesture(items: draft.items, item: image, corner: corner, start: world(convert(event.locationInWindow, from: nil)))
@@ -708,6 +733,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
             return
         }
         if !event.modifierFlags.contains(.shift) {
+            if canMoveShape(at: event.locationInWindow) {
+                moveStart = p; moveOriginal = draft.items
+                return
+            }
             let hit = item(at: p)
             if let selection, hit?.id == selection, hit?.kind == .image {
                 moveStart = p; moveOriginal = draft.items
@@ -739,8 +768,11 @@ final class CanvasView: NSView, NSTextViewDelegate {
             return
         }
         let point = world(convert(event.locationInWindow, from: nil))
-        guard let hit = textOrImage(at: point) else { return }
-        if hit.kind == .image {
+        guard let hit = draft.items.reversed().first(where: {
+            $0.id != editingID && ($0.isTransformableShape ? $0.containsShape(point, tolerance: 7 / draft.zoom) :
+                (($0.kind == .text || $0.kind == .image) && displayBounds(for: $0).contains(point)))
+        }) else { return }
+        if hit.kind == .image || hit.isTransformableShape {
             commitText(); restoreFocus()
             selection = hit.id
             return
@@ -752,6 +784,42 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     private func viewRect(_ rect: NSRect) -> NSRect {
         NSRect(origin: screen(rect.origin), size: NSSize(width: rect.width * draft.zoom, height: rect.height * draft.zoom))
+    }
+    var shapeBoxFrame: NSRect? {
+        guard let selection, let shape = draft.items.first(where: { $0.id == selection && $0.isTransformableShape && !$0.usesEndpointHandles }) else { return nil }
+        let rect = viewRect(shape.bounds).insetBy(dx: -6, dy: -6)
+        // Leave a clear movement zone even around a tiny closed shape.
+        return NSRect(x: rect.midX - max(36, rect.width) / 2, y: rect.midY - max(36, rect.height) / 2,
+                      width: max(36, rect.width), height: max(36, rect.height))
+    }
+    func shapeResizeHandle(at windowPoint: NSPoint) -> TextResizeCorner? {
+        guard let rect = shapeBoxFrame else { return nil }
+        let point = convert(windowPoint, from: nil)
+        return TextResizeCorner.allCases.first {
+            let handle = $0.point(in: rect)
+            return hypot(point.x - handle.x, point.y - handle.y) <= 8
+        }
+    }
+    func canMoveShape(at windowPoint: NSPoint) -> Bool {
+        if let selection, let shape = draft.items.first(where: { $0.id == selection && $0.usesEndpointHandles }) {
+            return shapeEndpointHandle(at: windowPoint) == nil && shape.hit(world(convert(windowPoint, from: nil)), tolerance: 7 / draft.zoom)
+        }
+        guard let rect = shapeBoxFrame, shapeResizeHandle(at: windowPoint) == nil else { return false }
+        return rect.contains(convert(windowPoint, from: nil))
+    }
+    func shapeEndpointHandle(at windowPoint: NSPoint) -> Int? {
+        guard let selection, let shape = draft.items.first(where: { $0.id == selection && $0.usesEndpointHandles }), shape.points.count >= 2 else { return nil }
+        let point = convert(windowPoint, from: nil)
+        let a = screen(shape.points[0].point), b = screen(shape.points[shape.points.count - 1].point)
+        // Keep a movement strip between the endpoints even for short arrows.
+        let radius = min(8, hypot(a.x - b.x, a.y - b.y) / 3)
+        return [0, shape.points.count - 1].min(by: {
+            let a = screen(shape.points[$0].point), b = screen(shape.points[$1].point)
+            return hypot(point.x - a.x, point.y - a.y) < hypot(point.x - b.x, point.y - b.y)
+        }).flatMap { index in
+            let handle = screen(shape.points[index].point)
+            return hypot(point.x - handle.x, point.y - handle.y) <= radius ? index : nil
+        }
     }
     var imageBoxFrame: NSRect? {
         guard let selection, let image = draft.items.first(where: { $0.id == selection && $0.kind == .image }) else { return nil }
@@ -807,11 +875,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
     private func drawTextResizeHandles(in rect: NSRect) {
         for corner in TextResizeCorner.allCases {
-            let point = corner.point(in: rect)
-            let handle = NSBezierPath(ovalIn: NSRect(x: point.x - 3, y: point.y - 3, width: 6, height: 6))
-            draft.background.nsColor.setFill(); handle.fill()
-            NSColor.controlAccentColor.withAlphaComponent(0.8).setStroke(); handle.lineWidth = 1; handle.stroke()
+            drawResizeHandle(at: corner.point(in: rect))
         }
+    }
+    private func drawResizeHandle(at point: NSPoint) {
+        let handle = NSBezierPath(ovalIn: NSRect(x: point.x - 3, y: point.y - 3, width: 6, height: 6))
+        draft.background.nsColor.setFill(); handle.fill()
+        NSColor.controlAccentColor.withAlphaComponent(0.8).setStroke(); handle.lineWidth = 1; handle.stroke()
     }
     private func beginTextResize(_ corner: TextResizeCorner, at windowPoint: NSPoint) {
         let currentID = editor != nil ? editingID : selection
@@ -838,7 +908,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
         if effectiveEraserEnabled || ignoreDragUntilMouseUp { updatePointerLocation(event.locationInWindow) }
         guard !ignoreDragUntilMouseUp else { return }
         let p = world(convert(event.locationInWindow, from: nil))
-        if let resize = imageResize {
+        if let resize = shapeResize {
+            let shape = resize.resized(to: p)
+            draft.items = resize.items.map { $0.id == shape.id ? shape : $0 }
+        } else if let resize = imageResize {
             let image = resize.resized(to: p)
             draft.items = resize.items.map { $0.id == image.id ? image : $0 }
         } else if let resize = textResize {
@@ -883,7 +956,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     private func finishPointerGesture() {
-        if let resize = imageResize {
+        if let resize = shapeResize {
+            let updated = draft.items
+            draft.items = resize.items
+            if updated != resize.items { replaceItems(updated, name: "Resize Shape") }
+            shapeResize = nil
+        } else if let resize = imageResize {
             let updated = draft.items
             draft.items = resize.items
             if updated != resize.items { replaceItems(updated, name: "Resize Image") }

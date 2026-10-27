@@ -242,6 +242,14 @@ Click the chevron to collapse or expand. Drag the chevron itself to move the too
 
 ## Text size and keyboard shortcuts
 
+### Shape transforms
+
+Right-click (or Control-click) a tool-drawn rectangle, ellipse, arrow, or line to select it. Closed shapes can be selected from their outline or interior. Drag inside a selected rectangle or ellipse's box to move it; drag one of its four corner handles to resize width and height while keeping the opposite corner fixed. Legacy square objects retain their square proportions. Small closed shapes keep a minimum 36 pt selection box so the movement area stays separate from the corner handles.
+
+Arrows and straight lines have **two endpoint handles**, without a rectangular resize box. Drag either endpoint to change its length and direction while the other endpoint stays fixed. Drag the shaft away from the handles to move the entire object. Endpoint handles take priority over moving, with a hit radius of up to 8 pt; short lines reduce this radius to keep a separate movement area between their endpoints. Corner handles use diagonal resize cursors, endpoints use a crosshair, and movement uses an open hand followed by a closed hand while dragging. The operation is locked on mouse-down: crossing a handle or the shape interior mid-drag never switches between moving and resizing.
+
+Click blank canvas or press Escape to deselect. Dragging on an unselected shape still draws; existing drawing tools, erasing, text editing, and image controls retain their behavior. Each move or resize is one undo step and preserves original color and line width. Transforms save in `.inkey` and appear in PNG/PDF exports. The same controls apply in screen drafts and with high contrast enabled.
+
 ### Clipboard
 
 Use the configured Paste shortcut (Command-V by default) to paste a new text or image object centered on the canvas pointer, even while editing text. Text is pasted as plain text using the default typing font size and current ink. Images keep their aspect ratio and natural screen size, shrinking as needed to fit within 60% of the visible canvas width and height. If the pointer is outside the canvas, pasting uses the viewport center. Each paste is one undo step; existing text edits are committed separately.
