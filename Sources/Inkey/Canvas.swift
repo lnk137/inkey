@@ -525,9 +525,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        if transparentBackground { NSGraphicsContext.current?.cgContext.clear(bounds) }
-        else { draft.background.nsColor.setFill(); bounds.fill() }
         guard let context = NSGraphicsContext.current?.cgContext else { return }
+        if transparentBackground {
+            // WindowServer treats zero-alpha pixels as click-through. Keep a
+            // uniform, nearly invisible input surface so underlying apps cannot
+            // compete for the cursor as the crosshair trail appears and fades.
+            context.saveGState()
+            context.setBlendMode(.copy)
+            context.setFillColor(NSColor.black.withAlphaComponent(0.01).cgColor)
+            context.fill(bounds)
+            context.restoreGState()
+        } else { draft.background.nsColor.setFill(); bounds.fill() }
         context.saveGState()
         context.translateBy(x: draft.offset.x, y: draft.offset.y)
         context.scaleBy(x: draft.zoom, y: draft.zoom)

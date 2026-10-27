@@ -97,20 +97,21 @@ struct ScreenDraftTests {
         }
     }
 
-    @Test func renderingClearsThePaperAndErasedPixels() throws {
+    @Test func transparentInputSurfaceStaysHitTestableAfterDrawingAndErasing() throws {
         try withApp { app in
             app.enterScreenDraft()
             let canvas = app.canvas
             let rect = NSRect(x: 0, y: 0, width: 100, height: 100)
             let bitmap = try #require(canvas.bitmapImageRepForCachingDisplay(in: rect))
             canvas.cacheDisplay(in: rect, to: bitmap)
-            #expect(try #require(bitmap.colorAt(x: 20, y: 20)).alphaComponent == 0)
+            let inputAlpha = try #require(bitmap.colorAt(x: 20, y: 20)).alphaComponent
+            #expect(inputAlpha >= 0.005 && inputAlpha <= 0.015)
             canvas.replaceItems([InkItem(kind: .stroke, points: [InkPoint(NSPoint(x: 10, y: 10)), InkPoint(NSPoint(x: 90, y: 90))], color: InkColor("FF0000"), lineWidth: 6)], name: "Draw")
             canvas.cacheDisplay(in: rect, to: bitmap)
             #expect(try #require(bitmap.colorAt(x: 50, y: 50)).alphaComponent > 0)
             canvas.undo(nil)
             canvas.cacheDisplay(in: rect, to: bitmap)
-            #expect(try #require(bitmap.colorAt(x: 50, y: 50)).alphaComponent == 0)
+            #expect(try #require(bitmap.colorAt(x: 50, y: 50)).alphaComponent == inputAlpha)
         }
     }
 
