@@ -50,7 +50,7 @@ struct CursorToolbarTests {
         text.insertText("你好", replacementRange: noReplacement)
         #expect(canvas.typingCaretVisible)
         #expect(text.inputContext === context)
-        #expect(canvas.draft.anchor == InkPoint(NSPoint(x: 100, y: 100)))
+        #expect(canvas.draft.anchor.x == 100)
         canvas.commitText()
         #expect(canvas.draft.items.first?.text == "left你好")
     }

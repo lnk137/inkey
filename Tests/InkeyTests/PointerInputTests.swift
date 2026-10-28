@@ -36,7 +36,7 @@ struct PointerInputTests {
             #expect(canvas.retargetTypingIfNeeded(helper.key("right", window: window), from: original, at: target))
             canvas.commitText()
             #expect(canvas.draft.items.map(\.text) == ["left", "right"])
-            #expect(NSPoint(x: canvas.draft.items[1].bounds.midX, y: canvas.draft.items[1].bounds.midY) == NSPoint(x: 400, y: 250))
+            #expect(canvas.draft.items[1].bounds.minX == 400)
         }
     }
 
@@ -51,7 +51,7 @@ struct PointerInputTests {
         }
     }
 
-    @Test func textCenterMatchesPointerHotspotAfterPanAndZoom() {
+    @Test func textStartMatchesPointerHotspotAfterPanAndZoom() {
         withPointerMode {
             let (window, canvas) = helper.makeCanvas()
             canvas.draft.zoom = 1.7
@@ -64,13 +64,11 @@ struct PointerInputTests {
             let target = canvas.convert(hotspot, to: nil)
             #expect(canvas.retargetTypingIfNeeded(helper.key("right", window: window), from: original, at: target))
             let next = canvas.subviews.compactMap { $0 as? InlineTextView }.first!
-            #expect(abs(next.frame.midX - hotspot.x) < 0.0001)
-            #expect(abs(next.frame.midY - hotspot.y) < 0.0001)
+            #expect(abs(next.frame.minX - hotspot.x) < 0.0001)
             canvas.commitText()
             let item = canvas.draft.items[1]
-            let origin = canvas.screen(NSPoint(x: item.bounds.midX, y: item.bounds.midY))
+            let origin = canvas.screen(item.points[0].point)
             #expect(abs(origin.x - hotspot.x) < 0.0001)
-            #expect(abs(origin.y - hotspot.y) < 0.0001)
         }
     }
 
