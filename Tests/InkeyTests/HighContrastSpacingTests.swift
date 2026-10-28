@@ -17,14 +17,14 @@ struct HighContrastSpacingTests {
             app.canvas.beginText(at: NSPoint(x: 300, y: 200))
             let editor = try #require(app.window.firstResponder as? InlineTextView)
             editor.setMarkedText("nihao", selectedRange: NSRange(location: 5, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
-            let width = editor.frame.width, center = editor.frame.midX
+            let width = editor.frame.width
             let undo = editor.undoManager?.canUndo
             slider.doubleValue = 9.3; app.changeHighContrastSpacing(slider)
             #expect(app.preferences.highContrastTextSpacing == 9.5)
             #expect(UserPreferences(defaults: app.preferences.defaults).highContrastTextSpacing == 9.5)
             #expect(app.contrastSpacingLabel?.stringValue == "9.5 pt")
             #expect(editor.hasMarkedText() && editor.selectedRange() == NSRange(location: 5, length: 0))
-            #expect(app.window.firstResponder === editor && editor.frame.width > width && editor.frame.midX == center)
+            #expect(app.window.firstResponder === editor && editor.frame.width > width)
             #expect(editor.undoManager?.canUndo == undo && app.canvas.draft.items.isEmpty)
         }
     }

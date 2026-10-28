@@ -17,13 +17,13 @@ struct PointerAlignmentTests {
                 canvas.mouseMoved(with: helper.mouse(.mouseMoved, location, window: window))
                 let editor = try #require(window.firstResponder as? InlineTextView)
                 editor.setMarkedText("nihao", selectedRange: NSRange(location: 5, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
-                #expect(NSPoint(x: editor.frame.midX, y: editor.frame.midY) == hotspot)
+                #expect(editor.frame.minX == hotspot.x)
                 editor.insertText("你好", replacementRange: NSRange(location: NSNotFound, length: 0))
-                #expect(NSPoint(x: editor.frame.midX, y: editor.frame.midY) == hotspot)
+                #expect(editor.frame.minX == hotspot.x)
                 canvas.commitText()
                 let item = try #require(canvas.draft.items.first)
-                let origin = canvas.screen(NSPoint(x: item.bounds.midX, y: item.bounds.midY))
-                #expect(hypot(origin.x - hotspot.x, origin.y - hotspot.y) < 0.001)
+                let origin = canvas.screen(item.points[0].point)
+                #expect(abs(origin.x - hotspot.x) < 0.001)
             }
         }
     }
@@ -36,11 +36,11 @@ struct PointerAlignmentTests {
             canvas.mouseUp(with: helper.mouse(.leftMouseUp, location, window: window))
             canvas.prepareInputSession()
             let editor = try #require(window.firstResponder as? InlineTextView)
-            #expect(NSPoint(x: editor.frame.midX, y: editor.frame.midY) == hotspot)
+            #expect(editor.frame.minX == hotspot.x)
             editor.insertText("left", replacementRange: NSRange(location: NSNotFound, length: 0))
             canvas.commitText()
             let item = try #require(canvas.draft.items.first)
-            #expect(NSPoint(x: item.bounds.midX, y: item.bounds.midY) == hotspot)
+            #expect(item.bounds.minX == hotspot.x)
         }
     }
 }

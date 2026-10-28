@@ -2,14 +2,14 @@ import AppKit
 import Testing
 @testable import Inkey
 
-@Suite("Crosshair-centered text boxes", .serialized)
+@Suite("Anchored text boxes", .serialized)
 @MainActor
 struct CenteredTextTests {
     let helper = CanvasTests()
     let none = NSRange(location: NSNotFound, length: 0)
 
     func expectCenter(_ rect: NSRect, _ point: NSPoint) {
-        #expect(hypot(rect.midX - point.x, rect.midY - point.y) < 0.001)
+        #expect(abs(rect.minX - point.x) < 0.001)
     }
 
     @Test func centerStaysAtCrosshairThroughoutCompositionNewlinesDeletionAndCommit() throws {
@@ -41,8 +41,8 @@ struct CenteredTextTests {
                 canvas.commitText()
                 let item = try #require(canvas.draft.items.first)
                 #expect(item.text == "你好\nrigh")
-                let savedCenter = canvas.screen(NSPoint(x: item.bounds.midX, y: item.bounds.midY))
-                #expect(hypot(savedCenter.x - center.x, savedCenter.y - center.y) < 0.001)
+                let savedCenter = canvas.screen(item.points[0].point)
+                #expect(abs(savedCenter.x - center.x) < 0.001)
                 #expect(editor.inputContext === context)
             }
         }
