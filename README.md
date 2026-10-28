@@ -76,7 +76,7 @@ Open a screen draft over a lesson and write directly on top. High contrast helps
 ## Features
 
 - **Connected writing and drawing**: type directly, drag to sketch, and use native input methods. New text starts at the crosshair and grows to the right while typing and composing.
-- **Trackpad controls**: scroll with two fingers to pan and pinch to zoom. Shift-drag arrows, lines, rectangles, or ellipses; Option-drag to erase temporarily.
+- **Trackpad controls**: scroll with two fingers to pan and pinch to zoom. Shift-drag arrows, lines, rectangles, or ellipses; shapes snap near horizontal, vertical, square, or circular alignment with trackpad feedback. Option-drag to erase temporarily.
 - **Compact toolbar**: reorder shapes and colors, click **+** to add presets, and move, resize, hide, or collapse the toolbar. Extra colors wrap into rows; the first six keep their shortcuts. Adding and deleting colors smoothly reflows the row and toolbar. Two folding animations respect Reduce Motion.
 - **Precise text editing**: pause over text for about 0.45 seconds to edit without a box; drag immediately to draw. Right-click for a box with movement and proportional font resizing.
 - **High contrast**: a separate half-black/half-white toolbar switch adds thin black-and-white outlines to colored text, strokes, and shapes, with a fixed screen thickness. High-contrast letter spacing is adjustable live in Settings. Images stay unchanged; exports use the current display setting. An optional setting enables high contrast each time you enter a screen draft.

@@ -140,6 +140,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
         window?.invalidateCursorRects(for: self)
     }
     var pointPlacement: Bool { UserDefaults.standard.bool(forKey: "pointerPlacement") }
+    private var shapeSnap = ShapeSnap()
+    var onShapeAlignment: () -> Void = { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
     private var active: InkItem?
     private var editor: InlineTextView?
     // Keep the native input client alive between labels so IMEs receive the first key.
@@ -935,7 +937,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 pendingPointer = nil
             }
             guard var drawing = active else { return }
-            if drawing.kind != .stroke { drawing.points = [drawing.points[0], InkPoint(p)] }
+            if drawing.kind != .stroke {
+                let previous = shapeSnap.alignment
+                let snapped = shapeSnap.point(from: drawing.points[0].point, to: p, kind: drawing.kind, zoom: draft.zoom)
+                if let alignment = shapeSnap.alignment, alignment != previous { onShapeAlignment() }
+                drawing.points = [drawing.points[0], InkPoint(snapped)]
+            }
             else if let last = drawing.points.last, hypot(p.x - last.x, p.y - last.y) * draft.zoom > 0.7 { drawing.points.append(InkPoint(p)) }
             active = drawing
         }
@@ -985,6 +992,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         } else if let active, active.points.count > 1 {
             replaceItems(draft.items + [active], name: active.kind == .arrow ? "Arrow" : "Draw")
         }
+        shapeSnap = ShapeSnap()
         active = nil; moveStart = nil; moveOriginal = nil
         eraseOriginal = nil; erasePrevious = nil; pendingPointer = nil
         temporaryEraseFlag = nil
